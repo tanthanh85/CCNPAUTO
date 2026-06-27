@@ -1,443 +1,988 @@
 # Chapter 1: Software Development Essentials
 
-## Chapter Overview
+## Chapter Purpose
 
-Software used in network automation should reduce repetitive work, limit human error, and make operational tasks consistent and repeatable. Building that software requires more than programming knowledge. Developers must understand the business problem, capture requirements, choose an appropriate architecture, follow a disciplined development lifecycle, review the design and code, and test the result.
+Modern networked applications are distributed systems. Even a seemingly simple web application may contain browser code, mobile clients, API gateways, load balancers, application services, message brokers, caches, databases, monitoring systems, and third-party APIs. A developer working at the CCNP level must understand not only how to write code, but also how architecture affects scale, availability, security, performance, operations, and failure recovery.
 
-This chapter introduces:
+This chapter covers the following objectives:
 
-- The evolution of network management into automation and orchestration
-- Software architecture and design
-- Functional and nonfunctional requirements
-- Common architectural patterns
-- The software development lifecycle (SDLC)
-- Waterfall, Agile, and related development models
-- Architecture and code reviews
-- Core software-testing methods
+- Describe distributed applications involving front-end, back-end, and load-balancing concepts.
+- Evaluate application designs for scalability and modularity.
+- Design highly available and resilient applications for on-premises, hybrid, and cloud environments.
+- Account for latency and bandwidth limitations.
+- Design and deploy applications for maintainability and observability.
+- Diagnose application failures using event-related logs.
+- Select an appropriate relational, document, graph, column-family, or time-series database.
+- Explain monolithic, service-oriented, microservices, and event-driven architectures.
+- Use advanced Git version-control operations.
+- Explain release packaging and base-library management.
+- Build sequence diagrams that include API calls.
 
-## 1. The Evolution of Network Automation
+---
 
-People begin programming for many reasons: to remove repetitive work, solve a practical problem, improve an existing process, or build a career. In network operations, programming increasingly supports the automation and orchestration of tasks that once required extensive manual effort.
+## 1. Distributed Application Fundamentals
 
-Affordable computing, faster processors, larger memory capacities, and improved development tools have made software creation available to a much broader community. Although programming logic remains fundamental, the reasons for developing software, the methods used to build it, and the environments in which it runs have changed considerably.
+A distributed application consists of components that run in separate processes or systems and communicate over a network. Distribution enables independent scaling, geographic placement, fault isolation, and specialization, but it also introduces partial failures, network delay, data-consistency challenges, and operational complexity.
 
-### Software Engineering and Software Development
+A typical application request follows this path:
 
-The terms *software engineer* and *software developer* often overlap, but they can emphasize different responsibilities:
+1. A user interacts with a front-end application.
+2. The front end sends an HTTPS request to an application endpoint.
+3. DNS resolves the application name to a public or private entry point.
+4. A load balancer, reverse proxy, or API gateway accepts the request.
+5. The request is routed to a healthy back-end service.
+6. The service validates identity and authorization.
+7. The service reads or modifies data through a database, cache, or downstream API.
+8. The back end returns a response to the front end.
+9. Logs, metrics, and traces record the transaction for operational visibility.
 
-- A **software engineer** studies a problem, divides it into manageable parts, evaluates requirements and quality trade-offs, designs an architecture, and defines a strategy for delivering the solution.
-- A **software developer** focuses primarily on implementing that strategy as part of the delivery team.
+### 1.1 Front-End Components
 
-This distinction does not imply a hierarchy. Design and implementation both require technical judgment, creativity, and collaboration.
+The front end is the user-facing portion of an application. It may be a web interface, mobile application, desktop client, command-line tool, or another software system acting as an API consumer.
 
-### From Device Management to Business Automation
+Front-end responsibilities commonly include:
 
-Early enterprise networks were usually confined to a single organization and managed with vendor-specific tools. These systems provided basic status information and limited configuration capabilities, but proprietary designs made interoperability and operational consistency difficult.
+- Rendering data and controls
+- Validating input before transmission
+- Maintaining user-interface state
+- Managing authentication tokens securely
+- Calling back-end APIs
+- Handling errors, timeouts, and retryable operations
+- Providing accessibility and localization
+- Collecting client-side performance and error telemetry
 
-The wider adoption of the Simple Network Management Protocol (SNMP) introduced a standardized model. An agent on a managed device could exchange information with a manager or network management system (NMS). This allowed administrators to monitor and manage many systems centrally instead of handling each device separately.
+Client-side validation improves usability but must never replace server-side validation. A user can modify browser requests, bypass the graphical interface, or call an API directly. The back end therefore remains responsible for enforcing trust boundaries.
 
-The ISO FCAPS model later organized network-management functions into five areas:
+Front ends should also be designed for unreliable networks. A robust client distinguishes among validation errors, authentication failures, authorization failures, rate limits, server errors, and connection timeouts. Repeating every failed request is dangerous because a retry can duplicate a non-idempotent operation such as creating an order.
 
-| Area | Purpose |
-|---|---|
-| Fault | Detect, isolate, report, and correct failures |
-| Configuration | Track and control device and service configuration |
-| Accounting | Measure resource usage and support allocation or billing |
-| Performance | Observe and optimize service and resource behavior |
-| Security | Control access and protect management information |
+### 1.2 Back-End Components
 
-Meanwhile, networks expanded to remote sites and began carrying bandwidth-sensitive voice and video traffic. Organizations deployed more monitoring systems, but these tools also exposed inefficiencies in infrastructure design and resource use.
+The back end implements business logic and protects access to data and privileged operations. It may consist of one application or many independently deployed services.
 
-Virtualization improved server utilization by allowing multiple workloads to share physical resources. Similar ideas were then applied to network functions such as routers, switches, firewalls, and load balancers. This created another management layer and blurred traditional boundaries between application, systems, and network teams.
+Typical back-end responsibilities include:
 
-Traditional network operations centers could no longer rely only on passive monitoring and manual response. They needed software-driven methods to identify problems, notify the correct teams, and sometimes perform corrective actions automatically. APIs and virtualization eventually allowed organizations to automate workflows across applications, compute systems, and networks.
+- Authenticating callers and enforcing authorization
+- Validating and normalizing request data
+- Applying business rules
+- Reading and writing data
+- Calling internal or third-party services
+- Publishing and consuming events
+- Protecting secrets and credentials
+- Returning consistent API responses
+- Producing logs, metrics, and traces
 
-### Monitoring, Automation, and Orchestration
+Back-end APIs commonly use HTTP with REST or GraphQL, but applications may also use gRPC, WebSocket connections, message queues, or proprietary protocols. Interface contracts should define methods, resource paths, request and response schemas, authentication, error formats, rate limits, and versioning behavior.
 
-The operational model evolved through several broad stages:
+### 1.3 Stateless and Stateful Services
 
-1. **Monitoring:** Poll devices and display their status.
-2. **Reactive operations:** Investigate alerts and schedule manual changes.
-3. **Modeling and validation:** Compare intended designs with configurations to find problems before deployment.
-4. **Automation:** Execute repeatable provisioning or remediation tasks through software.
-5. **Orchestration:** Coordinate multiple automated tasks, systems, and policies as a complete workflow.
+A **stateless service** does not depend on locally stored session information between requests. Any healthy instance can process the next request because shared state is stored externally, such as in a database or distributed cache. Stateless services are generally easier to scale horizontally and replace after failure.
 
-Telemetry and programmability make it possible to model behavior, predict conditions, and apply configuration based on business policy. When network functions are represented in software, they become easier to control and adapt during outages, security incidents, upgrades, expansions, device retirement, mergers, and other business events.
+A **stateful service** retains information locally across interactions. Databases, message brokers, and applications with in-memory sessions are stateful. They require careful replication, backup, failover, and data-consistency design.
 
-Software-defined networking (SDN) strengthens this model by separating control decisions from packet forwarding. Software can create or remove network segments, select paths, establish security boundaries, and optimize application performance in response to current demand.
+Where practical, application tiers should be stateless while dedicated data platforms manage state. If session affinity is required, the design must account for the failure of the selected server. Storing critical session state only in a local process creates a single-instance dependency.
 
-## 2. DevOps in Network Automation
+### 1.4 Load Balancing
 
-Automation is not only a technical change. It also requires teams to change how they communicate, share responsibility, and deliver services. DevOps connects application development, network-service development, network operations, and business needs.
+A load balancer distributes traffic across multiple service instances. It can improve scale, availability, and maintenance flexibility by preventing clients from depending on a single server.
 
-### Continuous Integration and Continuous Delivery
+Common algorithms include:
 
-Continuous integration (CI) allows contributors to develop modules independently and merge changes frequently into a shared build. Regular integration exposes compatibility problems early.
+- **Round robin:** Sends requests to servers in sequence.
+- **Weighted round robin:** Sends more traffic to instances with greater capacity.
+- **Least connections:** Selects the server with the fewest active connections.
+- **Least response time:** Considers both connection count and observed response time.
+- **Hash-based selection:** Uses a property such as source address or session identifier to select a server consistently.
 
-Continuous delivery (CD) keeps software in a releasable state by automating build and test activities. Some environments extend this into continuous deployment, where validated changes are released automatically.
+Load balancing can occur at different layers:
 
-Together, CI and CD reduce delivery time and improve consistency.
+- A **Layer 4 load balancer** makes forwarding decisions using transport information such as IP addresses and TCP or UDP ports. It is efficient and protocol-agnostic but has limited awareness of application content.
+- A **Layer 7 load balancer** understands application protocols such as HTTP. It can route according to hostnames, paths, headers, cookies, or methods and may terminate TLS.
 
-### Process Automation
+Health checks are essential. A basic TCP check proves only that a port accepts connections. An application-level readiness check should verify that the instance can safely process traffic. Liveness checks answer a different question: whether the process should be restarted. Combining these concepts incorrectly can create cascading restarts during a dependency outage.
 
-Automating development and operational processes can:
+Load balancers may also provide TLS termination, connection reuse, request buffering, web application firewall integration, rate limiting, and access logging. Because the load balancer becomes part of the critical path, it must itself be redundant.
 
-- Reduce human error
-- Improve responsiveness
-- Standardize repeatable procedures
-- Lower maintenance and upgrade costs
-- Shorten implementation time
-- Improve component reliability and reuse
+---
 
-### DevOps Culture
+## 2. Evaluating Scalability and Modularity
 
-A DevOps culture brings development and operations closer together. It encourages smaller deliverables, frequent collaboration, shared tools, visible data, and collective responsibility. Communication is just as important as technology because automated systems often cross traditional organizational boundaries.
+### 2.1 Scalability
 
-### DevOps Metrics
+Scalability is the ability of an application to maintain acceptable service as workload increases. Workload can mean concurrent users, requests per second, stored records, events per second, geographic regions, or computational complexity.
 
-Teams can evaluate delivery and operational performance with metrics such as:
+#### Vertical Scaling
 
-- Deployment frequency
-- Change failure rate
-- Lead time for changes
-- Volume of changes
-- Number of service requests and trouble tickets
-- Mean time to recovery (MTTR)
+Vertical scaling adds CPU, memory, storage, or network capacity to an existing system. It is simple and may require few application changes, but it has hardware limits, can be expensive, and may preserve a single point of failure.
 
-These measurements help teams identify whether faster delivery is also producing stable, recoverable systems.
+#### Horizontal Scaling
 
-## 3. Software Architecture and Design
+Horizontal scaling adds more service instances. It can provide greater capacity and fault tolerance, especially for stateless components. However, it requires load distribution, shared-state management, distributed coordination, and operational automation.
 
-Architecture is the blueprint that turns an idea into a product aligned with a business problem. It describes the system's important structures, the elements within those structures, their relationships, and the properties that guide their behavior.
+#### Scaling Bottlenecks
 
-Software rarely exists in isolation. It may depend on other applications, databases, storage services, message systems, and external platforms. These relationships may require different data formats, interfaces, connectors, or translation mechanisms.
+An application is only as scalable as its constrained dependency. Adding API instances will not help if all instances wait on one database, serialized lock, third-party API, or undersized network link.
 
-A useful software architecture documents:
+Important indicators include:
 
-- The organization of the system
-- Major components and responsibilities
-- Interactions and dependencies
-- Data sources and destinations
-- Interfaces and integration boundaries
-- Requirements, constraints, and design principles
-- Important decisions and accepted trade-offs
+- Request throughput and concurrency
+- Response-time percentiles, particularly p95 and p99
+- CPU, memory, disk, and network saturation
+- Database connection and query latency
+- Cache hit ratio
+- Queue depth and event-processing lag
+- Rate-limit consumption
+- Error and timeout rate
 
-Architecture also provides a common reference for stakeholders. When changes or exceptions are proposed, the documented design helps the team evaluate whether they support or undermine the system's goals.
+Capacity planning should use realistic load tests and traffic patterns. An average of 500 requests per second can hide brief peaks of 5,000 requests per second. Average latency can likewise hide a poor experience for the slowest users.
 
-## 4. Architecture Requirements
+#### Techniques for Improving Scale
 
-Architecture begins with requirements. Stakeholders should discuss, document, and agree on what the system must accomplish and how well it must operate.
+- Keep application services stateless.
+- Cache frequently read and slowly changing data.
+- Use asynchronous processing for work that does not need an immediate result.
+- Partition large datasets by a stable key.
+- Add read replicas for read-heavy workloads.
+- Pool and limit database connections.
+- Apply backpressure rather than accepting unlimited work.
+- Use rate limits and quotas to protect shared capacity.
+- Avoid synchronized retries by using exponential backoff and jitter.
 
-Requirements usually fall into two main categories:
+### 2.2 Modularity
 
-- **Functional requirements:** What the software must do
-- **Nonfunctional requirements:** How the software must behave or perform
+Modularity divides software into components with clear responsibilities and interfaces. A well-designed module hides its internal implementation and exposes only the behavior other modules need.
 
-A project may also have **constraints**: decisions that the team cannot freely change. Examples include a required programming language, mandatory integration with an existing system, dependence on an external platform, or use of a particular cloud provider.
+Good modularity aims for:
 
-### Functional Requirements
+- **High cohesion:** Closely related behavior is contained in the same module.
+- **Low coupling:** A module has few assumptions about other modules.
+- **Explicit interfaces:** Inputs, outputs, errors, and dependencies are documented.
+- **Replaceability:** Internal implementation can change without breaking consumers.
+- **Independent testability:** A module can be validated in isolation.
 
-Functional requirements describe system capabilities and business behavior. They may address:
+Modularity does not require microservices. A modular monolith can have strong internal boundaries while remaining one deployable unit. Conversely, a microservices environment can be poorly modular if services share databases, depend on each other's internal schemas, or require coordinated releases.
 
-- Business processes
-- User interaction
-- Data creation, modification, retention, and retrieval
-- Calculations and data processing
-- Administration
-- Auditing, reporting, and tracking
-- Media handling
-- Compliance-related functions
+### 2.3 Evaluating a Design
 
-They are often expressed with words such as *can* or *shall* and can usually be evaluated with a clear pass-or-fail result.
+When reviewing scalability and modularity, ask:
 
-Examples for a document-editing application include:
+1. Which components are stateful?
+2. Can an application instance be replaced without losing user data?
+3. What resource fails first as load increases?
+4. Can high-demand functions scale independently?
+5. Are service boundaries aligned with business capabilities?
+6. Does one module access another module's private data?
+7. Are interfaces versioned and backward compatible?
+8. Does a local failure remain local, or can it cascade?
+9. Can each module be tested, deployed, and observed effectively?
+10. Is the operational complexity justified by the expected scale?
 
-- Users can create, edit, save, and delete documents.
-- Users can restore an earlier document version.
-- Administrators can create and remove user accounts.
-- Users can share documents through the graphical interface.
+---
 
-#### User Stories and Use Cases
+## 3. High Availability and Resilience
 
-A **user story** describes a capability from the user's perspective and emphasizes the goal of an interaction. For example: “A user can save the current document by selecting Save.”
+**High availability (HA)** is the ability to remain accessible with minimal interruption. **Resilience** is the ability to absorb failure, recover, and continue delivering an acceptable level of service. HA reduces downtime; resilience assumes failures will happen and plans for their effects.
 
-A **use case** provides more detail about the cause and effect of that interaction. It may state that selecting Save writes the current document to a server-side database and updates a local cache.
+Availability is commonly expressed as:
 
-Good functional requirements should:
+```text
+Availability = Uptime / (Uptime + Downtime)
+```
 
-- Be concise and unambiguous
-- Be testable
-- Identify who can perform each action or access particular data
-- Cover normal, exceptional, and prohibited behavior
-- Describe relevant input and output data flows
-- Contain one function per requirement
+A service-level objective (SLO) turns a broad goal into a measurable target, such as 99.9 percent successful requests per month with p95 latency below 400 ms.
 
-Requirement gathering should consider several perspectives:
+### 3.1 Eliminating Single Points of Failure
 
-- **Business requirements:** High-level organizational outcomes
-- **Administrative requirements:** Routine control and governance activities
-- **User requirements:** Results expected by users
-- **System requirements:** Technical behavior, software dependencies, and hardware needs
+Critical components should have redundancy across failure domains. Examples include:
 
-### Nonfunctional Requirements
+- Multiple application instances
+- Redundant load balancers
+- Replicated databases
+- Multiple network paths and power sources
+- More than one availability zone or data center
+- Redundant DNS and identity services
+- Backups stored outside the primary failure domain
 
-Nonfunctional requirements define system quality and technical behavior. Common categories include:
+Redundancy alone is insufficient. The system must detect failure, redirect work, and verify data integrity. An untested standby is an assumption, not a recovery strategy.
 
-- Performance
-- Scalability
-- Availability
-- Modularity
-- Interoperability
-- Serviceability
-- Testability
-- Security
-- Usability
-- Maintainability
-- Portability
+### 3.2 Resilience Patterns
 
-These requirements often apply across the entire application rather than to a single feature. Because they influence architecture, every development team may need to account for them.
+#### Timeouts
 
-Nonfunctional requirements should be measurable. “The application must be fast” is too vague. “The application must respond within 300 milliseconds under the defined load” can be tested. Similarly, “The interface must be user-friendly” should be replaced with observable criteria, such as a maximum response time or the number of actions needed to reach major functions.
+Every network call should have a bounded timeout. Without one, threads, connections, or workers may remain blocked indefinitely. Timeout values must reflect expected service behavior and the caller's total latency budget.
 
-Examples include:
+#### Retries
 
-- The system should support 10,000 concurrent new sessions.
-- The service should achieve 99.999 percent availability.
-- The main interface should load in under two seconds.
-- A user must register before accessing the service.
-- Passwords must never appear in logs or on screen.
-- The interface should support localization into the required languages.
+Retries can recover from transient failures, but they increase load. Use retries only for errors likely to be temporary and for operations that are idempotent or protected by an idempotency key. Apply exponential backoff and random jitter.
 
-#### Balancing Quality Attributes
+#### Circuit Breakers
 
-Quality attributes often conflict. Improving scalability can affect latency, consistency, cost, or operational complexity. Stronger security controls may affect usability and performance. Teams must therefore evaluate nonfunctional requirements together and make explicit trade-offs.
+A circuit breaker stops calls to a failing dependency after an error threshold is reached. This protects resources and gives the dependency time to recover. After a waiting period, limited test requests determine whether normal traffic should resume.
 
-Too few quality requirements can produce a system that provides the correct functions but is slow, insecure, unreliable, or expensive to maintain. Too many can make development unnecessarily costly and complex. Requirements should match the system's real business risk and operating environment.
+#### Bulkheads
 
-| Functional requirements | Nonfunctional requirements |
-|---|---|
-| Describe a use case or business process | Describe a quality attribute or technical characteristic |
-| Define system functionality | Define how well the system performs |
-| Reflect user and business needs | Shape user experience and system architecture |
-| Are tested for correct behavior | Are tested for qualities such as performance and security |
-| Often use *can* or *shall* | Often use *must* or *should* with measurable targets |
+Bulkheads isolate resource pools so one overloaded function cannot consume every thread, connection, or worker. For example, report generation and interactive API traffic can use separate worker pools.
 
-One practical way to assess a quality requirement is to identify the user need, define a measurable condition, and state the consequence. For example, users need responsive browsing; round-trip time must remain below 500 milliseconds; otherwise, users may abandon the service.
+#### Graceful Degradation
 
-## 5. Architectural Patterns
+An application may preserve essential behavior when a secondary feature fails. If a recommendation engine is unavailable, a retail site can still display products and process orders.
 
-An architectural pattern is a reusable approach to a recurring design problem in a particular context. A shared pattern improves consistency, supports collaboration, and helps new team members understand how a system is organized.
+#### Queue-Based Load Leveling
 
-No pattern is universally best. Selection depends on requirements, constraints, team structure, deployment environment, and the quality attributes that matter most.
+A message queue separates request arrival from work execution. Producers can continue submitting work during a short processing slowdown, while consumers process at a controlled rate. Queue capacity, retention, ordering, duplication, and poison-message handling must be designed explicitly.
 
-### Microservices
+### 3.3 Data Resilience
 
-The microservices pattern divides a large application into smaller, independently deployable services. These services communicate through well-defined interfaces and collectively provide the application's complete behavior.
+Data platforms may use synchronous or asynchronous replication:
 
-Potential advantages include independent development, flexible scaling, and more focused deployments. These benefits come with the cost of distributed communication, operational complexity, data coordination, and more demanding observability.
+- **Synchronous replication** waits for multiple copies before acknowledging a write, improving consistency but increasing latency.
+- **Asynchronous replication** acknowledges earlier and copies data afterward, improving response time but creating potential data loss or stale reads during failure.
 
-### Service-Oriented Architecture
+Recovery objectives should be defined:
 
-Service-oriented architecture (SOA) organizes a distributed system around providers and consumers of services. Components may use different languages or platforms and can be developed and deployed independently. Interfaces define what each component offers and consumes.
+- **Recovery Time Objective (RTO):** Maximum acceptable time to restore service.
+- **Recovery Point Objective (RPO):** Maximum acceptable amount of data loss measured in time.
 
-Supporting elements can include:
+Backups support recovery from deletion, corruption, ransomware, and software defects. Replication does not replace backups because a bad write can be replicated immediately.
 
-- A **service registry**, which records available services and their operational characteristics
-- A **service broker**, which helps consumers discover service details
+### 3.4 On-Premises Design
 
-SOA can accelerate integration, reduce duplication, and support scaling. However, independently owned services can limit customization and make changes dependent on other teams or organizations.
+On-premises deployments provide direct control over hardware, networks, and data location. HA may use redundant data centers, clustered services, load balancers, storage replication, and dynamic routing.
 
-### Event-Driven Architecture
+Challenges include hardware procurement time, fixed capacity, facility dependencies, and the need to operate every layer. Failure domains should include racks, power feeds, switches, storage systems, and sites.
 
-In an event-driven system, a state change produces an event that other components process in real time or near real time. The producer sends an event without needing to know which consumers will use it or how they will respond.
+### 3.5 Cloud Design
 
-Two common models are:
+Cloud platforms provide elastic compute, managed databases, object storage, queues, and regional services. Applications can distribute instances across availability zones and sometimes across regions.
 
-- **Publish/subscribe:** A producer publishes an event, and subscribed consumers receive it.
-- **Event streaming:** Events are written to a durable stream or store, and consumers read selected portions based on criteria such as time or event type.
+Cloud resilience still follows a shared-responsibility model. A service being managed does not guarantee that the customer's configuration is resilient. Engineers must configure backups, replication, autoscaling boundaries, network paths, identity policies, quotas, and recovery procedures.
 
-This pattern is especially useful for sensor data, IoT platforms, monitoring, customer engagement, and analytics that detect patterns across continuous event streams.
+Multi-region deployment can improve disaster tolerance and user latency, but it complicates data consistency, traffic routing, cost, testing, and regulatory compliance.
 
-### Model-View-Controller
+### 3.6 Hybrid Design
 
-Model-view-controller (MVC) divides an application into three responsibilities:
+A hybrid application spans on-premises and cloud environments. It may keep regulated data on-premises while using cloud services for user interfaces, analytics, backup, or burst capacity.
 
-- **Model:** Stores core data and business behavior
-- **View:** Presents information to the user
-- **Controller:** Receives user input and coordinates updates to the model or view
+Hybrid designs must account for:
 
-This separation allows teams to develop interface, control, and data behavior more independently. It also makes it easier to provide multiple views of the same underlying model.
+- WAN latency and bandwidth
+- Redundant private or VPN connectivity
+- Routing convergence and DNS behavior
+- Identity federation
+- Certificate and secret management
+- Data synchronization and conflict handling
+- Consistent logging and monitoring
+- Operation during loss of the interconnection
 
-## 6. Software Development Lifecycle
+A hybrid design should define which functions continue locally if the WAN fails. If every on-premises transaction synchronously calls a cloud service, the cloud connection is part of the application's availability dependency chain.
 
-The software development lifecycle provides a disciplined structure for moving from a business idea to an operational product. A common SDLC includes six phases.
+---
 
-### 1. Planning
+## 4. Designing for Latency and Bandwidth Constraints
 
-Define the problem, product vision, stakeholders, user stories, and high-level use cases. The team should understand what it intends to build and why the result matters.
+Latency measures delay; bandwidth measures how much data can be transferred per unit of time. They are related but not interchangeable. A high-bandwidth satellite connection can still have substantial latency, while a low-latency local connection may have limited capacity.
 
-### 2. Defining
+Application response time can include:
 
-Capture and analyze functional and nonfunctional requirements. Document system specifications, constraints, dependencies, and measurable acceptance criteria.
+- DNS lookup
+- TCP and TLS connection establishment
+- Load-balancer processing
+- Authentication
+- Application processing
+- Database and downstream API calls
+- Serialization and transmission
+- Front-end rendering
 
-### 3. Designing
+### 4.1 Latency Budgets
 
-Convert the concept and requirements into a technical design. Specify components, interfaces, data flows, technologies, and architectural decisions. The approved design becomes a central reference for implementation.
+An end-to-end target should be divided among components. If an API must respond within 500 ms, allowing three sequential downstream calls to each consume 400 ms makes the objective impossible.
 
-### 4. Building and Implementing
+Reduce latency by:
 
-Develop the software according to the design and technical specifications. Teams usually organize delivery through milestones, iterations, or release goals.
+- Placing services near users or dependent data
+- Reusing connections with pooling and keepalive
+- Caching at the client, CDN, gateway, service, or database layer
+- Calling independent dependencies in parallel
+- Replacing synchronous work with asynchronous processing
+- Reducing the number of network round trips
+- Selecting compact payload formats where appropriate
+- Indexing databases and optimizing queries
 
-### 5. Testing
+Parallel calls reduce total time but increase simultaneous load. They should be bounded and observed.
 
-Confirm that the software behaves as required under normal and stressful conditions. Testing may include unit, integration, functional, system, performance, stress, alpha, and beta activities.
+### 4.2 Bandwidth-Efficient Design
 
-### 6. Deployment
+Bandwidth-conscious techniques include:
 
-Release the software to its operating environment. Deployment may begin with a pilot or limited rollout before expanding to full production. The team should observe the new system and its interaction with existing applications and business processes.
+- Pagination and bounded query results
+- Field selection rather than returning entire records
+- Compression for appropriate content types
+- Delta synchronization instead of full dataset transfer
+- Client and intermediary caching with validation tokens
+- Streaming large content rather than buffering it fully
+- Deduplication of repeated data
+- Image and media optimization
+- Batch APIs when many small calls create excessive overhead
 
-Many SDLC models add a seventh phase, **maintenance**, covering monitoring, defect correction, upgrades, security updates, and continued improvement after release.
+Compression trades CPU for network capacity and may not help data that is already compressed. Very small payloads may become larger after protocol overhead.
 
-## 7. Software Development Models
+### 4.3 Disconnected and Intermittent Operation
 
-A development model determines how a team moves through the SDLC. The best choice depends on project size, uncertainty, regulatory controls, frequency of change, team maturity, cost, and delivery expectations.
+Mobile, branch, industrial, and edge applications may lose connectivity. An offline-capable design can maintain a local cache or transaction journal and synchronize later. It must define conflict resolution, ordering, data freshness, and the user experience when authoritative data is unavailable.
 
-Common models include Waterfall, Iterative, Agile, Spiral, and the V Model. For modern software delivery, Waterfall and Agile are especially important.
+---
 
-### Waterfall
+## 5. Maintainability
 
-Waterfall is sequential. Each phase must be completed and approved before the next phase begins. This creates clear checkpoints, documentation, and control.
+Maintainability is the ease with which software can be understood, corrected, tested, upgraded, and adapted. It is an architectural quality, not a cleanup activity performed after deployment.
 
-Waterfall works well when requirements are stable, the scope is small or well understood, and formal approval is important. Its weakness is limited flexibility: defects or requirement changes discovered late may force the team to repeat earlier phases, increasing cost and schedule risk.
+### 5.1 Design Practices
 
-### Agile
+- Separate business logic from transport, storage, and user-interface code.
+- Prefer clear interfaces and dependency injection over hidden global dependencies.
+- Keep functions and modules focused on one responsibility.
+- Use consistent naming, formatting, and error handling.
+- Document architectural decisions and important trade-offs.
+- Validate configuration at startup and fail with an actionable message.
+- Keep secrets outside source code and release artifacts.
+- Use feature flags carefully to separate deployment from feature activation.
+- Remove obsolete flags and dead code.
 
-Agile organizes work into short iterations that deliver small, usable increments. These iterations, often called sprints, commonly last one to four weeks. Frequent delivery allows the team to collect feedback, respond to changing requirements, and correct problems earlier.
+### 5.2 API Maintainability
 
-Agile emphasizes:
+APIs are contracts. Removing fields, changing meanings, or altering error behavior can break consumers. Prefer additive, backward-compatible changes. When a breaking change is necessary, provide a versioning and deprecation policy.
 
-- Early and continuous delivery of useful software
-- Openness to changing requirements
-- Frequent delivery of working increments
-- Daily collaboration between business and development participants
-- Motivated, trusted teams
-- Direct and effective communication
-- Working software as the primary evidence of progress
-- A sustainable delivery pace
-- Technical excellence and sound design
-- Simplicity and avoidance of unnecessary work
-- Self-organizing teams
-- Regular reflection and process improvement
+Contract specifications, such as OpenAPI documents, can support documentation, code generation, mock services, and automated compatibility tests.
 
-Agile provides flexibility and speed, but teams must maintain architectural direction and adequate documentation. Without clear outcomes and coordination, independent teams can optimize their own components while losing sight of the complete system.
+### 5.3 Deployment Maintainability
 
-### Scrum
+Deployments should be repeatable and reversible. Infrastructure and configuration should be represented as version-controlled definitions where possible.
 
-Scrum is an Agile framework based on short, repeatable sprints. Teams receive clear goals and requirements but are empowered to decide how to deliver them. Scrum suits environments in which requirements and design choices evolve frequently.
+Common deployment strategies include:
 
-It can support rapid development and strong team ownership, but complex programs need coordination across teams to preserve a coherent system-level view.
+- **Rolling deployment:** Replace instances gradually.
+- **Blue-green deployment:** Maintain old and new environments and switch traffic between them.
+- **Canary deployment:** Send a small percentage of traffic to the new version before expanding.
+- **Feature-flag release:** Deploy code while controlling which users can activate the feature.
 
-### Extreme Programming
+Database changes require special care because code rollback may not reverse a schema migration. An expand-and-contract approach first adds compatible structures, then migrates usage, and removes old structures only after all consumers have changed.
 
-Extreme Programming (XP) uses short iterations and frequent feedback to deliver high-quality software continuously. It supports changing requirements and close stakeholder involvement.
+### 5.4 Documentation and Ownership
 
-XP benefits from skilled, committed developers and disciplined technical practices. If frequent changes are poorly managed, quality can decline and meeting overhead can increase.
+Maintainable services should have:
 
-### Kanban
+- A clear owner
+- Build and deployment instructions
+- Architecture and dependency documentation
+- API contracts
+- Runbooks for common incidents
+- Backup and restoration procedures
+- Defined service-level indicators and objectives
+- A support and deprecation policy
 
-Kanban visualizes work and limits work in progress to maintain a steady flow. It supports continuous delivery and can reduce the burden caused by too many simultaneous tasks. Unlike sprint-based approaches, changes may enter the workflow continuously according to team policy.
+---
 
-### Lean
+## 6. Observability
 
-Lean prioritizes customer value and removes work that does not contribute to that value. Its main principles include:
+Monitoring answers known questions, such as whether CPU usage exceeds a threshold. Observability is the ability to infer a system's internal state from its outputs, including conditions that were not predicted in advance.
 
-- Deliver value quickly and frequently
-- Encourage continuous learning and innovation
-- Build capable, empowered teams
-- Design quality into the product
-- Preserve options and make final decisions at the appropriate time
-- Eliminate waste and optimize end-to-end delivery
+The three primary telemetry signals are logs, metrics, and traces.
 
-Lean can accelerate delivery, but teams must avoid sacrificing documentation or overlooking system-wide effects while optimizing local work.
+### 6.1 Logs
 
-### Agile and DevOps
+Logs record discrete events. Structured logs, commonly encoded as JSON, are easier to search and correlate than inconsistent text messages.
 
-Agile and DevOps are closely aligned but address different aspects of delivery. Agile focuses on iterative planning and incremental software development. DevOps focuses on collaboration, integration, automation, deployment, and operation. Both aim to shorten feedback cycles and improve the path from idea to reliable production software.
+Useful fields include:
 
-### Comparing the Models
+- Timestamp with timezone
+- Severity
+- Service and version
+- Environment and region
+- Host, container, or instance identifier
+- Request, trace, and correlation identifiers
+- Event name
+- Outcome and duration
+- Error type and stack information
 
-| Model | Strengths | Limitations |
+Logs must not expose passwords, tokens, private keys, or unnecessarily sensitive personal data. Retention and access should follow security and compliance requirements.
+
+### 6.2 Metrics
+
+Metrics are numeric measurements aggregated over time. They are efficient for dashboards, trends, and alerts.
+
+For request-driven services, the RED method focuses on:
+
+- **Rate:** Requests per unit of time
+- **Errors:** Failed requests
+- **Duration:** Request latency distribution
+
+For infrastructure resources, the USE method considers:
+
+- **Utilization:** Percentage of capacity in use
+- **Saturation:** Work waiting for capacity
+- **Errors:** Resource-related failures
+
+Percentiles are more informative than averages for user-facing latency. A low average can coexist with severe p99 delays.
+
+### 6.3 Distributed Tracing
+
+A trace follows a request across service boundaries. Each operation is represented by a span containing timing, status, and contextual attributes. Trace identifiers propagated through headers allow events from the gateway, service, database client, and downstream services to be connected.
+
+Tracing helps identify where time was spent and which dependency failed. Sampling controls telemetry cost, but important errors and slow traces should be retained at a higher rate.
+
+### 6.4 Health and Service-Level Indicators
+
+Health endpoints should distinguish among:
+
+- **Liveness:** Is the process running, or should it be restarted?
+- **Readiness:** Can the instance safely receive traffic?
+- **Dependency health:** Are required downstream services usable?
+
+Useful service-level indicators include successful-request ratio, latency, freshness, durability, and job completion. Alerts should focus on user impact and SLO risk rather than every low-level fluctuation.
+
+Observability must be designed into interfaces and workflows. Adding logs after an incident cannot reconstruct missing correlation identifiers or timing data.
+
+---
+
+## 7. Diagnosing Failures from Event-Related Logs
+
+Troubleshooting should move from observed impact to the relevant component while preserving a timeline.
+
+### 7.1 A Structured Investigation Process
+
+1. **Confirm the symptom.** Identify affected users, operations, regions, versions, and time range.
+2. **Check recent changes.** Review deployments, feature flags, schema changes, certificate updates, network policies, and dependency releases.
+3. **Find a correlation identifier.** Use a request ID, trace ID, job ID, session ID, or message ID.
+4. **Build the event timeline.** Normalize timestamps and order events across services.
+5. **Locate the first meaningful failure.** Later errors may be consequences rather than causes.
+6. **Compare healthy and failed requests.** Look for differences in input, route, instance, dependency, or execution time.
+7. **Correlate with metrics and traces.** Confirm whether resource saturation, latency, or downstream failures match the log evidence.
+8. **Mitigate safely.** Roll back, disable a feature, isolate a dependency, or shift traffic.
+9. **Verify recovery.** Confirm user-facing indicators and queued work, not only process health.
+10. **Record the cause and prevention.** Improve tests, alerts, runbooks, or architecture.
+
+### 7.2 Interpreting Common Events
+
+| Log or event pattern | Possible meaning | Follow-up evidence |
 |---|---|---|
-| Waterfall | Simple sequence, clear deliverables, formal control, suitable for stable short projects | Late changes are costly; less suitable for long or uncertain projects |
-| Agile | Frequent feedback, adaptable plans, iterative quality improvement, effective for distributed work | Documentation and overall architecture may be neglected without discipline |
-| Lean | Rapid value delivery, less waste, empowered teams, continuous learning | Local optimization can hide system-wide impact; early documentation may be limited |
-| Scrum | Clear sprint goals, team ownership, rapid delivery, strong focus on requirements | Cross-team coordination can be difficult; cost depends on team size and skill |
-| XP | Close stakeholder involvement, short feedback cycles, strong potential quality | Requires skilled contributors; frequent checkpoints add overhead; uncontrolled change can reduce quality |
+| Repeated connection timeout | Dependency unavailable, routing issue, firewall drop, or exhausted connection pool | Network path, dependency health, pool metrics |
+| HTTP 401 | Missing, expired, or invalid authentication | Token issuer, clock synchronization, authentication logs |
+| HTTP 403 | Authenticated caller lacks permission | Authorization policy and identity claims |
+| HTTP 429 | Rate limit or capacity protection | Quota, request rate, retry behavior |
+| HTTP 500 | Unhandled application failure | Exception and trace context |
+| HTTP 502/503/504 | Upstream failure, no healthy targets, or gateway timeout | Load-balancer health, upstream latency, readiness |
+| Database deadlock | Transactions acquired conflicting locks | Query and transaction logs |
+| Duplicate message | At-least-once delivery or producer retry | Message ID and idempotency handling |
+| Out-of-memory restart | Memory leak, excessive concurrency, or insufficient limit | Heap, container events, request load |
 
-Every model involves trade-offs among quality, cost, speed, predictability, and flexibility. A project may combine practices, but the team should understand why each practice is being used.
+### 7.3 Event Time and Causality
 
-## 8. Architecture and Code Reviews
+Distributed logs may have clock differences. Systems should use synchronized time and record timestamps with timezone information. Even with synchronization, timestamps alone may not prove causality. Trace parent-child relationships and message identifiers provide stronger evidence.
 
-Architecture decisions influence performance, security, maintainability, and long-term quality. They should be reviewed and updated as the system evolves. Code reviews provide a more frequent checkpoint during implementation.
+Logs should distinguish between the original failure and propagated errors. For example, a database timeout may cause an API error, which causes a gateway error, which causes a client retry. Counting all four as independent incidents obscures the root cause.
 
-Common review perspectives include:
+---
 
-- **Peer review:** Developers examine one another's work.
-- **Customer or stakeholder review:** Internal stakeholders verify alignment with business needs.
-- **External or independent review:** A separate party provides an objective assessment.
+## 8. Selecting a Database
 
-Reviewers commonly check whether the code:
+Database selection should begin with access patterns and correctness requirements, not product popularity. Consider data shape, relationships, query types, transaction boundaries, write rate, retention, consistency, scale, latency, availability, and operational skill.
 
-- Conforms to the approved architecture
-- Follows established design and coding patterns
-- Satisfies relevant quality attributes
-- Uses approved technologies and subsystems
-- Follows formatting and naming conventions
-- Includes appropriate documentation
-- Is secure, testable, efficient, scalable, available, usable, and maintainable
+### 8.1 Relational Databases
 
-Reviews work best when findings are documented and participants approach the process collaboratively. A review is not only a quality gate; it is also an opportunity to share knowledge and align the team.
+Relational databases organize data into tables with defined columns and relationships. SQL supports filtering, aggregation, joins, and transactions.
 
-## 9. Software Testing
+Best suited for:
 
-Testing can occur throughout the SDLC and is especially important before release. In iterative environments, testing applies both to individual subsystems and to the complete system.
+- Structured data with stable relationships
+- Transactions requiring strong consistency
+- Financial, inventory, order, and identity systems
+- Queries involving joins and aggregations
+- Environments requiring mature constraints and reporting
 
-### Unit Testing
+Strengths include ACID transactions, schema enforcement, indexes, constraints, and flexible querying. Challenges can include horizontal write scaling and mapping highly variable or deeply nested data into tables.
 
-Unit testing verifies the smallest practical unit of behavior, such as a function, method, or class. Developers usually write these tests because they understand the internal design. Automated unit tests are valuable because they can run quickly whenever code changes.
+### 8.2 Document Databases
 
-### Integration Testing
+Document databases store self-contained documents, often in a JSON-like form. Related attributes can be nested and retrieved together.
 
-Integration testing checks whether components interact correctly through their interfaces. It can expose problems involving data formats, protocols, dependencies, timing, and error handling that are invisible when components are tested alone.
+Best suited for:
 
-### System Testing
+- Content management
+- Product catalogs with varying attributes
+- User profiles
+- Rapidly evolving application schemas
+- Data commonly read and written as one aggregate
 
-System testing evaluates the complete application against its requirements. It confirms that the assembled system performs the intended end-to-end functions. This is sometimes called functional testing.
+Document databases offer flexible schemas and natural application-object mapping. However, duplication, cross-document joins, and multi-document consistency require careful design. A flexible schema does not eliminate the need for governance or validation.
 
-### Acceptance Testing
+### 8.3 Graph Databases
 
-Acceptance testing determines whether the software is suitable for its users, customers, or other stakeholders. Alpha and beta testing are common forms. Depending on the organization, acceptance activities may include performance, stress, security, and usability testing.
+Graph databases represent entities as vertices or nodes and relationships as edges. They are optimized for traversing connected data.
 
-### White-Box and Black-Box Testing
+Best suited for:
 
-- **White-box testing:** The tester understands the internal code or structure. Unit tests are commonly white-box tests.
-- **Black-box testing:** The tester evaluates inputs and outputs with little or no knowledge of internal implementation.
+- Network topology
+- Social relationships
+- Fraud detection
+- Recommendation engines
+- Identity and access relationships
+- Dependency and path analysis
 
-A gray-box approach falls between these extremes: the tester has partial knowledge of the implementation.
+Graph databases make multi-hop relationship queries natural and efficient. They are less compelling when the workload consists mainly of simple key lookups or tabular reporting.
 
-### Test Planning and Defect Management
+### 8.4 Column-Family Databases
 
-Testing should follow an organized plan that defines scope, environment, data, expected results, and acceptance criteria. Test failures become tracked issues, defects, bugs, or errors. Teams usually assign severity and priority so they can decide what must be fixed before release.
+Column-family databases distribute data by row key and organize related values into column families. They are designed for large-scale, sparse datasets and high write throughput.
 
-Software may sometimes be released with known low-priority defects, provided the risks are understood and the issues are documented in release notes. Automation is increasingly important because Agile and DevOps practices involve frequent changes, integrations, and releases.
+Best suited for:
 
-## Key Takeaways
+- Very large distributed datasets
+- High-volume writes
+- Predictable key-based access
+- Event, activity, and operational datasets
+- Workloads that can tolerate limited joins and denormalized storage
 
-- Network management has progressed from device monitoring to software-driven automation and orchestration.
-- DevOps combines technical automation with collaboration, shared responsibility, and measurable delivery performance.
-- Architecture describes a system's major structures, elements, relationships, properties, and guiding decisions.
-- Functional requirements define what a system does; nonfunctional requirements define how well it does it.
-- Architectural patterns offer reusable solutions, but pattern selection must reflect the system's context.
-- The SDLC organizes planning, requirements, design, implementation, testing, and deployment.
-- Waterfall favors sequential control, while Agile favors incremental delivery and responsiveness to change.
-- Reviews and automated testing improve quality throughout the delivery lifecycle.
+The data model must be designed around queries. Poor partition-key selection can create hot partitions, uneven storage, or queries that require expensive scans.
+
+### 8.5 Time-Series Databases
+
+Time-series databases optimize timestamped measurements and events. They commonly support retention policies, downsampling, compression, and time-window aggregation.
+
+Best suited for:
+
+- Network telemetry
+- Application and infrastructure metrics
+- Sensor readings
+- Financial ticks
+- Capacity and performance analysis
+
+Important design factors include label or tag cardinality, sampling frequency, retention, aggregation resolution, and late-arriving data. Unbounded high-cardinality dimensions can consume excessive memory and degrade query performance.
+
+### 8.6 Comparison
+
+| Database type | Primary strength | Typical use | Main design caution |
+|---|---|---|---|
+| Relational | Transactions and structured relationships | Orders, billing, identity | Scaling writes and rigid schema evolution |
+| Document | Flexible aggregate storage | Profiles, catalogs, content | Duplication and cross-document consistency |
+| Graph | Relationship traversal | Topology, fraud, recommendations | Operational specialization and fit for simple queries |
+| Column-family | Distributed scale and high write rate | Large event or activity datasets | Partition-key and query-driven modeling |
+| Time series | Timestamped ingestion and analysis | Metrics, telemetry, sensors | Cardinality and retention management |
+
+An application may use multiple database types, a practice called polyglot persistence. This should be driven by meaningful requirements because every additional platform increases backup, security, monitoring, patching, and skills overhead.
+
+---
+
+## 9. Architectural Models
+
+### 9.1 Monolithic Architecture
+
+A monolith packages the application's major functions into one deployable unit. Modules may still be cleanly separated internally.
+
+Advantages:
+
+- Simple development and local testing
+- Straightforward deployment
+- Low network overhead between modules
+- Easier transactions and debugging in small systems
+
+Limitations:
+
+- The whole application is scaled and deployed together.
+- A defect can affect the entire process.
+- Large codebases can slow builds and ownership decisions.
+- Technology changes may require broad modification.
+
+A modular monolith is often a sensible starting point when service boundaries are uncertain or operational capacity is limited.
+
+### 9.2 Service-Oriented Architecture
+
+Service-oriented architecture (SOA) organizes business functions as reusable services accessed through defined contracts. Services may be integrated through an enterprise service bus, registry, broker, or other middleware.
+
+SOA promotes reuse and interoperability across different platforms. Central integration can enforce transformation, routing, and policy. However, heavily centralized middleware can become complex, slow organizational change, and create a critical dependency.
+
+### 9.3 Microservices Architecture
+
+Microservices divide an application into small services aligned with business capabilities. Each service is independently owned and deployable and should control its own implementation and data.
+
+Advantages:
+
+- Independent scaling and deployment
+- Fault isolation
+- Team autonomy
+- Technology choices appropriate to a service
+
+Costs:
+
+- Network latency and partial failure
+- Distributed data consistency
+- API versioning
+- More deployment and security surfaces
+- Greater observability and automation needs
+- Difficult end-to-end testing
+
+Microservices should not share a database schema as an informal integration interface. Doing so tightly couples releases and bypasses service contracts.
+
+Cross-service transactions often require eventual consistency and compensating actions. A saga coordinates multiple local transactions and handles failure by reversing or correcting previously completed steps.
+
+### 9.4 Event-Driven Architecture
+
+In an event-driven architecture, producers publish state-change notifications and consumers react asynchronously. Producers do not need direct knowledge of consumers.
+
+Common models include:
+
+- **Publish/subscribe:** Each subscriber receives relevant events.
+- **Competing consumers:** Multiple workers share work from a queue.
+- **Event streaming:** Consumers read an ordered, retained event stream.
+
+Advantages include loose coupling, load buffering, and easy addition of consumers. Challenges include eventual consistency, duplicate or out-of-order delivery, schema evolution, troubleshooting, and replay behavior.
+
+Consumers should normally be idempotent. A dead-letter queue can isolate messages that repeatedly fail, but operations teams need a documented process to inspect and replay them safely.
+
+### 9.5 Model Selection
+
+| Model | Best fit | Important trade-off |
+|---|---|---|
+| Monolithic | Small teams, cohesive applications, simple operations | Limited independent deployment and scaling |
+| SOA | Enterprise integration and reusable cross-system capabilities | Middleware and governance complexity |
+| Microservices | Independent teams and components with different scaling needs | Distributed-system and operational complexity |
+| Event-driven | Asynchronous workflows, high-volume events, loose coupling | Eventual consistency and harder diagnosis |
+
+Architectures are often combined. A modular monolith may publish events, and a microservices platform may use synchronous APIs for queries and asynchronous events for state changes.
+
+---
+
+## 10. Advanced Git Operations
+
+Git is a distributed version-control system. Each clone normally contains project history, branches, and the ability to create commits without continuous access to a central server.
+
+### 10.1 Branching and Integration
+
+Create a focused branch for a change:
+
+```bash
+git switch -c feature/device-inventory
+```
+
+Update remote references and inspect divergence:
+
+```bash
+git fetch origin
+git log --oneline --graph --decorate --all
+```
+
+#### Merge
+
+A merge combines histories and may create a merge commit:
+
+```bash
+git switch main
+git merge feature/device-inventory
+```
+
+Merging preserves the branch relationship and is useful when that context matters.
+
+#### Rebase
+
+A rebase replays commits onto a new base:
+
+```bash
+git switch feature/device-inventory
+git rebase origin/main
+```
+
+Rebase creates new commit identities. Do not rebase shared history unless the team has explicitly coordinated it.
+
+Interactive rebase can reorder, combine, edit, or remove local commits:
+
+```bash
+git rebase -i HEAD~4
+```
+
+### 10.2 Resolving Conflicts
+
+When Git reports a conflict:
+
+1. Inspect the conflicted files with `git status`.
+2. Edit the conflict markers and preserve the intended behavior.
+3. Test the result.
+4. Stage the resolved files with `git add`.
+5. Continue with `git rebase --continue` or complete the merge commit.
+
+Use `git rebase --abort` or `git merge --abort` to return to the pre-operation state when necessary.
+
+### 10.3 Cherry-Pick
+
+Cherry-pick applies the change introduced by a selected commit to the current branch:
+
+```bash
+git cherry-pick <commit-id>
+```
+
+It is useful for applying a targeted fix to a release branch. It creates a new commit and can complicate history if used as a substitute for a clear integration strategy.
+
+### 10.4 Revert and Reset
+
+`git revert` creates a new commit that reverses an earlier commit:
+
+```bash
+git revert <commit-id>
+```
+
+It is appropriate for shared branches because it preserves history.
+
+`git reset` moves a branch reference and can also modify the index and working tree. It is useful for correcting local history but can destroy uncommitted work or disrupt collaborators. Use it cautiously and avoid rewriting shared branches.
+
+### 10.5 Stash
+
+Temporarily store uncommitted changes:
+
+```bash
+git stash push -m "partial inventory work"
+git stash list
+git stash pop
+```
+
+Stashes are local and should not replace commits for important work.
+
+### 10.6 Bisect
+
+`git bisect` performs a binary search to identify the commit that introduced a defect:
+
+```bash
+git bisect start
+git bisect bad
+git bisect good <known-good-commit>
+```
+
+After testing each selected revision, mark it good or bad. Finish with:
+
+```bash
+git bisect reset
+```
+
+The process can be automated when a script or test reliably returns success or failure.
+
+### 10.7 Tags and Releases
+
+Annotated tags identify important versions and include metadata:
+
+```bash
+git tag -a v2.3.0 -m "Release 2.3.0"
+git push origin v2.3.0
+```
+
+Tags should follow the project's release policy and should not be silently moved after publication.
+
+---
+
+## 11. Release Packaging and Base Libraries
+
+A release package is the deployable representation of a tested software version. It may be a language package, archive, executable, container image, machine image, or deployment bundle.
+
+### 11.1 Reproducible Builds
+
+A build should produce the same functional artifact from the same source and dependency definitions. Important practices include:
+
+- Pin direct and transitive dependency versions with a lock file.
+- Build in a controlled environment.
+- Keep build scripts in version control.
+- Separate build-time and runtime dependencies.
+- Record source revision and build metadata.
+- Generate a software bill of materials (SBOM).
+- Sign artifacts and verify checksums or provenance.
+- Store immutable artifacts in a controlled registry.
+
+Do not rebuild the same release differently for each environment. Build once, then promote the identical artifact through test, staging, and production while supplying environment-specific configuration externally.
+
+### 11.2 Semantic Versioning
+
+Semantic versioning commonly uses `MAJOR.MINOR.PATCH`:
+
+- **MAJOR:** Incompatible API change
+- **MINOR:** Backward-compatible feature
+- **PATCH:** Backward-compatible fix
+
+Pre-release and build identifiers can provide additional context. Version numbers communicate intent but do not replace compatibility tests.
+
+### 11.3 Base Libraries
+
+Base libraries provide common capabilities such as logging, authentication, configuration, error handling, API clients, and telemetry. Shared libraries can improve consistency, but they also create organizational coupling.
+
+Manage base libraries by:
+
+- Keeping their public interfaces small and stable
+- Following semantic versioning
+- Publishing migration and deprecation guidance
+- Pinning application dependencies
+- Testing applications against planned upgrades
+- Scanning dependencies for vulnerabilities and license issues
+- Avoiding deep dependency trees where practical
+- Defining ownership and support expectations
+
+A security update may require rapid adoption, but an uncontrolled upgrade can break applications. Automated dependency proposals, continuous integration tests, and staged deployment help balance speed and safety.
+
+Container base images are also dependencies. Pin them by immutable digest where appropriate, rebuild regularly for patched operating-system packages, minimize installed tools, and scan the final image rather than only the application source.
+
+### 11.4 Release Promotion and Rollback
+
+A mature release pipeline typically performs:
+
+1. Source and policy validation
+2. Unit and integration testing
+3. Static and dependency security analysis
+4. Artifact creation
+5. Signing and registry publication
+6. Deployment to a test environment
+7. Acceptance and performance testing
+8. Controlled production rollout
+9. Health and SLO verification
+10. Promotion, pause, or rollback
+
+Rollback must account for persistent state. A previous application version may not understand a newly modified database schema or event format.
+
+---
+
+## 12. Sequence Diagrams with API Calls
+
+A sequence diagram shows interactions in time order. Participants appear from left to right, and time flows downward. Sequence diagrams help teams analyze API boundaries, authentication, dependencies, error paths, and latency.
+
+### 12.1 Elements of a Sequence Diagram
+
+- **Actor:** A user or external system initiating behavior
+- **Participant:** A client, service, database, queue, or other component
+- **Message:** A request, response, or event
+- **Activation:** Time during which a participant performs work
+- **Alternative path:** Conditional success or failure behavior
+- **Loop:** Repeated interaction
+- **Asynchronous message:** A message that does not block for immediate completion
+
+API messages should include the method and resource when useful, such as `POST /v1/orders`. Responses should include status codes or significant result data.
+
+### 12.2 Example: Synchronous API Request
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Web Front End
+    participant LB as Load Balancer
+    participant API as Order API
+    participant Auth as Identity Service
+    participant DB as Relational Database
+
+    User->>UI: Submit order
+    UI->>LB: POST /v1/orders<br/>Authorization: Bearer token
+    LB->>API: Forward request with correlation ID
+    API->>Auth: Validate token and permissions
+    Auth-->>API: Identity and claims
+    API->>DB: Begin transaction
+    API->>DB: Insert order and reserve inventory
+    DB-->>API: Commit successful
+    API-->>LB: 201 Created<br/>Order representation
+    LB-->>UI: 201 Created
+    UI-->>User: Display confirmation
+```
+
+This diagram exposes several design questions:
+
+- What timeout applies to identity and database calls?
+- Is token validation local or remote?
+- Is the order operation idempotent?
+- What happens if the client times out after the database commits?
+- Is inventory managed in the same transaction boundary?
+- Which participant creates and propagates the correlation ID?
+
+### 12.3 Example: Asynchronous Event Processing
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant API as Job API
+    participant Q as Message Queue
+    participant Worker
+    participant Store as Result Store
+
+    Client->>API: POST /v1/reports<br/>Idempotency-Key: abc123
+    API->>Q: Publish ReportRequested event
+    Q-->>API: Message accepted
+    API-->>Client: 202 Accepted<br/>Location: /v1/jobs/789
+    Q-->>Worker: Deliver ReportRequested
+    Worker->>Store: Write report result
+    Worker->>Q: Acknowledge message
+    Client->>API: GET /v1/jobs/789
+    API->>Store: Read status and result location
+    Store-->>API: Completed
+    API-->>Client: 200 OK<br/>Download URL
+```
+
+The `202 Accepted` response means processing has begun but is not complete. A job resource allows the client to check progress. The idempotency key protects against duplicate job creation when the client retries.
+
+### 12.4 Modeling Failure Paths
+
+A useful sequence diagram should show important alternative behavior, not only the successful path.
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant Gateway
+    participant Service
+    participant Dependency
+
+    Client->>Gateway: GET /v1/status
+    Gateway->>Service: Forward request
+    Service->>Dependency: Query dependency
+    alt Dependency responds before timeout
+        Dependency-->>Service: Data
+        Service-->>Gateway: 200 OK
+        Gateway-->>Client: 200 OK
+    else Dependency times out
+        Service--xDependency: Cancel request
+        Service-->>Gateway: 503 Service Unavailable<br/>Retry-After: 5
+        Gateway-->>Client: 503 Service Unavailable
+    end
+```
+
+When building a sequence diagram, verify that it captures trust boundaries, timeouts, retries, asynchronous transitions, data ownership, error responses, and observability context.
+
+---
+
+## 13. Integrated Design Example
+
+Consider a network-configuration compliance platform. Devices send telemetry and configuration events to collectors. Engineers use a web interface to view compliance status and request remediation.
+
+A suitable design might include:
+
+- A static web front end served through a content delivery network
+- An API gateway for TLS termination, authentication, routing, and rate limits
+- Stateless inventory and compliance APIs behind load balancers
+- A message broker for telemetry and remediation jobs
+- Horizontally scaled workers for policy evaluation
+- A relational database for users, policies, approvals, and job state
+- A graph database for network topology and path relationships
+- A time-series database for device measurements
+- Object storage for reports and large configuration snapshots
+- Centralized logs, metrics, and distributed traces
+
+Scalability comes from separating interactive APIs from event-processing workers and scaling each independently. Modularity comes from clear ownership of inventory, policy, topology, and remediation behavior. Resilience comes from replicated data, redundant service instances, bounded retries, idempotent consumers, dead-letter queues, and tested recovery procedures.
+
+For a hybrid deployment, collectors may remain on-premises near managed devices, while analysis and reporting run in the cloud. Local buffering allows collectors to continue accepting telemetry when WAN connectivity is lost. When connectivity returns, events are uploaded with original timestamps and unique identifiers. The design must limit backlog growth, preserve event ordering where required, and prevent duplicate processing.
+
+Operational teams can diagnose a failed remediation by searching the job ID across the API, queue, worker, and device-connection logs. A trace reveals request timing, while queue metrics show whether the delay occurred before or during processing. Release packages are built once, signed, scanned, and promoted through environments. Git tags identify the deployed source revision, enabling a precise comparison with the previous release.
+
+---
+
+## Chapter Summary
+
+Distributed applications combine front-end clients, network entry points, back-end services, and data platforms. Load balancers distribute traffic and remove direct dependence on individual instances, while health checks prevent traffic from reaching services that are not ready.
+
+Scalability requires identifying the actual bottleneck, managing state, and selecting appropriate vertical or horizontal strategies. Modularity requires cohesive components, low coupling, stable interfaces, and clear data ownership.
+
+Availability and resilience depend on redundancy, failure detection, timeouts, controlled retries, circuit breakers, isolation, backups, and tested recovery. On-premises, cloud, and hybrid environments expose different failure domains, but none eliminates the need for deliberate design.
+
+Latency and bandwidth must be treated as architectural constraints. Caching, connection reuse, pagination, asynchronous processing, data placement, and payload optimization can improve performance, but every optimization has consistency, complexity, or resource trade-offs.
+
+Maintainability and observability must be designed from the beginning. Versioned interfaces, repeatable deployments, structured logs, meaningful metrics, distributed traces, and runbooks make systems safer to change and easier to diagnose.
+
+Database selection should match data relationships and access patterns. Relational, document, graph, column-family, and time-series databases each optimize different workloads. Architectural models likewise involve trade-offs: monoliths simplify operations, SOA supports enterprise integration, microservices enable independent ownership and scale, and event-driven systems enable asynchronous decoupling.
+
+Advanced Git operations support controlled collaboration and recovery. Reproducible release packaging, dependency governance, signed artifacts, and staged promotion connect source control to reliable delivery. Finally, sequence diagrams make distributed behavior visible by showing API calls, events, timing, dependencies, and failure paths.

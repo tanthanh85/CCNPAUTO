@@ -564,6 +564,297 @@ Caching optimizes frequency limits only when semantics allow reuse. A stale cach
 - Are stable GET responses cacheable and conditionally validated?
 - Are secrets and sensitive responses excluded from logs and shared caches?
 
+## 13. Generating and Maintaining Client SDKs
+
+OpenAPI generators can create models, endpoint methods, packaging files, and documentation for multiple languages. Generation reduces repetitive work and helps clients remain aligned with the contract.
+
+The generated SDK should be reproducible from a versioned specification and generator configuration. Manual edits inside generated files will be lost on regeneration. Hand-written behavior belongs in a wrapper layer or supported extension point.
+
+```mermaid
+flowchart LR
+    Spec["Versioned OpenAPI contract"] --> Validate["Lint and compatibility checks"]
+    Validate --> Generate["Generate SDK"]
+    Generate --> Test["Compile and contract tests"]
+    Test --> Package["Versioned language package"]
+    Package --> Registry["Package registry"]
+```
+
+An SDK release should state which API versions it supports. Semantic versioning communicates SDK interface changes, while the dependency lock records exact runtime packages.
+
+### 13.1 SDK Usability
+
+The client should accept configuration rather than embed environment assumptions:
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ClientConfig:
+    base_url: str
+    connect_timeout: float = 3.05
+    read_timeout: float = 20.0
+    user_agent: str = "network-sdk/1.0"
+```
+
+Public methods should use domain names and typed inputs, provide useful docstrings, and raise a small documented exception hierarchy. Returning raw `requests.Response` everywhere leaks transport details and forces every caller to repeat parsing.
+
+### 13.2 Package Contents
+
+A Python package typically includes source modules, metadata, dependency declarations, tests, README usage, license, change log, and typed interface information. Publishing should occur only from CI after tests and provenance checks.
+
+## 14. Command-Line Interfaces over SDKs
+
+A CLI makes the client accessible to operators and scripts while reusing the same SDK behavior.
+
+```python
+import json
+import click
+
+
+@click.group()
+def cli():
+    """Network controller client."""
+
+
+@cli.command("get-device")
+@click.argument("device_id")
+@click.option("--output", type=click.Choice(["json", "table"]), default="table")
+def get_device(device_id, output):
+    device = controller.devices.get(device_id)
+    if output == "json":
+        click.echo(json.dumps(device, indent=2))
+    else:
+        click.echo(f"{device['hostname']}\t{device['status']}")
+
+
+if __name__ == "__main__":
+    cli()
+```
+
+Exit codes should distinguish success, invalid input, authentication failure, unavailable dependency, and partial completion. Human-readable messages go to standard error, while machine output remains stable on standard output.
+
+Destructive commands should require explicit target and intent. An interactive confirmation is useful for humans but unsuitable as the only safety control because automation may bypass it. Server-side authorization, approval, idempotency, and validation remain necessary.
+
+## 15. Provider-Side Error Design
+
+The provider should return the most specific stable status that represents the outcome. A `500` response for every failure prevents clients from deciding whether to correct input, refresh credentials, wait, or escalate.
+
+### 15.1 Error Schema
+
+Use a consistent media type and schema. Include a stable type, title, status, human detail, affected instance, and correlation identifier. Field validation can include a structured list:
+
+```json
+{
+  "type": "https://api.example.net/problems/validation",
+  "title": "Request validation failed",
+  "status": 422,
+  "errors": [
+    {"field": "siteId", "code": "unknown_site"},
+    {"field": "templateId", "code": "unsupported_platform"}
+  ],
+  "requestId": "req-e8b16a"
+}
+```
+
+Do not reveal stack traces, queries, internal hostnames, or secrets to clients. Store detailed diagnostics in protected logs linked by request ID.
+
+### 15.2 Timeout Boundaries
+
+Every layer should have a timeout shorter than its caller's remaining budget. If a gateway waits 30 seconds, the service cannot safely assign 30 seconds to its database and another 30 to a controller.
+
+Cancellation should propagate when possible. Continuing expensive work after the caller has abandoned the request wastes resources. For operations that must finish, move the work to a durable asynchronous job and return `202`.
+
+### 15.3 Retry Hints
+
+Transient responses can include `Retry-After`. Error bodies may state whether the operation is safe to repeat, but clients still need the operation contract and idempotency protection.
+
+## 16. Authentication Lifecycle and Token Safety
+
+Authentication design covers credential issuance, storage, use, rotation, revocation, and audit.
+
+### 16.1 Token Validation
+
+A resource server validates:
+
+- Signature or authorization-server introspection
+- Issuer
+- Intended audience
+- Expiration and not-before time
+- Required scopes or roles
+- Revocation or session state when applicable
+
+Accepting a correctly signed token for the wrong audience can expose one API to a token issued for another.
+
+### 16.2 Scope Design
+
+Scopes should represent useful least-privilege capabilities such as `inventory.read`, `changes.create`, and `changes.approve`. One broad `admin` scope makes delegation and audit less effective.
+
+OAuth user delegation is not always appropriate for machine-to-machine automation. A workload may use a client-credentials flow or platform workload identity. The three-step authorization code flow remains appropriate when a user authorizes a client to act on the user's behalf.
+
+### 16.3 Refresh Tokens
+
+Refresh tokens should be stored more securely than access tokens because they can obtain new access. Rotation invalidates the previous refresh token when it is used, helping detect replay. Revocation and session termination should invalidate future use.
+
+## 17. Pagination Correctness
+
+Pagination is part of consistency semantics. Offset pagination over a changing dataset can skip or duplicate records. Stable sorting reduces but does not eliminate the problem.
+
+Cursor pagination should bind the cursor to the filter, sort order, and tenant. Cursors should be opaque so clients do not depend on internal storage keys. Expiration should return a clear error that tells the client to restart traversal.
+
+For an inventory export requiring a consistent point-in-time view, the API may create an export job or snapshot instead of paginating live data. This trades freshness for consistency and repeatability.
+
+## 18. Webhook Reliability and Security
+
+Webhook delivery is normally at least once. Receivers should expect duplicates and process an event ID idempotently.
+
+```mermaid
+sequenceDiagram
+    participant Provider
+    participant Receiver
+    participant Queue
+
+    Provider->>Receiver: Signed event + event ID
+    Receiver->>Receiver: Verify signature and timestamp
+    Receiver->>Queue: Store event durably
+    Receiver-->>Provider: 202 Accepted
+    Note over Provider,Receiver: Provider retries if acknowledgment is absent
+```
+
+The receiver should acknowledge after durable acceptance, not after lengthy business processing. Signatures protect integrity and authenticity; timestamps and nonce or event-ID tracking reduce replay risk. Endpoint rotation and secret rotation need overlap so delivery continues during change.
+
+## 19. Testing API Failure Behavior
+
+Client tests should simulate:
+
+- DNS and connection failure
+- Connect and read timeout
+- TLS validation failure
+- Invalid JSON and unexpected media type
+- `401`, `403`, `404`, `409`, `412`, `422`, and `429`
+- `500`, `502`, `503`, and `504`
+- Missing and malformed `Retry-After`
+- Pagination loops and expired cursors
+- Duplicate webhook delivery
+- Token expiry during a multi-page operation
+
+Use a fake server or transport adapter to control timing and responses. Tests should verify not only the returned value but also number of attempts, delay selection, idempotency headers, termination behavior, and redaction of secrets.
+
+Provider tests should validate the OpenAPI contract, authorization matrix, quota enforcement, cache directives, and backward compatibility. Performance tests should include expensive filters and worst-case page sizes, not only the default path.
+
+## 20. Designing Retry Policy by Operation
+
+Retry policy should be derived from failure type, method semantics, and server contract.
+
+| Operation | Failure | Default decision |
+|---|---|---|
+| GET inventory | connection timeout | retry with bounded backoff |
+| GET inventory | `401` | refresh once if permitted, otherwise stop |
+| POST job with idempotency key | read timeout | query by key or retry safely |
+| POST job without duplicate protection | read timeout | do not repeat blindly; reconcile state |
+| PUT full resource | `503` | retry if body and preconditions remain valid |
+| PATCH relative increment | timeout | do not assume idempotency |
+| DELETE known resource | `404` | may represent desired terminal state |
+| Any operation | `429` | honor `Retry-After` and reduce frequency |
+
+A retry budget limits the total additional load one user operation can create. Per-attempt timeout, maximum attempts, and overall deadline should work together. Four 20-second attempts do not fit a 30-second user deadline.
+
+Hedged requests, in which a second request is sent before the first finishes, can reduce tail latency for read-only distributed systems but increase load and must not be used casually for network changes.
+
+## 21. Token Refresh in a Client
+
+An access token can expire during a long pagination or job-monitoring workflow. A client can refresh once and repeat a safe request, while preventing multiple threads from refreshing simultaneously.
+
+```python
+import threading
+
+
+class TokenManager:
+    def __init__(self, refresh_function):
+        self._refresh_function = refresh_function
+        self._lock = threading.Lock()
+        self._token = None
+
+    def current(self):
+        if self._token is None:
+            with self._lock:
+                if self._token is None:
+                    self._token = self._refresh_function()
+        return self._token
+
+    def refresh_after_unauthorized(self, failed_token):
+        with self._lock:
+            if self._token == failed_token:
+                self._token = self._refresh_function()
+            return self._token
+```
+
+The refresh function protects the refresh token, verifies the token response, and does not log token values. A repeated `401` after refresh is terminal; continuing refresh attempts can lock accounts or conceal an authorization problem.
+
+## 22. Partial Success and Compensation
+
+Bulk operations often produce mixed outcomes. The API should not return a simple success if five of one hundred devices failed.
+
+```json
+{
+  "jobId": "job-789",
+  "state": "completed-with-errors",
+  "summary": {"succeeded": 95, "failed": 5},
+  "failures": [
+    {"deviceId": "r17", "code": "precheck_failed"},
+    {"deviceId": "r22", "code": "connection_timeout"}
+  ]
+}
+```
+
+User code decides whether successful independent items remain committed. If the workflow requires all-or-nothing behavior but the underlying devices lack distributed transactions, the application uses compensation: record completed actions, attempt rollback in reverse order, and report any rollback failure explicitly.
+
+Compensation is not equivalent to database rollback. External state may have changed again, and a reverse command may not restore the original condition. Pre-change snapshots and conditional checks reduce this risk.
+
+## 23. Server-Side Rate Limiting
+
+The provider chooses a limit key, capacity, refill behavior, and response. Keys may combine tenant, client, user, endpoint, and cost class. One expensive report request may consume more quota than a small device lookup.
+
+A token-bucket decision can be represented as:
+
+```python
+def allow_request(bucket, cost, now):
+    elapsed = max(0, now - bucket.updated_at)
+    bucket.tokens = min(
+        bucket.capacity,
+        bucket.tokens + elapsed * bucket.refill_per_second,
+    )
+    bucket.updated_at = now
+
+    if bucket.tokens < cost:
+        return False
+
+    bucket.tokens -= cost
+    return True
+```
+
+Distributed gateways need consistent or acceptably approximate counters. Strict global limits cost more coordination than regional approximate limits. The business goal determines whether occasional small overage is acceptable.
+
+Rate-limit responses should identify retry timing without exposing other tenants. Metrics should show rejected requests, active keys, and endpoint cost so operators can tune policy.
+
+## 24. Cache Invalidation After Mutation
+
+A successful mutation can invalidate related cached resources. Updating one device may affect its representation, site summary, compliance count, and search results.
+
+The provider can use versioned cache keys and publish an invalidation event after commit. Clients relying on freshness limits eventually recover even if the event is lost.
+
+Write responses can return the new representation and ETag, allowing the client to update its private cache without an immediate GET. Conditional writes prevent a stale client from overwriting a newer version.
+
+Sensitive authentication and token responses use `Cache-Control: no-store`. Public documentation and stable capability catalogs can use long freshness with versioned URLs.
+
+## 25. API Client Observability
+
+Client telemetry should record method, normalized endpoint, status class, duration, attempt count, rate-limit delay, and request ID. It should not use complete URLs when path or query values contain sensitive identifiers.
+
+Metrics distinguish original calls from retries. Otherwise, a retry storm can look like legitimate demand. Traces create one parent span for the user operation and child spans for each attempt.
+
+An error log should retain provider request ID and local trace ID. These identifiers allow consumer and provider teams to correlate evidence without exchanging credentials or complete payloads.
+
 ## Chapter Summary
 
 Well-designed clients hide repetitive protocol mechanics without hiding important behavior. Authentication establishes identity, authorization controls access, and the three-step OAuth 2 authorization code flow obtains delegated access through authorization, token exchange, and protected-resource access.

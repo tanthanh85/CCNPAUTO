@@ -572,6 +572,248 @@ This workflow links code review, Git history, artifact provenance, deployment, o
 - Are schema and event changes backward compatible?
 - Has canary behavior and rollback been tested?
 
+## 15. Commit and History Design
+
+Git history is an operational record. A useful history allows a reviewer to understand the evolution of behavior and allows an operator to identify the change associated with an incident.
+
+### 15.1 Atomic Commits
+
+An atomic commit contains one coherent change and leaves the repository in a valid state. Tests and implementation that depend on each other belong together. Unrelated formatting, refactoring, and feature work should normally be separated.
+
+Patch staging can select portions of a file:
+
+```bash
+git add -p
+git diff --staged
+```
+
+This is valuable when one working session contains several logical changes. The developer reviews each hunk before including it.
+
+### 15.2 Commit Messages
+
+The subject should state the change in imperative form. The body explains motivation, constraints, and consequences.
+
+```text
+Limit NETCONF sessions per device
+
+Device management planes become unstable when concurrent collection
+and deployment exceed four sessions. Add a per-device semaphore while
+preserving the global worker limit.
+```
+
+Issue identifiers can provide business context, but the commit message should remain understandable if the external tracker later disappears.
+
+### 15.3 Signed Work and Provenance
+
+Commit or tag signatures help verify identity, while branch protection controls integration. Signatures do not prove code correctness. Review, CI, and release attestations remain necessary.
+
+## 16. Collaboration Beyond the Basic Pull Request
+
+### 16.1 Keeping a Feature Current
+
+A contributor should fetch remote state before integrating:
+
+```bash
+git fetch origin
+git switch feature/add-nxos-validation
+git rebase origin/main
+```
+
+If the branch is shared, merging main may be safer because it does not rewrite collaborators' commits. Teams should document the chosen rule.
+
+### 16.2 Reviewing Another Branch Locally
+
+```bash
+git fetch origin pull/418/head:review/pr-418
+git switch review/pr-418
+```
+
+The exact remote ref syntax depends on the hosting platform. Local review permits tests, static analysis, and rendered configuration inspection that may be difficult in a web diff.
+
+### 16.3 Comparing History
+
+```bash
+git log --oneline origin/main..HEAD
+git diff origin/main...HEAD
+git range-diff origin/main...feature-v1 origin/main...feature-v2
+```
+
+The triple-dot diff compares the feature against the common ancestor. `range-diff` helps reviewers understand how a rebased patch series changed between revisions.
+
+## 17. Managing Release and Maintenance Branches
+
+When several production versions are supported, each maintenance branch needs a policy for accepted changes, testing, and end of support.
+
+A defect corrected on the current main branch may need backporting:
+
+```mermaid
+gitGraph
+    commit id: "v2 baseline"
+    branch release-1.x
+    checkout main
+    commit id: "fix parser defect"
+    checkout release-1.x
+    cherry-pick id: "backport fix"
+    checkout main
+    commit id: "continue v2"
+```
+
+The backport should be tested in the older dependency and schema environment. Cherry-picking a patch that compiles on main does not prove compatibility with the maintenance branch.
+
+Release branches should not become permanent alternate development lines. Define which fixes qualify, how long the branch is supported, and how changes return to newer branches.
+
+## 18. Release Artifacts and Supply-Chain Integrity
+
+A release should be traceable from deployed artifact back to source, build environment, dependencies, tests, and approval.
+
+### 18.1 Artifact Metadata
+
+Record:
+
+- Git commit and tag
+- Build timestamp and pipeline identity
+- Dependency lock and SBOM
+- Compiler or runtime version
+- Artifact digest
+- Security scan results
+- Signature or attestation
+
+Container tags such as `latest` are mutable and do not uniquely identify content. Deployments should record an immutable digest.
+
+### 18.2 Dependency Risk
+
+Dependencies include language packages, container base images, operating-system packages, build actions, generated code, and external services. A lock file improves reproducibility but can also freeze a vulnerable version. Automated scanning and scheduled updates are therefore complementary.
+
+An emergency security update still passes through tests and controlled rollout. Urgency changes the timeline, not the need for evidence.
+
+### 18.3 Secret Prevention
+
+Pre-commit and server-side scanning can detect likely credentials. If a secret enters history, rotate or revoke it immediately. Rewriting Git history reduces exposure but cannot make a copied secret trustworthy again.
+
+## 19. Deployment and Rollback Mechanics
+
+### 19.1 Rolling and Canary Deployment
+
+A rolling deployment replaces instances in groups while maintaining capacity. A canary exposes a small workload to the new version and compares outcome metrics with the existing version.
+
+Network automation can route read-only collection jobs to a canary before permitting write operations. The progression may move from simulators, to lab devices, to low-risk production sites, and finally to general production.
+
+### 19.2 Blue-Green Deployment
+
+Blue-green maintains two complete environments. The inactive environment receives the release and testing, then traffic switches. Rollback is fast while the old environment and compatible data remain available.
+
+### 19.3 Feature Flags
+
+Feature flags separate code deployment from feature activation. Flags need owners, expiry, tests for relevant combinations, and removal plans. Long-lived flags multiply behavior paths and maintenance burden.
+
+### 19.4 Rollback Decision
+
+Rollback should be triggered by measurable conditions such as error rate, latency, parser failures, or incorrect change outcomes. If a release has written an incompatible event or schema, forward correction may be safer than binary rollback.
+
+## 20. Git Recovery Scenarios
+
+Git provides recovery tools, but the safest choice depends on whether history is private or shared.
+
+| Situation | Preferred action |
+|---|---|
+| Unstaged local edit should be discarded | `git restore <file>` |
+| Staged file should be unstaged | `git restore --staged <file>` |
+| Shared bad commit | `git revert <commit>` |
+| Local commit needs message or content correction | `git commit --amend` |
+| Local branch lost after reset | inspect `git reflog`, then create a branch |
+| One fix needed on another branch | `git cherry-pick <commit>` |
+| Unknown regression commit | `git bisect` with a reliable test |
+
+Force pushing should use `--force-with-lease` when approved because it refuses to overwrite remote work the local repository has not observed. Even this option rewrites shared history and requires coordination.
+
+## 21. Branch-and-Pull Operational Sequence
+
+A trusted internal contributor begins from an updated main branch, creates a feature branch, reviews changes, commits, and pushes the branch to the shared repository.
+
+```bash
+git switch main
+git fetch origin
+git merge --ff-only origin/main
+git switch -c feature/add-site-filter
+
+# edit source and tests
+git status
+git diff
+git add src/site_filter.py tests/test_site_filter.py
+git diff --staged
+git commit -m "Add site filter to inventory collection"
+git push -u origin feature/add-site-filter
+```
+
+The pull request targets `main`. CI validates formatting, tests, security, and contract compatibility. Reviewers inspect logic and rendered output. Requested corrections are committed to the same branch, and the pull request updates automatically.
+
+After merge, the remote branch can be deleted. The developer updates local main and deletes the local feature branch:
+
+```bash
+git switch main
+git pull --ff-only
+git branch -d feature/add-site-filter
+```
+
+Branch deletion does not delete merged commits; they remain reachable from main.
+
+## 22. Fork-and-Pull Operational Sequence
+
+A contributor without upstream write access forks the repository and clones the fork. `origin` points to the personal fork, while `upstream` points to the shared project.
+
+```bash
+git clone git@example.com:developer/automation-platform.git
+cd automation-platform
+git remote add upstream git@example.com:network/automation-platform.git
+git fetch upstream
+git remote -v
+```
+
+The contributor branches from current upstream state:
+
+```bash
+git switch main
+git merge --ff-only upstream/main
+git push origin main
+git switch -c fix/netconf-timeout
+```
+
+After commit, the branch is pushed to the personal fork and a pull request is opened from that fork to upstream main.
+
+If upstream changes during review, the contributor fetches and rebases the private branch, resolves conflicts, retests, and updates the fork:
+
+```bash
+git fetch upstream
+git rebase upstream/main
+git push --force-with-lease origin fix/netconf-timeout
+```
+
+The force is safe only because the contributor owns the feature branch and uses the lease check. A team branch with multiple contributors should use its agreed merge policy.
+
+## 23. Continuous Integration Policy
+
+CI protects integration by applying the same controls to every change. A network automation repository may require:
+
+- Formatting and linting
+- Unit and contract tests
+- Type checking
+- Secret and dependency scanning
+- Template rendering
+- YANG or JSON schema validation
+- Device-simulator integration
+- Container build and image scan
+- Documentation link validation
+
+Required checks should be deterministic and reasonably fast. Flaky tests teach developers to rerun failures rather than investigate them. Slow suites can be layered: fast checks gate every pull request, while broader system and performance suites run before release.
+
+The pipeline executes untrusted repository content and therefore needs restricted credentials. Pull requests from forks should not automatically receive production secrets.
+
+## 24. Release Notes and Change Communication
+
+Release notes translate commit history into operational impact. They identify added behavior, corrections, security changes, deprecated interfaces, migration steps, known issues, and rollback constraints.
+
+A change log generated only from commit subjects may omit user impact. Release owners curate the information needed by operators and consumers. API and SDK releases should identify compatibility, while network automation releases should identify supported platforms and any change in device behavior.
+
 ## Chapter Summary
 
 Git is a distributed, snapshot-based version-control system that supports local history, parallel work, integrity checking, and controlled integration. The working tree, staging area, local repository, and remotes give developers precise control over what becomes part of a commit and when it is shared.

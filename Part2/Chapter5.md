@@ -437,6 +437,248 @@ Do not cache unsafe methods by default. Invalidate or version affected represent
 - Can stable GET responses use freshness or conditional caching?
 - Are sensitive and user-specific responses protected from shared caches?
 
+## 11. Constructing API Requests Systematically
+
+Before writing code, identify the base URL, resource path, method, parameters, headers, body schema, authentication, expected status, and timeout behavior.
+
+| Request element | Device inventory request |
+|---|---|
+| Base URL | `https://controller.example.net/api/v1` |
+| Resource | `/devices` |
+| Method | `GET` |
+| Query | `site=sg01&limit=100` |
+| Accept | `application/json` |
+| Authentication | Bearer access token |
+| Success | `200 OK` with paginated collection |
+| Failure | `401`, `403`, `429`, `5xx`, or transport exception |
+
+Headers and payloads are part of the contract. A server may reject JSON when `Content-Type` is absent even if the body appears valid. A client requesting XML but assuming JSON will fail during parsing rather than at the protocol boundary.
+
+### 11.1 Session Reuse
+
+Creating a new TCP and TLS connection for every request adds latency and resource cost. A session reuses connections and centralizes common headers:
+
+```python
+import requests
+
+
+def build_session(token: str) -> requests.Session:
+    session = requests.Session()
+    session.headers.update({
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "User-Agent": "branch-audit/3.1",
+    })
+    return session
+```
+
+Connection reuse does not make REST application stateful. Each HTTP request still contains the information required for the server to process it.
+
+### 11.2 TLS Verification
+
+Production clients should verify the server certificate and hostname against a trusted certificate authority. Disabling verification with `verify=False` turns encrypted transport into an unauthenticated channel and exposes credentials to interception.
+
+Private enterprise certificate authorities can be supplied explicitly:
+
+```python
+response = session.get(
+    "https://controller.example.net/api/v1/devices",
+    timeout=(3.05, 20),
+    verify="/etc/company/pki/ca-bundle.pem",
+)
+```
+
+Mutual TLS can authenticate both client and server. It is useful for service identities but requires certificate issuance, rotation, revocation, and key protection.
+
+## 12. REST Resource and Representation Design
+
+REST separates a resource from its representation. The resource is the conceptual device, site, or change job. JSON and XML are representations transferred between client and server.
+
+### 12.1 State and Transitions
+
+A job resource can express workflow without action-heavy URLs:
+
+```json
+{
+  "id": "job-789",
+  "state": "validating",
+  "createdAt": "2026-06-27T09:15:00Z",
+  "links": {
+    "self": "/v1/change-jobs/job-789",
+    "cancel": "/v1/change-jobs/job-789/cancellation"
+  }
+}
+```
+
+The server owns valid transitions. A client cannot move a failed job directly to completed by submitting arbitrary state. It requests an allowed operation or creates a related resource.
+
+### 12.2 Conditional Modification
+
+ETags can also protect writes. A client reads a resource and sends `If-Match` with the observed version during update:
+
+```http
+PUT /v1/templates/ntp-standard HTTP/1.1
+If-Match: "template-v17"
+Content-Type: application/json
+```
+
+If another user changed the template, the server returns `412 Precondition Failed` instead of silently overwriting newer state.
+
+### 12.3 Asynchronous Operations
+
+When work cannot finish within normal request latency, the server can return `202 Accepted` and a status location:
+
+```http
+HTTP/1.1 202 Accepted
+Location: /v1/change-jobs/job-789
+Retry-After: 5
+```
+
+The client can poll the job resource or receive completion through a webhook. `202` does not confirm that the device change succeeded; it confirms only that processing was accepted.
+
+## 13. API Tools Across the Lifecycle
+
+API tools support exploration, design, testing, and diagnosis.
+
+- **curl** sends reproducible requests from a shell and exposes raw headers.
+- **Postman** organizes collections, environments, tests, and shared workflows.
+- **Swagger Editor and UI** design and render OpenAPI contracts.
+- **Swagger Codegen and similar generators** produce client libraries and server stubs.
+- **Fiddler and browser developer tools** inspect HTTP exchanges.
+- **API gateways** enforce authentication, quotas, routing, transformation, and telemetry.
+
+Tool exports should not become the only documentation. Collections and generated code need version control, review, and alignment with the authoritative contract.
+
+### 13.1 Contract Testing
+
+A provider test validates that responses conform to the published schema. A consumer test validates the assumptions a client actually uses. Together they detect breaking changes earlier than end-to-end failure.
+
+A mock server generated from OpenAPI allows client development before the provider implementation is complete. Mock success alone is insufficient because latency, authentication, pagination, and failure behavior must still be tested against a realistic service.
+
+## 14. REST and RPC Design Boundaries
+
+REST is resource-oriented; RPC is operation-oriented. A design should not disguise every procedure as a resource or force every domain action into generic CRUD.
+
+A resource-oriented interface creates a change job and observes its state. An RPC interface may expose `validateConfiguration` or `executeCli`. Both can be valid when consistent with the domain.
+
+gRPC is attractive for internal high-volume services because generated types and streaming reduce overhead. REST remains attractive at broad integration boundaries because HTTP and JSON are widely understood. A gateway can expose REST externally while using gRPC internally, but translation adds another component to secure and observe.
+
+## 15. Model-Driven Network Operations
+
+YANG models provide more than field names. They can define mandatory nodes, ranges, patterns, defaults, list keys, relationships, reusable groupings, and validation constraints.
+
+A model-driven workflow can:
+
+1. Discover device capabilities.
+2. Retrieve relevant running configuration.
+3. Lock or target the candidate datastore.
+4. Apply an `edit-config` operation.
+5. Validate the candidate.
+6. Commit or use confirmed commit.
+7. Verify operational state.
+8. Unlock and record evidence.
+
+Confirmed commit is valuable when a change could remove management connectivity. The device automatically reverts unless the client confirms success before a timer expires.
+
+Open models improve portability but may omit vendor-specific features. Native models offer complete platform capability but increase coupling. Applications can place both behind an internal abstraction while still exposing capability differences honestly.
+
+## 16. HTTP Status Codes and Content Negotiation
+
+Status codes are part of the API contract, not decorative metadata.
+
+| Status | Meaning in a network API |
+|---|---|
+| `200 OK` | Representation or completed synchronous result returned |
+| `201 Created` | Resource created; `Location` identifies it |
+| `202 Accepted` | Asynchronous work accepted but incomplete |
+| `204 No Content` | Request succeeded without a response body |
+| `304 Not Modified` | Cached representation remains valid |
+| `400 Bad Request` | Syntax or basic parameter validation failed |
+| `401 Unauthorized` | Authentication is missing or invalid |
+| `403 Forbidden` | Identity is known but lacks permission |
+| `404 Not Found` | Resource is absent or intentionally hidden |
+| `409 Conflict` | Current resource state conflicts with the operation |
+| `412 Precondition Failed` | ETag or other conditional requirement failed |
+| `422 Unprocessable Content` | Syntax is valid but domain validation failed |
+| `429 Too Many Requests` | Client exceeded frequency or quota policy |
+| `503 Service Unavailable` | Service cannot handle the request temporarily |
+| `504 Gateway Timeout` | An upstream dependency exceeded gateway time |
+
+Content negotiation allows one resource to have different representations. The client sends `Accept`, and the server selects a supported response or returns `406 Not Acceptable`. A request body with an unsupported `Content-Type` can produce `415 Unsupported Media Type`.
+
+The `Vary` header tells caches which request headers affect the representation. If language or media type changes content, cache keys must distinguish those requests.
+
+## 17. API Versioning and Lifecycle
+
+An API evolves while clients continue to run. Compatibility should be preserved through additive changes wherever possible.
+
+Common versioning approaches include a path such as `/v1/devices`, a media type, a header, or a query parameter. Path versioning is visible and simple but can encourage long-lived duplicated implementations. Header versioning keeps resource URIs stable but is less obvious during manual use.
+
+Versioning does not justify careless breakage. Within one version, adding an optional field is usually compatible; removing a field, changing its type, or changing enum meaning is not. Clients should tolerate unknown response fields while servers should reject unknown critical request behavior according to the contract.
+
+Deprecation requires:
+
+1. Announcing the replacement and reason.
+2. Publishing a timeline.
+3. Measuring remaining client usage.
+4. Providing migration guidance and test environments.
+5. Communicating before enforcement.
+6. Retiring only after the agreed support period.
+
+An internal API also needs lifecycle management. Otherwise, hidden consumers can prevent safe change indefinitely.
+
+## 18. API Security Boundaries
+
+APIs expose valuable capabilities and should be designed around least privilege.
+
+The gateway can terminate TLS, validate tokens, apply coarse quotas, and route traffic. The service still enforces resource-level authorization because a gateway may not understand whether one user can modify a particular site.
+
+Input validation includes length, type, range, enum, nesting depth, and allowed characters. A field accepted as a device command creates injection risk; structured intent and allowlisted models are safer than arbitrary strings.
+
+Responses should minimize data. An inventory endpoint may not need to expose credentials, serial numbers, or internal addressing to every role. Error responses should not reveal stack traces or internal topology.
+
+Audit events record who requested what, which authorization decision was applied, which resource changed, and the outcome. Audit integrity and access differ from ordinary debug logging.
+
+## 19. API Performance and Efficiency
+
+Efficiency begins by reducing unnecessary requests and payloads:
+
+- Filter on the server rather than download everything.
+- Use field selection where the contract supports it.
+- Paginate collections.
+- Compress sufficiently large text responses.
+- Reuse connections.
+- Cache stable GET representations.
+- Batch independent small operations when atomicity is not implied.
+- Use webhooks or streaming for timely change notification.
+
+A batch API reduces connection and header overhead but increases the impact of one request. The contract must define whether results are independent, partially successful, or transactional.
+
+Compression saves bandwidth but consumes CPU and offers little benefit for small or already compressed content. The provider should avoid compressing secrets in contexts vulnerable to compression side channels.
+
+## 20. Network API Workflow
+
+A site audit can use several API styles without exposing those differences to the operator.
+
+The application calls a controller REST API to obtain sites and device identities. It uses NETCONF with YANG filters to retrieve only required access-list configuration. Results are normalized and stored. The API returns a paginated collection of findings with ETag validators. A webhook publishes completion to the operations system.
+
+```mermaid
+sequenceDiagram
+    participant App as Audit application
+    participant Controller as Controller REST API
+    participant Device as NETCONF device
+    participant Ops as Operations webhook
+
+    App->>Controller: GET sites and devices
+    Controller-->>App: Paginated inventory
+    App->>Device: NETCONF get-config with YANG filter
+    Device-->>App: Modeled XML data
+    App->>App: Normalize and evaluate policy
+    App->>Ops: POST audit-completed event
+```
+
+The workflow uses the controller for inventory ownership, NETCONF for modeled configuration, REST resource semantics for findings, caching for repeated reads, and push notification for completion.
+
 ## Chapter Summary
 
 Network APIs expose platform capabilities through documented methods, resources, formats, and security controls. REST uses HTTP resource semantics, while RPC, gRPC, GraphQL, and SOAP address different operational and integration needs.

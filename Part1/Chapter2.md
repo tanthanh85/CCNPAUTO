@@ -399,6 +399,177 @@ Before approving an application architecture, verify:
 - RTO, RPO, and availability targets match business value.
 - Security and observability are included in normal operation and failure paths.
 
+## 8. Quality Attributes as a Connected Model
+
+Quality attributes should be assessed as a system rather than independent checkboxes. Performance efficiency includes response time, throughput, resource use, and capacity. Reliability includes maturity, availability, fault tolerance, and recoverability. Maintainability includes modularity, reusability, analyzability, modifiability, and testability.
+
+Compatibility includes coexistence and interoperability. A controller integration may operate correctly alone but compete with another workload for database connections or device sessions. Interoperability means more than exchanging bytes; both systems must interpret identity, units, timestamps, and state consistently.
+
+Usability includes recognizability, learnability, operability, accessibility, and protection from user error. A safe automation interface makes the target scope visible, previews the intended change, warns about high-risk devices, and requires confirmation appropriate to impact.
+
+Security qualities include confidentiality, integrity, authenticity, accountability, and nonrepudiation. Configuration data must be visible only to authorized users, protected from unauthorized modification, attributable to an authenticated identity, and recorded so completed actions cannot be plausibly denied.
+
+Portability includes adaptability, installability, and replaceability. Packaging the same service for on-premises and cloud deployment is useful only if external dependencies, data location, network access, and operational tooling are also portable.
+
+## 9. Scalability Architecture in Depth
+
+Scaling begins with a workload model. Request rate alone is insufficient. The model should include payload size, concurrency, read/write ratio, task duration, geographic distribution, data retention, and burst behavior.
+
+### 9.1 Stateless Compute and Shared State
+
+Stateless compute instances can be added behind a load balancer because any instance can serve any request. Session, job, and workflow state must be available through a shared data service.
+
+```mermaid
+flowchart LR
+    Clients --> LB["Load balancer"]
+    LB --> API1["Stateless API"]
+    LB --> API2["Stateless API"]
+    API1 --> State[("Shared state")]
+    API2 --> State
+    API1 --> Queue["Durable queue"]
+    API2 --> Queue
+    Queue --> Workers["Elastic workers"]
+```
+
+The shared systems then become scaling dependencies. Connection limits, partitioning, replication, and queue capacity must increase with compute. Autoscaling APIs on CPU alone may create hundreds of database connections and move the bottleneck rather than remove it.
+
+### 9.2 Backpressure and Load Shedding
+
+Backpressure tells producers to slow down when consumers cannot keep pace. A bounded queue, concurrency semaphore, or `429` response prevents unlimited work from entering the system.
+
+Load shedding rejects lower-priority work to preserve essential functions. During a controller outage, the system may stop scheduled inventory refresh while preserving operator access to existing data and emergency rollback.
+
+### 9.3 Geographic Scaling
+
+Serving multiple regions introduces data sovereignty, latency, routing, and consistency choices. Read-mostly content can be replicated near users. Write ownership may remain in one region or be partitioned by tenant or site.
+
+Regional automation workers can reduce management-plane latency to branch devices. Central policy remains authoritative, while workers cache signed policy and buffer results during WAN interruption. The system must reconcile delayed events without treating old state as current.
+
+### 9.4 Scalability Validation
+
+Load testing should include ramp, steady-state, burst, and endurance phases. A short test may confirm peak throughput while missing memory leaks, connection exhaustion, index growth, or queue accumulation.
+
+Results should report percentiles, saturation, errors, and cost. Doubling resources but gaining only ten percent throughput signals a constrained dependency or coordination overhead.
+
+## 10. Availability Engineering in Depth
+
+An availability target should identify service boundaries and planned maintenance. A dashboard remaining online is not useful if every data collector has stopped and displayed state is obsolete. Freshness may therefore be part of availability.
+
+### 10.1 Dependency Availability
+
+For components required in series, end-to-end availability is approximately the product of individual availability values. Three required services at 99.9 percent each produce roughly 99.7 percent before other dependencies are counted.
+
+Optional dependencies should fail without taking down the primary function. A reporting engine outage need not prevent job submission. Circuit breakers, bounded resource pools, and fallback behavior enforce that separation.
+
+### 10.2 Failure Domains
+
+Redundancy must cross the failure domain being mitigated. Two virtual machines on one physical host do not protect against host failure. Two clusters using one database do not protect against database failure. Two sites using one identity provider do not provide independent site continuity.
+
+Failure-domain analysis includes:
+
+- Process and instance
+- Host and rack
+- Network device and path
+- Power and cooling
+- Storage system
+- Availability zone and region
+- Identity, DNS, certificate, and control-plane services
+- Human and deployment process
+
+### 10.3 Split-Brain and Quorum
+
+When redundant systems lose communication, both may believe they are active. This split-brain state can create conflicting writes or duplicate device changes. Quorum, fencing, leases, and witness systems help ensure that only the authorized partition continues mutation.
+
+Network devices use comparable mechanisms. Dual-active detection protects redundant switching systems from operating simultaneously after loss of their synchronization link.
+
+### 10.4 Data Protection
+
+Replication supports continuity; backup supports recovery from corruption, deletion, ransomware, and logic defects. Recovery tests must restore data into an isolated environment, verify integrity, and measure time.
+
+Synchronous replication provides a smaller RPO but increases latency and may reduce write availability during partition. Asynchronous replication improves local response and fault isolation but can lose recent writes during failover. The business impact determines the correct trade-off.
+
+### 10.5 Maintenance Without Outage
+
+Rolling upgrades replace capacity gradually. Blue-green deployment maintains two complete environments and redirects traffic. In-service upgrades preserve forwarding or session state where the platform supports them.
+
+Backward-compatible APIs and data formats are prerequisites. If the new release writes events the old release cannot read, rollback may fail even when the old binary remains available.
+
+## 11. Resilience Verification
+
+Resilience should be demonstrated through controlled failure:
+
+- Terminate an application instance during active requests.
+- Delay or deny database access.
+- Disconnect a queue consumer after performing work but before acknowledgment.
+- Exhaust a dependency's rate limit.
+- Interrupt the WAN between regional worker and central service.
+- Introduce malformed device responses.
+- Restore a backup and compare recovered state.
+
+The test must observe user impact, duplicate actions, data integrity, alert quality, and recovery time. A system that automatically restarts but loses jobs is not resilient.
+
+Failure exercises also evaluate people and procedures. Operators need clear ownership, decision authority, communication channels, and runbooks. Technical redundancy cannot compensate for an unknown recovery process.
+
+## 12. Security, Usability, and Interoperability Scenarios
+
+Security is testable only when the protected asset, threat, operating condition, response, and measure are identified. “The platform is secure” is not a quality requirement.
+
+| Source and stimulus | Required response | Measure |
+|---|---|---|
+| Unauthorized user submits configuration | Reject and record the attempt | `403`, no job created, audit event within 5 seconds |
+| Token is replayed after revocation | Deny protected access | Rejection on next validation |
+| Secret appears in application input | Prevent storage in ordinary logs | No matching secret in log test corpus |
+| Excessive API requests arrive | Protect service capacity | Essential traffic remains within latency SLO |
+
+Usability affects safety. If operators cannot distinguish a preview from a committed change, the interface encourages error. The system should display target count, sites, device roles, expected diff, maintenance window, and rollback readiness before approval.
+
+User-error protection can require an additional confirmation for large scope, but repeated confirmation dialogs become ineffective. Risk-based interaction is stronger: routine low-risk read operations remain efficient, while destructive or broad changes require stronger evidence and authorization.
+
+Interoperability requires syntactic and semantic agreement. Two systems may both use JSON while interpreting `status: down` differently. Contracts should define identifiers, units, timezones, enum meaning, null behavior, and lifecycle. Schema validation proves shape; integration tests prove shared meaning.
+
+## 13. Testability and Serviceability
+
+A testable component exposes controllable inputs and observable outputs. Time, random identifiers, network clients, and data stores should be replaceable in tests. Hidden global state and direct calls to production services make behavior difficult to reproduce.
+
+A device driver can be tested against captured and sanitized protocol responses. The orchestration service can use a fake driver that returns success, timeout, authentication failure, partial commit, or malformed output. The purpose is not to imitate every device detail but to exercise the application's decisions.
+
+Serviceability helps operators diagnose and repair the deployed system. It includes:
+
+- Version and build information
+- Health and readiness endpoints
+- Structured events and correlation identifiers
+- Configuration validation
+- Safe diagnostic commands
+- Runbooks and ownership
+- Backup and restoration tooling
+- Controlled feature flags
+
+An error message should state what failed, the affected object, the relevant identifier, and what evidence is available. It should not expose a password or raw token.
+
+## 14. Cost as an Architectural Constraint
+
+Quality has a resource cost. Five-nines availability requires redundant capacity, operational coverage, tested failover, and compatible dependencies. Storing detailed telemetry indefinitely increases database and governance cost. Multi-region active-active design increases network, data, and testing complexity.
+
+Cost should be evaluated per useful unit, such as API request, telemetry sample, managed device, or completed change. A design that scales technically but whose cost grows faster than customer value is not sustainable.
+
+Reserved baseline capacity can handle normal demand, while elastic workers handle periodic compliance scans. Storage policies can keep detailed telemetry for short-term diagnosis and retain lower-resolution aggregates for trends. Quality targets should direct investment toward business-critical paths.
+
+## 15. Availability Planning Across Environments
+
+On-premises design must account for physical servers, storage, power, network paths, facilities, hardware lead time, and staffing. Cloud design replaces some hardware responsibilities with service configuration, quotas, identity, region selection, and shared-responsibility decisions.
+
+Hybrid systems inherit both environments and the connection between them. An on-premises worker can continue local collection during cloud disconnection and buffer events. Cloud dashboards can report that data is stale rather than display the last value as current.
+
+```mermaid
+flowchart LR
+    Devices["On-premises devices"] --> Worker["Regional worker and durable buffer"]
+    Worker <-->|redundant WAN| Cloud["Cloud control and analytics"]
+    Cloud --> Users["Operators"]
+    Worker --> Local["Local safety policy"]
+```
+
+Recovery planning identifies which side is authoritative, how conflict is resolved, how backlog is limited, and which capabilities remain available during partition. Hybrid availability is not achieved merely by deploying components in two places.
+
 ## Chapter Summary
 
 Software quality is contextual and measurable. A good design does not merely claim to be fast, secure, scalable, or available; it describes the event, operating environment, expected response, and acceptance threshold.

@@ -497,6 +497,195 @@ A platform stores change approvals in a relational database because transactions
 - Does the database match query, consistency, and scale requirements?
 - Can a release be diagnosed and rolled back safely?
 
+## 9. Maintainability Across Architecture and Operations
+
+Maintainability extends beyond source readability. A service is difficult to maintain if its deployment is manual, ownership is unclear, interfaces are undocumented, tests require production access, or operators cannot identify the deployed version.
+
+### 9.1 Change Impact Analysis
+
+Before modifying a component, identify callers, data contracts, deployment dependencies, dashboards, alerts, runbooks, and rollback implications. A change to a device identifier may affect inventory keys, API paths, queue messages, log searches, metric labels, and database relationships.
+
+```mermaid
+flowchart TB
+    Change["Proposed interface change"] --> Callers["API callers"]
+    Change --> Data["Stored data and events"]
+    Change --> Tests["Tests and simulators"]
+    Change --> Ops["Dashboards and runbooks"]
+    Change --> Rollback["Backward compatibility and rollback"]
+```
+
+Impact analysis is easier when dependencies point toward abstractions and data ownership is explicit. Direct database access by unrelated services hides coupling and makes analysis unreliable.
+
+### 9.2 Configuration and Environment
+
+Configuration should be typed, validated, and separated from code. Required values should fail at startup with a clear message rather than fail during a production request. Defaults must be safe and visible.
+
+Development, test, staging, and production should use the same artifact with different external configuration. Environment parity does not require identical scale, but protocol behavior, authentication, database features, and deployment mechanics should remain representative.
+
+### 9.3 Refactoring
+
+Refactoring improves internal structure without intentionally changing external behavior. Automated tests create the safety net. Small refactors integrated frequently are safer than a long-lived rewrite that attempts to replace the entire system.
+
+Duplicated device logic may first be moved into one module, then placed behind a driver interface, and only later extracted into a separate service if independent deployment is justified. Architecture evolves through controlled steps.
+
+## 10. Performance Measurement and Test Design
+
+Performance results are meaningful only when the workload, environment, and measurement method are documented.
+
+### 10.1 Workload Profiles
+
+- A baseline test measures ordinary operation.
+- A load test verifies expected peak behavior.
+- A stress test pushes beyond the expected limit to observe degradation.
+- A spike test introduces a rapid burst.
+- An endurance test reveals leaks and accumulating state.
+- A capacity test identifies the maximum sustainable workload under an SLO.
+
+A network collection service may perform well with 5,000 reachable devices but behave differently when 20 percent are slow or unreachable. Test distributions should include connection timeout, authentication failure, malformed output, and large payloads.
+
+### 10.2 Coordinated Omission and Percentiles
+
+A load generator that waits for each slow response before sending the next request can understate overload. The test should model the intended arrival rate independently of response time.
+
+Percentiles describe experience better than averages. If 99 requests take 100 ms and one takes 20 seconds, the average hides the outlier while p99 exposes it. Report throughput and errors alongside latency; a service can appear fast because it rejects most work.
+
+### 10.3 Resource Saturation
+
+Utilization shows resource use, while saturation shows queued demand. CPU at 90 percent may be acceptable if latency and run queue remain stable. A connection pool at its limit with waiting requests is saturated even when CPU is low.
+
+Correlate application and network layers:
+
+| Symptom | Application evidence | Network evidence |
+|---|---|---|
+| Slow device collection | growing worker duration | RTT, loss, path change |
+| API timeouts | dependency spans exceed budget | firewall or load-balancer resets |
+| Low throughput | queue backlog, pool saturation | constrained WAN or retransmission |
+| Intermittent failure | errors on one instance | asymmetric route or failed link member |
+
+## 11. Caching and Consistency
+
+Cache placement can occur in the browser, client library, gateway, service, database layer, CDN, or regional edge. Every cache creates a consistency decision.
+
+### 11.1 Cache Patterns
+
+- **Cache-aside:** Application checks cache, loads on miss, and populates it.
+- **Read-through:** Cache retrieves from the source automatically.
+- **Write-through:** Writes update cache and backing store synchronously.
+- **Write-behind:** Cache acknowledges first and persists asynchronously.
+
+Cache-aside is common and simple, but concurrent misses can create a stampede. Request coalescing, randomized expiry, and stale-while-revalidate behavior reduce synchronized reloads.
+
+Invalidation can be time-based, event-based, or version-based. Time-to-live is easy but permits staleness. An inventory event can invalidate a device record promptly, but lost events must not leave incorrect data forever. Combining event invalidation with a maximum TTL provides a safety bound.
+
+## 12. Rate Limiting and Fairness
+
+Rate limiting protects both provider and dependencies. A global limit prevents complete overload, while per-tenant and per-target limits prevent one consumer from exhausting shared capacity.
+
+A token bucket supports bursts up to bucket capacity and refills at a controlled rate. A leaky bucket shapes output at a steady rate. Fixed windows are simple but allow bursts at time boundaries. Sliding windows provide smoother enforcement at greater tracking cost.
+
+When a controller returns `429`, the client should honor `Retry-After`. When a device management plane permits only a few sessions, the application may enforce its own semaphore without waiting for failure.
+
+## 13. Observability Data Design
+
+Telemetry needs a schema and lifecycle. Logs should use stable event names and fields. Metrics should define units and label bounds. Traces should propagate context through HTTP, queues, and scheduled work.
+
+### 13.1 Correlation
+
+One user operation may create a request ID, change ID, job ID, device task ID, and trace ID. These identifiers serve different scopes and should be logged together when the scopes meet.
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant API
+    participant Queue
+    participant Worker
+    participant Device
+
+    UI->>API: request_id + change_id
+    API->>Queue: trace_id + job_id + change_id
+    Queue-->>Worker: task_id + job_id + trace context
+    Worker->>Device: device operation
+    Worker-->>API: task result with all identifiers
+```
+
+### 13.2 Alert Quality
+
+An alert should identify impact, evidence, urgency, owner, and first diagnostic action. CPU thresholds alone create noise. An alert that reports rising job failure rate, affected regions, deployed version, and linked traces is actionable.
+
+SLO-based alerts watch user-impact risk over time. A fast-burn alert detects rapid error-budget consumption, while a slow-burn alert detects persistent smaller degradation.
+
+## 14. Database Architecture and Consistency
+
+Database design begins with access patterns and transaction boundaries. Normalize relational data when integrity and flexible joins matter. Denormalize when predictable high-volume reads justify duplication.
+
+Indexes accelerate selected reads but consume storage and slow writes. Composite index order must reflect filtering and sorting. An index on `(site_id, status, last_seen)` supports different queries than separate indexes on every column.
+
+Distributed databases often offer consistency choices. Strong consistency ensures a read observes the required latest write but may reduce availability during partition. Eventual consistency permits temporary differences among replicas. A compliance dashboard can tolerate slightly stale counters; an approval check before configuration cannot safely use stale authorization state.
+
+Backups, replication, migration, retention, and deletion must be part of selection. A fast database without tested restoration does not satisfy durability.
+
+## 15. Applying SOLID to a Network Automation Service
+
+Suppose one service class selects devices, retrieves credentials, renders configuration, opens sessions, applies changes, validates results, and sends notifications. It has many reasons to change and cannot be tested without several real dependencies.
+
+The design can be decomposed into interfaces:
+
+```python
+from typing import Protocol
+
+
+class Inventory(Protocol):
+    def devices_for_site(self, site_id: str) -> list[dict]: ...
+
+
+class Renderer(Protocol):
+    def render(self, device: dict, intent: dict) -> str: ...
+
+
+class Executor(Protocol):
+    def apply(self, device: dict, candidate: str) -> dict: ...
+
+
+class Validator(Protocol):
+    def validate(self, device: dict, intent: dict) -> dict: ...
+```
+
+An orchestration class depends on these abstractions and coordinates policy. Device-specific executors depend on the same contract. A new RESTCONF executor extends capability without changing orchestration. A fake executor enables failure testing.
+
+Substitution still requires consistent semantics. Every executor must identify whether a change committed, whether retry is safe, and what evidence was collected. If one implementation returns success when it merely opened a session, it violates the contract even if its Python type is correct.
+
+Interface segregation can separate read, candidate, commit, and rollback capability. A read-only device does not implement meaningless write methods. Capability discovery allows the workflow to reject unsupported change safely before execution.
+
+## 16. Performance Diagnosis Walkthrough
+
+Operators observe that compliance scans now take two hours instead of thirty minutes. The API still accepts jobs quickly, so user-facing request latency is not the constrained stage.
+
+Queue metrics show rising oldest-message age. Worker CPU is low, but device-session duration increased. Traces divide the task into credential retrieval, connection, command execution, parsing, and database write. Connection spans account for most delay in one region.
+
+Network telemetry shows increased RTT and packet loss after a path change. Retransmissions and authentication handshakes extend session time. Adding more workers would create more concurrent connections over the degraded path and could worsen loss.
+
+The team restores the preferred route and scan duration recovers. It then adds regional worker-duration SLOs, path telemetry correlation, and a concurrency control that reduces pressure when connection latency rises.
+
+This process moves from user impact to queue, worker, trace, and network evidence. No single metric establishes the cause.
+
+## 17. Logging Design and Retention
+
+Logging policy should define events, severity, fields, privacy classification, destination, retention, and access.
+
+Lifecycle events for a change job may include accepted, approved, queued, assigned, precheck-completed, applied, validated, rolled-back, failed, and canceled. Each event records job, change, device, service version, result, and duration.
+
+Debug logs can expose payloads and should be temporary, controlled, and redacted. Audit logs need stronger integrity and longer retention than ordinary diagnostics. Security events may require a separate access policy.
+
+Retention should match use. High-volume debug events may remain for days, operational logs for weeks, and audit evidence for a regulated period. Aggregation and archival reduce cost, but deletion requirements apply to every copy.
+
+## 18. Database Migration Strategy
+
+A production migration should avoid coupling schema activation to one irreversible deployment.
+
+The expand-and-contract sequence adds a new field or table while preserving the old form. New code writes both forms or writes the new form while remaining able to read old data. A background process migrates historical records and verifies counts and checksums. Consumers switch to the new representation. The old structure is removed only after rollback no longer requires it.
+
+Large migrations need rate control so they do not starve production queries. Progress, errors, and remaining volume should be observable. Backups and restoration are verified before destructive change.
+
 ## Chapter Summary
 
 Maintainable applications isolate responsibilities, depend on stable abstractions, and expose behavior for testing and operations. SOLID principles provide practical guidance for managing change without turning every implementation into a tightly coupled system.

@@ -17,6 +17,7 @@ This chapter covers the following objectives:
 - Use advanced Git version-control operations.
 - Explain release packaging and base-library management.
 - Build sequence diagrams that include API calls.
+- Explain how AI assists application development and how AI-enabled automation should be governed.
 
 ---
 
@@ -35,6 +36,30 @@ A typical application request follows this path:
 7. The service reads or modifies data through a database, cache, or downstream API.
 8. The back end returns a response to the front end.
 9. Logs, metrics, and traces record the transaction for operational visibility.
+
+The following network-automation example shows these roles in one system. The dashboard is the front end; the API, inventory, validation, and job workers form the back end. The load balancer presents one stable entry point while distributing requests across API instances.
+
+```mermaid
+flowchart LR
+    U["Network engineer"] -->|HTTPS| DNS["DNS"]
+    DNS --> LB["Redundant Layer 7 load balancers"]
+    LB --> API1["Automation API - instance 1"]
+    LB --> API2["Automation API - instance 2"]
+    API1 --> INV["Device inventory"]
+    API2 --> INV
+    API1 --> Q["Job queue"]
+    API2 --> Q
+    Q --> W1["Configuration worker"]
+    Q --> W2["Validation worker"]
+    W1 --> DEV["Routers, switches, and controllers"]
+    W2 --> DEV
+    API1 --> OBS["Logs, metrics, and traces"]
+    API2 --> OBS
+    W1 --> OBS
+    W2 --> OBS
+```
+
+For example, when an engineer requests an access-list update for 500 branch routers, the API should not keep one browser request open while every router is changed. It can validate the request, create a job, place device-specific tasks on a queue, and immediately return a job identifier. Workers then execute tasks at a controlled rate so they do not overwhelm WAN links, controllers, or device management planes.
 
 ### 1.1 Front-End Components
 
@@ -102,6 +127,10 @@ Health checks are essential. A basic TCP check proves only that a port accepts c
 
 Load balancers may also provide TLS termination, connection reuse, request buffering, web application firewall integration, rate limiting, and access logging. Because the load balancer becomes part of the critical path, it must itself be redundant.
 
+#### Example: Choosing a Load-Balancing Method
+
+Suppose an automation service has three API instances. Two run on newer servers and can process twice as many requests as the third. Plain round robin sends one-third of the traffic to every server and may overload the slower instance. Weighted round robin can assign weights of `2:2:1`, while a least-response-time algorithm can react to current conditions. If the API is stateless, no session affinity is required, and failed requests can be sent to another healthy instance.
+
 ---
 
 ## 2. Evaluating Scalability and Modularity
@@ -117,6 +146,18 @@ Vertical scaling adds CPU, memory, storage, or network capacity to an existing s
 #### Horizontal Scaling
 
 Horizontal scaling adds more service instances. It can provide greater capacity and fault tolerance, especially for stateless components. However, it requires load distribution, shared-state management, distributed coordination, and operational automation.
+
+```mermaid
+flowchart TB
+    Load["Increasing telemetry load"] --> Decision{"Where is the bottleneck?"}
+    Decision -->|API CPU| H["Add stateless API instances"]
+    Decision -->|Queue backlog| W["Add event-processing workers"]
+    Decision -->|Database reads| R["Add cache or read replicas"]
+    Decision -->|Database writes| P["Partition data or redesign access pattern"]
+    Decision -->|WAN constrained| E["Filter or aggregate at the edge"]
+```
+
+**Network automation example:** A telemetry platform receives 10,000 measurements per second during normal operation and 80,000 after a major routing event. Scaling only the web API does not help if ingestion workers or database partitions are saturated. Queue depth, consumer lag, write latency, and partition distribution identify where capacity is actually needed.
 
 #### Scaling Bottlenecks
 
@@ -161,6 +202,8 @@ Good modularity aims for:
 
 Modularity does not require microservices. A modular monolith can have strong internal boundaries while remaining one deployable unit. Conversely, a microservices environment can be poorly modular if services share databases, depend on each other's internal schemas, or require coordinated releases.
 
+**Example:** A network controller application can remain one deployable program while separating device inventory, credential access, configuration rendering, compliance validation, and job scheduling into internal modules. The rendering module receives a device model and desired state but does not directly query the inventory database. This boundary makes the renderer easy to unit-test and later extract into a service if independent scale becomes necessary.
+
 ### 2.3 Evaluating a Design
 
 When reviewing scalability and modularity, ask:
@@ -203,6 +246,29 @@ Critical components should have redundancy across failure domains. Examples incl
 - Backups stored outside the primary failure domain
 
 Redundancy alone is insufficient. The system must detect failure, redirect work, and verify data integrity. An untested standby is an assumption, not a recovery strategy.
+
+```mermaid
+flowchart TB
+    Client["Automation clients"] --> GSLB["DNS or global traffic manager"]
+    GSLB --> LBA
+    GSLB -. failover .-> LBB
+
+    subgraph A["Primary site / region"]
+        LBA["HA load-balancer pair"] --> A1["API 1"]
+        LBA --> A2["API 2"]
+        A1 --> DBA[("Primary database")]
+        A2 --> DBA
+    end
+
+    subgraph B["Recovery site / region"]
+        LBB["HA load-balancer pair"] --> B1["Standby API capacity"]
+        LBB --> DBB[("Replicated database")]
+    end
+
+    DBA -. asynchronous replication .-> DBB
+```
+
+This design can survive an API-instance failure without leaving the primary site. A site failure requires traffic redirection and database promotion. Because replication is asynchronous, the recovery point may be behind the primary database. The RPO must state whether losing the last few seconds of submitted automation jobs is acceptable.
 
 ### 3.2 Resilience Patterns
 
@@ -275,6 +341,10 @@ Hybrid designs must account for:
 
 A hybrid design should define which functions continue locally if the WAN fails. If every on-premises transaction synchronously calls a cloud service, the cloud connection is part of the application's availability dependency chain.
 
+#### Example: Hybrid Network Compliance
+
+An on-premises collector polls device state and stores events in a local durable queue. A cloud analytics service evaluates long-term compliance and produces dashboards. During WAN failure, polling and local safety checks continue, while the queue retains events. After recovery, the collector uploads the backlog in bounded batches. Unique event identifiers prevent duplicates, and original timestamps preserve the operational timeline.
+
 ---
 
 ## 4. Designing for Latency and Bandwidth Constraints
@@ -328,6 +398,30 @@ Compression trades CPU for network capacity and may not help data that is alread
 ### 4.3 Disconnected and Intermittent Operation
 
 Mobile, branch, industrial, and edge applications may lose connectivity. An offline-capable design can maintain a local cache or transaction journal and synchronize later. It must define conflict resolution, ordering, data freshness, and the user experience when authoritative data is unavailable.
+
+### 4.4 Example: Automation Across a High-Latency WAN
+
+Assume a central controller manages 1,000 branch devices over links with 180 ms round-trip latency. A workflow that performs 20 sequential API calls per device spends at least 3.6 seconds per device in network delay alone, before processing time.
+
+A stronger design can:
+
+- Retrieve required device state in one bounded request.
+- Render candidate configurations centrally.
+- Process independent branches concurrently with a safe concurrency limit.
+- Compress large configuration transfers.
+- Deploy a regional worker near remote devices.
+- Return job status asynchronously instead of holding a client connection.
+
+```mermaid
+flowchart LR
+    Central["Central orchestration service"] -->|One job request| Regional["Regional execution worker"]
+    Regional -->|Short local sessions| B1["Branch 1"]
+    Regional --> B2["Branch 2"]
+    Regional --> B3["Branch N"]
+    Regional -->|Aggregated results| Central
+```
+
+The regional worker reduces repeated long-distance round trips. It also creates another trust and failure boundary, so its credentials, upgrade process, local queue, and observability must be managed.
 
 ---
 
@@ -441,6 +535,24 @@ Useful service-level indicators include successful-request ratio, latency, fresh
 
 Observability must be designed into interfaces and workflows. Adding logs after an incident cannot reconstruct missing correlation identifiers or timing data.
 
+```mermaid
+flowchart LR
+    API["Automation API"] -->|structured logs| Log["Central log platform"]
+    Worker["Device worker"] -->|structured logs| Log
+    API -->|metrics| Metrics["Metrics and alerting"]
+    Worker -->|metrics| Metrics
+    API -->|spans| Trace["Distributed trace store"]
+    Worker -->|spans| Trace
+    Device["Network device"] -->|syslog / telemetry| Events["Network event pipeline"]
+    Events --> Log
+    Events --> Metrics
+    Log --> Dashboard["Operations dashboard"]
+    Metrics --> Dashboard
+    Trace --> Dashboard
+```
+
+**Example:** A configuration job takes 45 seconds instead of the normal 5 seconds. Metrics show normal API latency but growing worker duration. A trace identifies a slow NETCONF operation, and correlated device logs show repeated authentication negotiation. Together, the signals isolate the delay to device access rather than the API or job queue.
+
 ---
 
 ## 7. Diagnosing Failures from Event-Related Logs
@@ -479,6 +591,31 @@ Troubleshooting should move from observed impact to the relevant component while
 Distributed logs may have clock differences. Systems should use synchronized time and record timestamps with timezone information. Even with synchronization, timestamps alone may not prove causality. Trace parent-child relationships and message identifiers provide stronger evidence.
 
 Logs should distinguish between the original failure and propagated errors. For example, a database timeout may cause an API error, which causes a gateway error, which causes a client retry. Counting all four as independent incidents obscures the root cause.
+
+### 7.4 Worked Example: Failed Configuration Deployment
+
+An engineer reports that job `chg-4821` failed for 40 switches. The API log shows successful job creation, so the investigation moves to the queue and worker logs. All failed devices were processed by one worker instance. Its logs contain `SSH host key verification failed` immediately after a base-image update. Metrics confirm that only the new worker version has failures.
+
+```mermaid
+sequenceDiagram
+    participant Eng as Network engineer
+    participant API as Automation API
+    participant Q as Job queue
+    participant W as Updated worker
+    participant SW as Switch
+    participant Logs as Log platform
+
+    Eng->>API: Start job chg-4821
+    API->>Q: Publish device tasks
+    Q-->>W: Deliver task
+    W->>SW: Open SSH connection
+    SW-->>W: Present host key
+    W--xSW: Reject unknown host key
+    W->>Logs: ERROR with job ID, device ID, and worker version
+    W-->>Q: Mark task failed
+```
+
+The immediate mitigation is to stop routing jobs to the affected worker version and restore the approved host-key data. The long-term fix is to include host-key validation data in release testing and add an alert grouped by worker version. Disabling host-key verification would hide the symptom by weakening security and is not an acceptable fix.
 
 ---
 
@@ -569,6 +706,25 @@ Important design factors include label or tag cardinality, sampling frequency, r
 
 An application may use multiple database types, a practice called polyglot persistence. This should be driven by meaningful requirements because every additional platform increases backup, security, monitoring, patching, and skills overhead.
 
+```mermaid
+flowchart TD
+    Start["Start with access patterns and correctness needs"] --> Tx{"Strong multi-record transactions and joins?"}
+    Tx -->|Yes| Rel["Relational database"]
+    Tx -->|No| Relate{"Relationship traversal is primary?"}
+    Relate -->|Yes| Graph["Graph database"]
+    Relate -->|No| Time{"Timestamped measurements with retention and aggregation?"}
+    Time -->|Yes| TS["Time-series database"]
+    Time -->|No| Scale{"Massive key-based writes across partitions?"}
+    Scale -->|Yes| Col["Column-family database"]
+    Scale -->|No| Doc{"Variable documents read as aggregates?"}
+    Doc -->|Yes| Document["Document database"]
+    Doc -->|No| Revisit["Revisit schema and query requirements"]
+```
+
+#### Network Automation Data Example
+
+A single automation platform may use a relational database for change approvals and user roles, a graph database for topology paths and dependencies, and a time-series database for interface utilization. Configuration snapshots may fit a document or object store. This is justified only if the topology and telemetry workloads materially benefit from specialized query models; otherwise, one well-operated relational platform may be simpler and safer.
+
 ---
 
 ## 9. Architectural Models
@@ -647,6 +803,24 @@ Consumers should normally be idempotent. A dead-letter queue can isolate message
 | Event-driven | Asynchronous workflows, high-volume events, loose coupling | Eventual consistency and harder diagnosis |
 
 Architectures are often combined. A modular monolith may publish events, and a microservices platform may use synchronous APIs for queries and asynchronous events for state changes.
+
+```mermaid
+flowchart LR
+    subgraph Monolith["Monolithic deployment"]
+        MUI["UI module"] --> MLogic["Automation logic"]
+        MLogic --> MData["Shared data module"]
+    end
+
+    subgraph Services["Service-oriented / microservices deployment"]
+        GW["API gateway"] --> Inv["Inventory service"]
+        GW --> Change["Change service"]
+        Change --> Bus["Event bus"]
+        Bus --> Exec["Execution service"]
+        Bus --> Audit["Audit service"]
+    end
+```
+
+The diagram is intentionally not a claim that the right side is always better. For a small internal automation tool, the monolith may be easier to secure, test, and operate. The distributed model becomes attractive when inventory, execution, and audit functions need independent ownership, scaling, or release cycles.
 
 ---
 
@@ -839,13 +1013,104 @@ A mature release pipeline typically performs:
 
 Rollback must account for persistent state. A previous application version may not understand a newly modified database schema or event format.
 
+```mermaid
+flowchart LR
+    Commit["Signed source commit"] --> CI["Build and automated tests"]
+    CI --> Scan["Dependency, code, and image scans"]
+    Scan --> Artifact["Versioned immutable artifact"]
+    Artifact --> Test["Test environment"]
+    Test --> Canary["Production canary"]
+    Canary --> Gate{"SLOs healthy?"}
+    Gate -->|Yes| Promote["Full production promotion"]
+    Gate -->|No| Rollback["Stop rollout and roll back"]
+```
+
+**Example:** Version `2.4.0` of a network-compliance service introduces support for a new device family. The pipeline builds one container image, records its Git commit, generates an SBOM, runs configuration-parser tests, scans the final image, and deploys it to a test environment with simulated device responses. A canary then processes five percent of production jobs. If parse-error rate or job duration exceeds its threshold, promotion stops automatically.
+
 ---
 
-## 12. Sequence Diagrams with API Calls
+## 12. AI in Modern Application Development
+
+Artificial intelligence now affects both how software is developed and what modern applications can do. AI coding assistants can explain unfamiliar code, propose tests, generate documentation, translate between APIs, and suggest implementations. AI-enabled applications can classify incidents, summarize logs, detect anomalies, generate configurations, or provide natural-language interfaces.
+
+AI output is probabilistic rather than guaranteed. A generated answer can be plausible and still be incorrect, insecure, or incompatible with the target environment. Human review, deterministic validation, and operational guardrails remain necessary.
+
+### 12.1 AI-Assisted Development
+
+Useful development activities include:
+
+- Generating an initial implementation or test scaffold
+- Explaining a library or unfamiliar code path
+- Identifying possible edge cases
+- Drafting documentation and release notes
+- Suggesting refactoring opportunities
+- Converting a structured requirement into an API schema
+
+Generated code should pass the same reviews, tests, security checks, and licensing controls as human-written code. Sensitive source, customer data, private configurations, secrets, and incident details must not be sent to an unapproved external model.
+
+An engineer remains accountable for the change. AI does not know the full production context, approved device commands, maintenance policy, or business risk unless those constraints are explicitly and correctly supplied.
+
+### 12.2 AI in Network Automation
+
+AI can help operators translate intent into candidate actions. For example, an engineer may ask, “Identify interfaces with recurring errors after the last software upgrade and propose a remediation plan.” An AI-enabled workflow can retrieve telemetry and change records, summarize likely correlations, and create a proposed plan.
+
+The model should not directly push configuration to production. A safer architecture separates probabilistic reasoning from deterministic execution:
+
+```mermaid
+flowchart LR
+    User["Network engineer intent"] --> AI["AI assistant"]
+    AI --> RAG["Approved documentation, inventory, and telemetry"]
+    RAG --> AI
+    AI --> Proposal["Structured change proposal"]
+    Proposal --> Policy["Schema and policy validation"]
+    Policy --> Sim["Lab or digital-twin testing"]
+    Sim --> Approval["Human approval"]
+    Approval --> Engine["Deterministic automation engine"]
+    Engine --> Devices["Target devices"]
+    Devices --> Verify["Post-change validation and rollback checks"]
+```
+
+The AI produces a proposal, not an unrestricted command stream. The proposal is validated against a schema, checked by policy, tested, approved, and executed by a conventional automation engine with known behavior.
+
+### 12.3 Retrieval-Augmented Generation and Tool Use
+
+Retrieval-augmented generation (RAG) supplies a model with selected enterprise knowledge at request time. In network operations, retrieval sources might include approved design standards, current inventory, vendor documentation, previous incidents, and change policy.
+
+Tool-using AI agents can call inventory APIs, query telemetry, or create a draft change request. Each tool should have a narrow permission scope, validated input, output limits, audit logging, and explicit rules for actions requiring approval. Read-only diagnostic tools should be separated from mutation tools.
+
+### 12.4 AI Risks and Controls
+
+| Risk | Example | Control |
+|---|---|---|
+| Hallucination | Model invents an unsupported device command | Allowlisted schemas, lab validation, vendor-source retrieval |
+| Prompt injection | Untrusted ticket text instructs the model to expose secrets | Treat retrieved content as data, isolate instructions, restrict tools |
+| Data leakage | Private configuration is sent to an unapproved service | Data classification, approved models, redaction, access controls |
+| Excessive agency | Model changes production without review | Least privilege, approval gates, deterministic execution |
+| Non-repeatability | Same prompt produces different plans | Store inputs and model metadata; validate structured output |
+| Model drift | Behavior changes after a model update | Version pinning where available, evaluation suites, staged rollout |
+| Bias or weak evidence | Incident summary overweights one signal | Require references to telemetry and human review |
+
+### 12.5 Operating AI-Enabled Applications
+
+Traditional metrics such as latency, errors, and availability still apply, but AI systems need additional evaluation:
+
+- Task success and factual accuracy
+- Groundedness in approved source material
+- Unsafe or policy-violating output rate
+- Tool-call success and rejection rate
+- Token usage, model cost, and response time
+- Retrieval quality
+- Human correction and override rate
+
+Prompts, retrieval indexes, model versions, and evaluation datasets are application dependencies. They should be versioned, tested, reviewed, and released through controlled pipelines. Logs should retain enough metadata for diagnosis without storing sensitive prompts or model responses unnecessarily.
+
+---
+
+## 13. Sequence Diagrams with API Calls
 
 A sequence diagram shows interactions in time order. Participants appear from left to right, and time flows downward. Sequence diagrams help teams analyze API boundaries, authentication, dependencies, error paths, and latency.
 
-### 12.1 Elements of a Sequence Diagram
+### 13.1 Elements of a Sequence Diagram
 
 - **Actor:** A user or external system initiating behavior
 - **Participant:** A client, service, database, queue, or other component
@@ -857,7 +1122,7 @@ A sequence diagram shows interactions in time order. Participants appear from le
 
 API messages should include the method and resource when useful, such as `POST /v1/orders`. Responses should include status codes or significant result data.
 
-### 12.2 Example: Synchronous API Request
+### 13.2 Example: Synchronous API Request
 
 ```mermaid
 sequenceDiagram
@@ -891,7 +1156,7 @@ This diagram exposes several design questions:
 - Is inventory managed in the same transaction boundary?
 - Which participant creates and propagates the correlation ID?
 
-### 12.3 Example: Asynchronous Event Processing
+### 13.3 Example: Asynchronous Event Processing
 
 ```mermaid
 sequenceDiagram
@@ -917,7 +1182,7 @@ sequenceDiagram
 
 The `202 Accepted` response means processing has begun but is not complete. A job resource allows the client to check progress. The idempotency key protects against duplicate job creation when the client retries.
 
-### 12.4 Modeling Failure Paths
+### 13.4 Modeling Failure Paths
 
 A useful sequence diagram should show important alternative behavior, not only the successful path.
 
@@ -946,7 +1211,7 @@ When building a sequence diagram, verify that it captures trust boundaries, time
 
 ---
 
-## 13. Integrated Design Example
+## 14. Integrated Design Example
 
 Consider a network-configuration compliance platform. Devices send telemetry and configuration events to collectors. Engineers use a web interface to view compliance status and request remediation.
 
@@ -986,3 +1251,5 @@ Maintainability and observability must be designed from the beginning. Versioned
 Database selection should match data relationships and access patterns. Relational, document, graph, column-family, and time-series databases each optimize different workloads. Architectural models likewise involve trade-offs: monoliths simplify operations, SOA supports enterprise integration, microservices enable independent ownership and scale, and event-driven systems enable asynchronous decoupling.
 
 Advanced Git operations support controlled collaboration and recovery. Reproducible release packaging, dependency governance, signed artifacts, and staged promotion connect source control to reliable delivery. Finally, sequence diagrams make distributed behavior visible by showing API calls, events, timing, dependencies, and failure paths.
+
+AI assists developers with coding, tests, documentation, diagnosis, and natural-language interaction, while AI-enabled applications can analyze telemetry and propose actions. Because model output is probabilistic, production automation should combine AI reasoning with trusted data, structured output, deterministic validation, least-privilege tools, human approval, and complete auditing.

@@ -368,6 +368,132 @@ Retrieval-augmented generation can ground the model in approved enterprise knowl
 
 AI systems need evaluation beyond normal availability and latency. Teams should measure task success, factual grounding, unsafe output, tool-call rejection, human correction, model cost, and behavior across model or prompt changes.
 
+## 12. Requirements Engineering in Practice
+
+Requirement discovery is iterative. Stakeholders often describe a desired feature without identifying data ownership, failure behavior, authorization, scale, or operational impact. The development team turns that broad intent into a collection of testable statements.
+
+A useful discovery sequence begins with the business outcome and identifies actors, triggers, inputs, normal behavior, alternate behavior, outputs, and downstream effects. A request to “automate branch deployment” expands into questions about inventory source, device identity, address allocation, controller availability, approval, retries, rollback, and evidence of success.
+
+### 12.1 Requirement Categories
+
+Business requirements explain why the system exists. User requirements describe results that operators and consumers need. Administrative requirements cover identity, policy, audit, retention, and routine support. System requirements identify software, hardware, interface, and protocol behavior.
+
+```mermaid
+flowchart TB
+    Business["Business outcome"] --> User["User capabilities"]
+    Business --> Admin["Governance and administration"]
+    User --> System["System behavior and interfaces"]
+    Admin --> System
+    System --> Tests["Acceptance and quality tests"]
+```
+
+A single requirement should address one behavior and should identify the responsible actor. “The application shall discover devices, configure them, and produce reports” combines several independently testable capabilities. Separating them permits different priorities and delivery iterations.
+
+Negative requirements are equally important. A network change service shall not deploy an unapproved candidate, reveal credentials, continue after failed prechecks, or apply a template to an unsupported platform.
+
+### 12.2 Traceability
+
+Traceability connects a business need to requirements, design elements, code, tests, and release evidence. When a security policy changes, the team can identify affected interfaces and tests. When a test fails, the team can identify the requirement at risk.
+
+| Trace item | Network automation content |
+|---|---|
+| Business need | Reduce branch activation time without reducing control |
+| Functional requirement | Create a branch deployment job from approved site data |
+| Quality requirement | Complete 95 percent of deployments within 20 minutes |
+| Design element | Job API, queue, regional worker, controller adapter |
+| Verification | Contract, integration, performance, and rollback tests |
+| Operational evidence | Job events, configuration diff, post-change validation |
+
+## 13. Architecture Documentation and Decision-Making
+
+No single diagram can describe an entire architecture. Teams need views suited to different questions:
+
+- A context view shows users, external systems, and trust boundaries.
+- A component view shows responsibilities and interfaces.
+- A deployment view maps components to processes, hosts, clusters, or regions.
+- A data-flow view shows creation, movement, storage, and retention.
+- A sequence view shows runtime interaction and timing.
+
+Architecture decision records capture a decision, context, alternatives, consequences, and status. The value lies in preserving why the team chose a queue instead of a synchronous call, a modular monolith instead of microservices, or a controller API instead of direct device access.
+
+Documentation must evolve with the implementation. A stale architecture diagram is worse than a visibly incomplete one because it creates false confidence. Automated generation can help inventory deployed components, but it does not replace explanations of intent and trade-offs.
+
+## 14. Testing Strategy Across the Delivery Lifecycle
+
+A test strategy balances speed, isolation, and realism.
+
+```mermaid
+flowchart TB
+    Unit["Many fast unit tests"] --> Contract["API and schema contract tests"]
+    Contract --> Integration["Integration tests with controlled dependencies"]
+    Integration --> System["End-to-end system tests"]
+    System --> Acceptance["Limited acceptance and production verification"]
+```
+
+Unit tests can validate template selection, parsing, and policy evaluation without a network. Contract tests verify OpenAPI, event, or YANG expectations. Integration tests exercise databases, queues, controllers, and device simulators. System tests run the complete approval and deployment workflow. Production verification should be small, observable, and reversible.
+
+Test data needs the same care as production data. Captured device output may contain addresses, usernames, keys, or customer identifiers and should be sanitized. Simulators should include slow responses, malformed payloads, disconnections, partial success, and unsupported capability rather than only ideal behavior.
+
+Automated tests reduce regression risk but cannot prove that every operational condition is safe. Architecture review, threat modeling, load testing, failure injection, and staged deployment address risks that ordinary functional tests miss.
+
+## 15. Delivery Models and Organizational Fit
+
+Waterfall provides value when scope is stable, formal approval is mandatory, and later change is rare. Agile methods are effective when feedback and requirements evolve. Most organizations combine elements: annual architecture and budget planning, iterative product delivery, continuous integration, and controlled production change windows.
+
+Scrum uses a prioritized backlog, time-boxed sprint, review, and retrospective. Kanban limits work in progress and reveals flow constraints. Extreme Programming emphasizes practices such as automated tests, simple design, refactoring, and close feedback. Lean asks whether each activity creates customer value and encourages the team to optimize the complete system rather than one local step.
+
+The development model does not eliminate operational responsibilities. A sprint that ends with unreviewed code is not a finished increment. The definition of done should include tests, documentation, security checks, packaging, deployment readiness, and relevant telemetry.
+
+## 16. End-to-End Architecture Walkthrough
+
+Consider a platform that validates and remediates network configuration. Its purpose is not simply to send commands. It must translate business policy into controlled actions and preserve evidence.
+
+The workflow begins when policy owners define an approved standard. The inventory service identifies devices, sites, roles, platform families, and management endpoints. Collectors retrieve operational and configuration state through controller APIs, NETCONF, RESTCONF, or other approved interfaces. Parsers normalize vendor-specific data into an internal model. The policy engine compares observed state with desired state and produces findings.
+
+An operator selects findings for remediation. The application verifies scope, approval, maintenance window, device reachability, and rollback capability. It renders candidates and stores immutable previews. A durable queue separates submission from execution. Workers apply bounded concurrency so a controller or device management plane is not overwhelmed.
+
+Post-change validation confirms intended state and checks for negative effects. A job is complete only when execution and verification reach a terminal outcome. Audit records connect user identity, approval, code version, template version, input data, device result, and timestamps.
+
+```mermaid
+flowchart LR
+    Policy["Approved policy"] --> Assess["Collect and assess"]
+    Inventory["Device inventory"] --> Assess
+    Assess --> Findings["Compliance findings"]
+    Findings --> Approval["Scope and approval"]
+    Approval --> Render["Render and preview"]
+    Render --> Queue["Durable job queue"]
+    Queue --> Deploy["Controlled deployment"]
+    Deploy --> Validate["Post-change validation"]
+    Validate --> Audit["Evidence and audit"]
+```
+
+Each stage exposes a contract. Inventory does not need to understand template syntax. The renderer does not need device credentials. Approval logic does not open sessions. These boundaries support testability and independent change even when the application remains one deployment.
+
+Failure behavior is part of architecture. If collection fails, the system records unknown state rather than assuming compliance. If approval expires, execution stops. If the device commits but the response is lost, the worker checks observed state before retrying. If validation fails, the workflow follows a defined rollback or escalation policy.
+
+## 17. Security Throughout the Lifecycle
+
+Security requirements apply to design, implementation, delivery, and operation.
+
+Threat modeling identifies assets, trust boundaries, entry points, abuse cases, and controls. In an automation platform, important assets include credentials, configuration, inventory, approval records, software artifacts, and the ability to alter production devices.
+
+Controls include:
+
+- Strong workload and user identity
+- Least-privilege authorization
+- Secret storage and rotation
+- TLS with certificate validation
+- Input and schema validation
+- Output encoding and log redaction
+- Dependency and artifact scanning
+- Signed or attested releases
+- Tamper-resistant audit records
+- Rate and concurrency limits
+
+Security tests should verify denied behavior as well as permitted behavior. A read-only user must not create a change by calling the API directly. A worker credential for one tenant must not access another. A template field must not inject arbitrary commands.
+
+Defense in depth assumes one control can fail. Even after the UI hides a button, the API enforces permission. Even after the API validates scope, the worker receives narrowly scoped credentials. Even after the worker succeeds, post-change validation detects unexpected state.
+
 ## Chapter Summary
 
 Software-driven operations evolved from monitoring individual devices to orchestrating complete business workflows. Distributed applications divide front-end interaction, back-end logic, state management, execution, and telemetry across cooperating components.

@@ -27,7 +27,7 @@ This statement identifies workload, environment, behavior, and measurement. The 
 
 Quality cannot be evaluated without a function. Performance is measured while the system performs work. Availability is assessed while users attempt to access a service. Security is evaluated while identities request protected operations.
 
-For example, a configuration-compliance service may have the following requirements:
+A configuration-compliance service may have the following requirements:
 
 - **Functional:** Compare running device configuration with an approved baseline.
 - **Performance:** Evaluate 10,000 devices within 30 minutes.
@@ -38,7 +38,7 @@ For example, a configuration-compliance service may have the following requireme
 
 ### 1.2 Common Quality Attributes
 
-| Attribute | Architectural question | Example measure |
+| Attribute | Architectural question | Applied measure |
 |---|---|---|
 | Performance | How quickly and efficiently does the system respond? | p95 latency, jobs/minute, CPU per transaction |
 | Security | How does the system protect data and operations? | unauthorized requests rejected, secrets absent from logs |
@@ -75,7 +75,7 @@ flowchart LR
     Response --> Measure["Measurable result"]
 ```
 
-### 2.1 Network High-Availability Example
+### 2.1 Measuring Network High Availability
 
 | Scenario element | Value |
 |---|---|
@@ -169,7 +169,7 @@ Good interfaces are:
 - Protected by validation and authorization
 - Observable with correlation identifiers
 
-For example, `deploy_config(device_id, candidate, change_id)` is preferable to an interface that exposes internal database objects and allows callers to alter execution state directly.
+The interface `deploy_config(device_id, candidate, change_id)` is preferable to one that exposes internal database objects and allows callers to alter execution state directly.
 
 ### 3.5 Microservices and Modularity
 
@@ -227,9 +227,9 @@ Application scale often exposes data bottlenecks. Techniques include:
 - Asynchronous writes through a queue
 - Retention and aggregation policies
 
-Sharding divides a dataset horizontally across nodes. A poor shard key can create one hot partition. For example, partitioning telemetry only by date may direct every current write to one partition. Combining device identity with a time bucket can distribute load more evenly.
+Sharding divides a dataset horizontally across nodes. A poor shard key can create one hot partition. Partitioning telemetry only by date may direct every current write to one partition, while combining device identity with a time bucket can distribute load more evenly.
 
-### 4.4 Capacity Example
+### 4.4 Capacity Analysis
 
 An automation system has 20 workers. Each worker completes an average of 30 device checks per minute. The theoretical rate is 600 checks per minute, but authentication, retries, and database writes reduce sustained capacity to 450.
 

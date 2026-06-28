@@ -1,6 +1,8 @@
-# Chapter 11: NETCONF and RESTCONF
+# Chapter 11: NETCONF, RESTCONF, and YANG
 
 ## Chapter Introduction
+
+> **Side note:** Discover device capabilities and implemented YANG revisions instead of assuming every platform supports the same model and datastore behavior.
 
 NETCONF and RESTCONF replace fragile screen scraping with structured, model-driven network management. Both use YANG models to describe valid data, but they differ in transport and operations. This chapter develops the protocols through Cisco IOS XE configuration scenarios.
 
@@ -339,6 +341,10 @@ After creating the VLAN, retrieve it and confirm any required switchport associa
 
 > **Study guide takeaway:** YANG defines the contract; NETCONF and RESTCONF carry requests against that contract. Reliable automation discovers capabilities, sends minimal validated changes, interprets structured errors, and verifies resulting state.
 
+## AI with Model-Driven Interfaces
+
+YANG schemas provide a valuable safety boundary for AI-assisted networking. A GenAI system can explain a model or draft a payload, but the payload must be validated against the implemented schema and organizational policy. An agent can retrieve operational state through RESTCONF or NETCONF and propose remediation, yet transaction scope, datastore locks, confirmed commit, and post-change verification should remain controlled by deterministic workflow code.
+
 ## Key Takeaways
 
 - YANG defines structured configuration, operational data, constraints, RPCs, and notifications.
@@ -346,3 +352,10 @@ After creating the VLAN, retrieve it and confirm any required switchport associa
 - RESTCONF maps YANG resources to HTTP and can configure IOS XE interfaces, VLANs, and static routes using JSON or XML.
 
 Chapter 12 uses the same model-driven foundation to stream operational state through modern network telemetry pipelines.
+
+## Further Reading and References
+
+- [NETCONF - RFC 6241](https://www.rfc-editor.org/rfc/rfc6241) - NETCONF operations and datastores.
+- [RESTCONF - RFC 8040](https://www.rfc-editor.org/rfc/rfc8040) - YANG data over HTTP.
+- [YANG 1.1 - RFC 7950](https://www.rfc-editor.org/rfc/rfc7950) - YANG language definition.
+- [Cisco YANG models](https://github.com/YangModels/yang/tree/main/vendor/cisco) - published Cisco model files.

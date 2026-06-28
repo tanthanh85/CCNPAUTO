@@ -1,6 +1,8 @@
-# Chapter 1: Software Development Essentials
+# Chapter 1: Software Design Foundations
 
 ## Chapter Introduction
+
+> **Side note:** Treat an automation script as a software product as soon as other people or production systems depend on it.
 
 Network automation starts with code, but useful automation quickly grows beyond a script. The moment several engineers depend on it, the software needs requirements, interfaces, security controls, testing, state management, and a reliable delivery process. This chapter explains those foundations in the language of network operations.
 
@@ -515,6 +517,10 @@ Defense in depth assumes one control can fail. Even after the UI hides a button,
 
 > **Study guide takeaway:** When evaluating an automation design, trace one change from user intent to post-change verification. If you cannot identify the owner of state, the trust boundaries, the failure path, and the evidence of success, the design is not yet complete.
 
+## AI in Modern Software Design
+
+Machine learning adds data preparation, feature quality, model evaluation, drift, and retraining to the normal software lifecycle. Generative AI can accelerate design exploration, documentation, tests, and code scaffolding, while agentic AI can plan and invoke tools across several steps. These capabilities do not remove architecture or review: generated code, tool permissions, model output, and retrieved context require validation, observability, and clear human-approval boundaries. “Vibe coding” is useful for fast prototypes, but production network automation still needs explicit requirements, tests, least privilege, and reproducible releases.
+
 ## Key Takeaways
 
 - Distributed applications separate front-end interaction, back-end logic, data, execution, and telemetry across cooperating components.
@@ -522,3 +528,9 @@ Defense in depth assumes one control can fail. Even after the UI hides a button,
 - The SDLC, DevOps, reviews, testing, sequence diagrams, and governed AI assistance turn code into dependable operational software.
 
 With the software-development foundation established, Chapter 2 examines the quality attributes that determine whether an application is trustworthy in production.
+
+## Further Reading and References
+
+- [The Twelve-Factor App](https://12factor.net/) - principles for portable service design.
+- [Mermaid sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html) - syntax for documenting API interactions.
+- [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) - governance guidance for trustworthy AI systems.

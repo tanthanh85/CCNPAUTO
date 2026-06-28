@@ -1,6 +1,8 @@
-# Chapter 10: Network Automation
+# Chapter 10: Network Automation and Orchestration
 
 ## Chapter Introduction
+
+> **Side note:** Automation is complete only after verification. Sending commands or receiving an accepted task is not the final outcome.
 
 Automation is more than running commands quickly. It converts operational intent into repeatable, tested, and observable actions. This chapter explains why networks need automation, how SDN and APIs enable it, and how to design workflows that remain safe at enterprise scale.
 
@@ -274,6 +276,10 @@ Automation can also create toil if users must repeatedly correct unclear input e
 
 > **Study guide takeaway:** Enterprise automation combines APIs, reliable software practices, and operational safeguards. The goal is not maximum change speed; it is predictable change with fast feedback and controlled risk.
 
+## Agentic Network Automation
+
+Agentic AI can decompose an operational request, retrieve inventory, select tools, and propose a change plan. Safe implementations separate reasoning from execution: schemas validate parameters, policy engines constrain scope, dry runs reveal differences, and high-impact actions require approval. The agent should receive short-lived credentials and a restricted tool catalog. Its final success criterion must be an independently verified network outcome, not the model's statement that the task is complete.
+
 ## Key Takeaways
 
 - Automation improves scale and consistency but must manage concurrency, state, errors, security, and partial failure.
@@ -281,3 +287,9 @@ Automation can also create toil if users must repeatedly correct unclear input e
 - Reliable workflows validate intent, limit blast radius, verify service outcomes, and preserve operational evidence.
 
 Chapter 11 introduces NETCONF, RESTCONF, and YANG as structured mechanisms for applying those workflows directly to network devices.
+
+## Further Reading and References
+
+- [Cisco DevNet APIs](https://developer.cisco.com/docs/) - Cisco platform and network API documentation.
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) - API description and validation.
+- [Python asyncio documentation](https://docs.python.org/3/library/asyncio.html) - bounded asynchronous I/O foundations.

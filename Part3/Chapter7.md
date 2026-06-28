@@ -1,6 +1,8 @@
-# Chapter 7: Application Deployment
+# Chapter 7: CI/CD and Application Deployment
 
 ## Chapter Introduction
+
+> **Side note:** Build an artifact once and promote the identical digest through environments; rebuilding during deployment weakens reproducibility.
 
 Writing an application is only half the job. The other half is delivering it to an environment where users can depend on it, updating it without unnecessary disruption, and operating it when something goes wrong.
 
@@ -530,6 +532,10 @@ The following checklist remains useful after those controls have been assessed.
 
 > **Study guide takeaway:** A deployment pipeline should make the safe path the easy path. It converts source into one verified artifact, promotes that artifact through controlled environments, and produces enough evidence to explain what reached production and how it behaved.
 
+## Deploying AI-Enabled Applications
+
+AI services add model artifacts, evaluation datasets, prompt templates, vector indexes, and accelerator requirements to the release. Treat the model and prompt configuration as versioned release inputs, test quality as well as software correctness, and use canary deployment to compare behavior and cost. Agentic services require strict runtime identities and tool permissions. CI should evaluate prompt-injection defenses, harmful output, data leakage, and regression against a controlled test set before promotion.
+
 ## Key Takeaways
 
 - DevOps and SRE connect development, delivery, reliability, and shared operational responsibility.
@@ -537,3 +543,9 @@ The following checklist remains useful after those controls have been assessed.
 - Rolling, blue-green, and canary strategies, together with Docker, Kubernetes, IaC, GitOps, and 12-factor principles, support controlled deployment.
 
 Chapter 8 adds the security controls needed to protect applications, data, identities, pipelines, and API communications throughout that lifecycle.
+
+## Further Reading and References
+
+- [Docker documentation](https://docs.docker.com/) - image building and container operations.
+- [Kubernetes documentation](https://kubernetes.io/docs/home/) - workload deployment and orchestration.
+- [Flux documentation](https://fluxcd.io/flux/) - GitOps reconciliation for Kubernetes.

@@ -1,6 +1,8 @@
-# Chapter 9: Infrastructure and Network Management
+# Chapter 9: Network Infrastructure Management
 
 ## Chapter Introduction
+
+> **Side note:** The management platform is production infrastructure; its identity, backup, monitoring, and recovery paths require the same rigor as the network it manages.
 
 Infrastructure automation begins with a clear understanding of the network lifecycle. A script that changes a device is useful, but an operational system must also plan, validate, observe, secure, and eventually retire that device. This chapter connects traditional network management with zero-touch provisioning, controller-based networking, and intent-based operations.
 
@@ -194,6 +196,10 @@ Operations then watches service health rather than merely device uptime. Telemet
 
 > **Study guide takeaway:** Modern network management moves from isolated commands toward lifecycle automation and closed-loop assurance. ZTP establishes devices, controllers translate policy, and telemetry confirms whether the network continues to satisfy intent.
 
+## AI in Infrastructure Operations
+
+AIOps can correlate alarms, topology, configuration changes, and service impact to reduce noise and prioritize incidents. ML forecasting can identify capacity risk, while GenAI can summarize evidence and explain proposed changes. Intent and policy must remain deterministic, and an agent should not receive unrestricted controller access. Use AI to recommend and enrich; permit automated remediation only for bounded, reversible actions with strong verification.
+
 ## Key Takeaways
 
 - PDIOO organizes infrastructure planning, design, implementation, operation, optimization, and eventual retirement.
@@ -201,3 +207,9 @@ Operations then watches service health rather than merely device uptime. Telemet
 - ZTP, SDN, intent-based networking, and assurance enable scalable onboarding and policy-driven remediation.
 
 Chapter 10 builds on this managed infrastructure by turning repeatable operational intent into reliable network automation workflows.
+
+## Further Reading and References
+
+- [Cisco Catalyst Center documentation](https://www.cisco.com/c/en/us/support/cloud-systems-management/dna-center/series.html) - campus management, automation, and assurance.
+- [Cisco DevNet network programmability resources](https://developer.cisco.com/site/networking/) - Cisco networking APIs and learning material.
+- [NETCONF - RFC 6241](https://www.rfc-editor.org/rfc/rfc6241) - model-driven configuration protocol.

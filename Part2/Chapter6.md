@@ -1,6 +1,8 @@
-# Chapter 6: API Development
+# Chapter 6: Resilient API Development
 
 ## Chapter Introduction
+
+> **Side note:** A retry policy is part of application behavior. Retrying an unsafe operation can duplicate work or widen an outage.
 
 API development has two sides. Providers must publish a consistent, secure, and supportable contract. Consumers must call that contract responsibly, validate what comes back, respect limits, and stop safely when continuing would create more damage.
 
@@ -877,6 +879,10 @@ An error log should retain provider request ID and local trace ID. These identif
 
 > **Study guide takeaway:** A production client is a decision-making component. It knows which failures are transient, which operations are safe to repeat, when one item may fail independently, and when the entire workflow must stop.
 
+## GenAI and Agentic API Clients
+
+GenAI can translate user intent into structured API parameters, while an agent can select and call several tools to complete a workflow. The application must validate every generated argument against a schema and authorization policy before execution. Separate planning from action, use allowlisted tools, limit iteration and cost, preserve tool-call evidence, and require approval for high-impact network changes. Prompt injection in retrieved API data must never be allowed to override system policy or grant additional permissions.
+
 ## Key Takeaways
 
 - Authentication establishes identity, authorization controls permitted actions, and OAuth obtains delegated access without sharing user passwords.
@@ -884,3 +890,9 @@ An error log should retain provider request ID and local trace ID. These identif
 - Resilient clients use explicit timeouts, bounded retries, `Retry-After`, idempotency protection, and decisive handling of unrecoverable errors.
 
 Chapter 7 follows the completed application into CI/CD, packaging, container deployment, GitOps, and production operations.
+
+## Further Reading and References
+
+- [OAuth 2.0 - RFC 6749](https://www.rfc-editor.org/rfc/rfc6749) - authorization roles and grant flows.
+- [Requests documentation](https://requests.readthedocs.io/en/latest/) - Python HTTP client behavior.
+- [Additional HTTP Status Codes - RFC 6585](https://www.rfc-editor.org/rfc/rfc6585) - includes HTTP 429 rate limiting.

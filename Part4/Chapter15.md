@@ -1,6 +1,8 @@
-# Chapter 15: Hosting Applications on Network Devices
+# Chapter 15: Edge Application Hosting
 
 ## Chapter Introduction
+
+> **Side note:** The hosted workload must never jeopardize the network device’s primary forwarding and control-plane responsibilities.
 
 Edge computing places selected processing near users, devices, and data sources. Cisco application hosting allows containerized workloads to run on supported Catalyst 9000 and IOx-enabled platforms. This chapter explains the benefits, constraints, deployment workflow, networking, security, and lifecycle management of those applications.
 
@@ -243,6 +245,10 @@ For AI workloads, small inference models may run near cameras or sensors, return
 
 > **Study guide takeaway:** Application hosting turns a network platform into a carefully shared edge-compute environment. Success depends on selecting the right workload and protecting the device's primary networking responsibility through isolation, resource limits, secure images, and fleet lifecycle management.
 
+## Edge AI and Local Inference
+
+Edge AI can classify video, sensor, or operational events locally, reducing latency, bandwidth, and raw-data exposure. Select models that fit the device's CPU, memory, storage, power, and accelerator capabilities. Track model version, confidence, input drift, and resource impact. Central systems normally train and sign models; edge platforms perform bounded inference. An agent running at the edge must retain safe offline behavior and must not compete with critical forwarding resources.
+
 ## Key Takeaways
 
 - Edge computing supports low latency, local autonomy, bandwidth reduction, protocol locality, and data-location requirements.
@@ -250,3 +256,9 @@ For AI workloads, small inference models may run near cameras or sensors, return
 - Secure fleet operations require compatible images, controlled resources, network policy, observability, staged upgrades, offline behavior, and tested rollback.
 
 Chapter 16 concludes the guide by applying the accumulated design and automation skills to major Cisco platform APIs and SDKs.
+
+## Further Reading and References
+
+- [Cisco IOx documentation](https://developer.cisco.com/docs/iox/) - application packaging and edge deployment.
+- [Docker documentation](https://docs.docker.com/) - container images and runtime concepts.
+- [Cisco application-hosting resources](https://developer.cisco.com/site/iox/) - Cisco edge application development resources.

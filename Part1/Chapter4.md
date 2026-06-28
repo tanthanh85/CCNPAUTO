@@ -1,6 +1,8 @@
-# Chapter 4: Version Control and Release Management with Git
+# Chapter 4: Git and Release Management
 
 ## Chapter Introduction
+
+> **Side note:** A clean Git history is operational evidence. Commit messages should explain intent and risk, not merely list edited files.
 
 Change is constant in software and network automation. Source code changes, but so do device templates, YANG models, schemas, infrastructure definitions, tests, runbooks, and pipeline configuration. Git gives the team a shared history of those changes: what changed, who changed it, why it changed, and how to recover when the result is not what the team expected.
 
@@ -831,6 +833,10 @@ A change log generated only from commit subjects may omit user impact. Release o
 
 > **Study guide takeaway:** A good Git workflow creates evidence. The branch explains the scope, commits explain the change, the pull request records review, CI records verification, and the release artifact identifies exactly what reached production.
 
+## AI-Assisted Development and Git Governance
+
+GenAI coding assistants can explain unfamiliar code, suggest tests, draft release notes, and accelerate refactoring. Vibe coding can help learners explore an idea quickly, but accepting large generated changes without understanding them creates hidden technical and security debt. Keep AI-generated work in the normal Git workflow: review the diff, run tests and scanners, verify licenses and dependencies, and record meaningful intent in commits. Agentic coding tools should receive repository and deployment permissions no broader than their assigned task.
+
 ## Key Takeaways
 
 - Git provides distributed history, integrity, parallel development, and precise control through the working tree, staging area, repositories, and remotes.
@@ -838,3 +844,9 @@ A change log generated only from commit subjects may omit user impact. Release o
 - Reliable releases use immutable artifacts, pinned dependencies, provenance, staged promotion, observability, and tested rollback.
 
 Chapter 5 now applies these disciplined software practices to the network APIs through which automation systems communicate.
+
+## Further Reading and References
+
+- [Pro Git book](https://git-scm.com/book/en/v2) - authoritative Git concepts and workflows.
+- [Semantic Versioning](https://semver.org/) - release-versioning rules.
+- [SLSA framework](https://slsa.dev/) - software supply-chain integrity and provenance.

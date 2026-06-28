@@ -1,6 +1,8 @@
-# Chapter 8: Security in Application Design
+# Chapter 8: Secure Application Design
 
 ## Chapter Introduction
+
+> **Side note:** Encryption, authentication, and authorization solve different problems. A strongly encrypted request can still be unauthorized or malicious.
 
 Security is not a feature that can be added just before release. It influences requirements, architecture, coding, testing, deployment, and operations. A secure application protects information, preserves trustworthy behavior, remains available to authorized users, and produces evidence when something unusual happens.
 
@@ -513,6 +515,10 @@ The following checklist should be applied after these controls are designed.
 
 > **Study guide takeaway:** Security controls work as a system. Identity, authorization, encryption, secret management, input validation, secure delivery, and monitoring reinforce one another. If one control fails, another should still limit the impact.
 
+## AI Security Considerations
+
+ML and GenAI systems expand the attack surface through training data, model artifacts, prompts, retrieval sources, plugins, and tool calls. Protect against data poisoning, model theft, prompt injection, sensitive-data disclosure, insecure output handling, and excessive agency. An agent must never treat model-generated instructions as authorization. Apply least privilege to tools, validate outputs before execution, isolate untrusted content, record decisions, and provide a reliable human override for consequential actions.
+
 ## Key Takeaways
 
 - Confidentiality, integrity, availability, privacy, identity, authorization, and auditing must be designed as complementary controls.
@@ -520,3 +526,9 @@ The following checklist should be applied after these controls are designed.
 - Secure applications mitigate access-control failures, injection, XSS, CSRF, misconfiguration, vulnerable dependencies, and supply-chain threats.
 
 Chapter 9 shifts from application concerns to the infrastructure lifecycle, showing how modern networks are provisioned, managed, and assured.
+
+## Further Reading and References
+
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/) - major web-application security risks.
+- [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) - GenAI-specific risks.
+- [TLS 1.3 - RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) - current TLS protocol definition.

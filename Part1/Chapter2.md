@@ -1,6 +1,8 @@
-# Chapter 2: Software Quality Attributes
+# Chapter 2: Software Quality and Resilience
 
 ## Chapter Introduction
+
+> **Side note:** “Highly available” is not a design specification until the service boundary, measurement period, exclusions, and target are defined.
 
 Functional requirements tell us **what** an application must do. Quality attributes tell us whether the application is good enough to trust in production. A configuration service may eventually deploy the correct commands, but the design is still poor if the change takes an hour, exposes credentials in logs, loses jobs after a worker restart, or collapses when several engineers use it at once.
 
@@ -586,6 +588,10 @@ Recovery planning identifies which side is authoritative, how conflict is resolv
 
 > **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
 
+## AI and Quality Attributes
+
+AI introduces additional quality scenarios. An ML service must be evaluated for predictive quality, drift, latency, data privacy, explainability, and safe fallback when confidence is low. GenAI systems also require controls for hallucination, prompt injection, retrieval quality, and unpredictable token cost. Agentic systems need stricter availability and safety boundaries because they can take actions, not merely produce text. Define measurable thresholds and require deterministic validation before an AI-generated network change reaches production.
+
 ## Key Takeaways
 
 - Quality attributes become useful when they are expressed through measurable scenarios and acceptance thresholds.
@@ -593,3 +599,9 @@ Recovery planning identifies which side is authoritative, how conflict is resolv
 - Scalability, high availability, and resilience require deliberate trade-offs across compute, data, traffic, geography, recovery, and cost.
 
 Chapter 3 builds on these quality goals by showing how architecture, performance engineering, observability, and database selection make them achievable.
+
+## Further Reading and References
+
+- [Google Site Reliability Engineering books](https://sre.google/books/) - availability, reliability, SLO, and incident practices.
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html) - quality trade-offs for cloud systems.
+- [NIST AI RMF Playbook](https://airc.nist.gov/airmf-resources/playbook/) - practical AI risk-management actions.

@@ -1,6 +1,8 @@
-# Chapter 12: Model-Driven Telemetry
+# Chapter 12: Streaming Telemetry and AIOps
 
 ## Chapter Introduction
+
+> **Side note:** Missing telemetry is itself a signal. A dashboard must distinguish a healthy zero from stale or absent data.
 
 Automation needs timely evidence about network state. Model-driven telemetry (MDT) streams structured measurements from devices to collectors, replacing much repetitive polling with efficient subscriptions. This chapter covers push models, sensor paths, transport, storage, visualization, and event-driven operations.
 
@@ -222,6 +224,10 @@ Before selecting a sample interval, estimate detection requirements and data vol
 
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
+## AIOps and AI for Observability
+
+AIOps combines telemetry with topology, incidents, and change history to detect anomalies and rank likely causes. ML baselines should account for seasonality, site role, maintenance, and missing data. GenAI can create incident summaries or natural-language query assistance, but every conclusion should link to source metrics and events. Closed-loop remediation needs confidence thresholds, blast-radius limits, rate limits, rollback, and human escalation when signals disagree.
+
 ## Key Takeaways
 
 - Monitoring-model selection depends on operational purpose, device support, detection delay, bandwidth, scale, retention, and security.
@@ -229,3 +235,9 @@ Before selecting a sample interval, estimate detection requirements and data vol
 - Collectors, queues, time-series databases, dashboards, alerts, and event workflows must be engineered and monitored as production services.
 
 Chapter 13 applies these automation and observability foundations through open-source tools such as Ansible, Terraform, Puppet, and Chef.
+
+## Further Reading and References
+
+- [OpenConfig gNMI specification](https://www.openconfig.net/docs/gnmi/gnmi-specification/) - modeled telemetry and configuration RPCs.
+- [Grafana documentation](https://grafana.com/docs/grafana/latest/) - dashboards and alerting.
+- [InfluxDB documentation](https://docs.influxdata.com/) - time-series ingestion, queries, and retention.

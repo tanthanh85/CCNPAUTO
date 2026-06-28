@@ -1,6 +1,8 @@
-# Chapter 5: Network APIs
+# Chapter 5: Network API Fundamentals
 
 ## Chapter Introduction
+
+> **Side note:** An HTTP 200 response proves protocol success, not necessarily a correct network or business outcome.
 
 An application programming interface (API) is a contract between software systems. It explains what a client may request, how the request must be formatted, what security is required, and what the provider will return. In network automation, APIs replace screen scraping and fragile command sequences with structured access to inventory, topology, operational state, configuration, and controller services.
 
@@ -701,6 +703,10 @@ The workflow uses the controller for inventory ownership, NETCONF for modeled co
 
 > **Study guide takeaway:** Read an unfamiliar API from the outside in: identify the resource, method, headers, representation, status behavior, authentication, and retry semantics before writing client code.
 
+## AI-Ready API Design
+
+AI applications are still API consumers and providers. Model endpoints need explicit schemas, quotas, timeout behavior, streaming semantics, safety metadata, and version identifiers. Retrieval-augmented generation may call inventory, documentation, and telemetry APIs, so access must remain constrained to the requesting user's authorization. Tool descriptions supplied to an agent should be precise and narrow; ambiguous tools increase the risk of an incorrect action. Cache stable embeddings or capability metadata where safe, but do not cache sensitive prompts or user-specific responses without an explicit policy.
+
 ## Key Takeaways
 
 - APIs expose platform capabilities through defined methods, resources, data formats, authentication, and error contracts.
@@ -708,3 +714,9 @@ The workflow uses the controller for inventory ownership, NETCONF for modeled co
 - Idempotency, OpenAPI contracts, and HTTP cache controls improve safety, testability, bandwidth use, and client efficiency.
 
 Chapter 6 moves from understanding API contracts to building resilient clients and providers that handle authentication, scale, and failure correctly.
+
+## Further Reading and References
+
+- [HTTP Semantics - RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) - methods, status codes, and HTTP behavior.
+- [HTTP Caching - RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) - freshness and conditional caching.
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) - machine-readable REST API contracts.

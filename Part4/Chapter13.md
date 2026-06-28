@@ -1,6 +1,8 @@
-# Chapter 13: Open-Source Automation Solutions
+# Chapter 13: Infrastructure as Code Tools
 
 ## Chapter Introduction
+
+> **Side note:** Open source removes a license barrier, not the need for ownership, security review, compatibility testing, and support planning.
 
 Open-source tools make infrastructure definitions reviewable, repeatable, and extensible. This chapter compares infrastructure-as-code models, provisioning and configuration management, agent and agentless designs, and the roles of Puppet, Chef, Ansible, and Terraform in Cisco environments.
 
@@ -284,6 +286,10 @@ Pilot the shortlisted solution with a representative workflow, including failure
 
 > **Study guide takeaway:** IaC makes infrastructure change reviewable and repeatable. Ansible excels at agentless network tasks, Terraform manages declarative API resources and state, while Puppet and Chef continuously converge agent-managed systems.
 
+## AI-Assisted Infrastructure as Code
+
+GenAI can draft Ansible tasks, Terraform resources, tests, and documentation from stated intent. Treat the output as an untrusted starting point: verify module names, provider versions, idempotency, resource ownership, secret handling, and destructive behavior. Vibe coding is useful in a disposable lab, but production IaC requires plans, peer review, policy checks, and canary execution. Agents may open pull requests, but applying infrastructure should remain behind established approval controls.
+
 ## Key Takeaways
 
 - Infrastructure as code can use imperative or declarative models for provisioning and configuration management.
@@ -291,3 +297,9 @@ Pilot the shortlisted solution with a representative workflow, including failure
 - Tool selection should balance technical capability, business requirements, ownership, version control, secrets, testing, drift, and support.
 
 Chapter 14 broadens this tool-level view into software configuration management across requirements, artifacts, releases, audits, and technical debt.
+
+## Further Reading and References
+
+- [Ansible network automation documentation](https://docs.ansible.com/ansible/latest/network/getting_started/index.html) - network modules, inventories, and connections.
+- [Terraform documentation](https://developer.hashicorp.com/terraform/docs) - providers, state, modules, and workflows.
+- [Puppet documentation](https://help.puppet.com/core/current/Content/PuppetCore/puppet_index.htm) - declarative convergence and manifests.

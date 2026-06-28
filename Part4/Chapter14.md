@@ -1,6 +1,8 @@
-# Chapter 14: Software Configuration Management
+# Chapter 14: Configuration and Release Control
 
 ## Chapter Introduction
+
+> **Side note:** If a release cannot be reconstructed from immutable identifiers, its configuration is not fully controlled.
 
 Software configuration management (SCM) controls the many artifacts and decisions that define a software or automation product. It connects requirements, architecture, code, dependencies, infrastructure, testing, releases, and support evidence so a team can explain and reproduce what it delivered.
 
@@ -190,6 +192,10 @@ When an audit finds drift, classify it. Some differences are runtime-generated, 
 
 > **Study guide takeaway:** SCM creates confidence that a release is defined, reproducible, authorized, and traceable. It governs the full product, not just source code.
 
+## Governing AI-Generated Artifacts
+
+AI-generated code, tests, diagrams, requirements, and release notes become configuration items when the team accepts them. Record their source and review status, scan dependencies and licenses, and verify technical claims. Prompt and model versions may also be controlled artifacts when they affect production behavior. Agentic development systems need auditable tool calls and narrow permissions so convenience does not bypass change control.
+
 ## Key Takeaways
 
 - SCM identifies configuration items, establishes baselines, controls change, reports status, and audits delivered products.
@@ -197,3 +203,9 @@ When an audit finds drift, classify it. Some differences are runtime-generated, 
 - Reproducible builds, immutable artifacts, controlled dependencies, documented technical debt, and clear ownership protect long-term maintainability.
 
 Chapter 15 brings these lifecycle controls to edge computing by deploying and operating applications directly on supported Cisco network devices.
+
+## Further Reading and References
+
+- [NIST Secure Software Development Framework](https://csrc.nist.gov/Projects/ssdf) - secure development and configuration controls.
+- [SLSA framework](https://slsa.dev/) - artifact provenance and supply-chain integrity.
+- [Pro Git book](https://git-scm.com/book/en/v2) - version-control foundations for configuration items.

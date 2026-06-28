@@ -48,6 +48,20 @@ Software engineering emphasizes problem decomposition, requirements, architectur
 
 Network automation requires both perspectives. A script may configure one switch successfully, but an engineered application must manage credentials, concurrency, failure, auditability, multiple platforms, and safe recovery across thousands of devices.
 
+### 1.1 From Device Management to Business Services
+
+The progression was not simply a matter of replacing the CLI with Python. Early management systems concentrated on individual components: whether a device was reachable, whether an interface was up, and whether a counter crossed a threshold. Those measurements were useful, but they did not prove that the business service worked. Every router could answer SNMP while users remained unable to work because identity, DNS, firewall policy, or an application dependency had failed.
+
+The FCAPS model organized traditional responsibilities into **fault, configuration, accounting, performance, and security** management. These categories remain relevant, although modern applications combine their data into service workflows. For example, opening a branch is not complete merely because separate router, switch, wireless, firewall, and monitoring tickets have closed. A service workflow coordinates shared data, invokes the appropriate controllers, verifies end-to-end behavior, and records one correlated result.
+
+This shift also changed the NOC. Operators increasingly use APIs, source-of-truth data, event correlation, and automated diagnostics rather than watching isolated alarms. Software skills therefore complement network knowledge; they do not replace the understanding of routing, segmentation, dependencies, and failure domains needed to judge an automated action.
+
+### 1.2 Engineering and Development Responsibilities
+
+Software engineering begins with the problem and its constraints. It identifies stakeholders, quality requirements, risks, system boundaries, and trade-offs before selecting structures and technologies. Software development turns those decisions into code, tests, packages, and observable behavior. The roles overlap in a collaborative team, but the distinction explains why a shared production service requires more than correct syntax.
+
+A one-time inventory script may reasonably remain small. Once it stores credentials, accepts requests, schedules jobs, persists state, and changes devices, decisions about authorization, concurrency, interfaces, deployment, recovery, and support become part of the work. At that point, the script has become a software product.
+
 ## 2. Distributed Application Structure
 
 A distributed application contains components that run in separate processes or systems and communicate over a network. Distribution enables independent scaling, geographic placement, and fault isolation, but it introduces latency, partial failure, data-consistency challenges, and operational complexity.
@@ -140,6 +154,12 @@ Architecture documents:
 - Deployment and operational assumptions
 
 It also provides a shared reference for product owners, developers, security teams, network engineers, and operators. A decision record should explain important choices and alternatives, not merely show the final diagram.
+
+### 3.1 Architectural Views and Decisions
+
+No single diagram can answer every architectural question. A context view shows users and external systems; a deployment view shows services, databases, queues, and controllers; a component view explains internal responsibilities; and a sequence view shows behavior over time. Security and data views add trust boundaries, ownership, classification, and lifecycle. Together, these perspectives serve developers, operators, security reviewers, and business stakeholders without forcing one overloaded picture to do every job.
+
+Architecture also records reasoning. A queue protects an API from slow device operations, but introduces duplicate delivery and backlog management. Microservices support independent deployment, yet add network calls, versioned contracts, and operational overhead. Important choices should be captured in short architecture decision records containing context, options, the selected decision, and consequences. Later teams can then revise a decision with an understanding of the assumptions behind it.
 
 ## 4. Requirements and Constraints
 
@@ -263,6 +283,12 @@ Design identifies components, interfaces, data flow, deployment, security bounda
 
 Testing verifies units, integrations, complete workflows, performance, security, and acceptance criteria. Deployment may use a pilot, canary, rolling, or blue-green approach. Operation includes monitoring, incident response, maintenance, feedback, and improvement.
 
+### 6.4 Deliverables and Feedback
+
+Each lifecycle phase should produce evidence for the next one. Planning defines the problem, scope, stakeholders, and success criteria. Requirements produce testable behavior and quality scenarios. Design produces architecture views, contracts, security controls, and decision records. Implementation produces code, tests, dependency declarations, and build instructions. Testing identifies which requirements were evaluated against which artifact, while deployment records configuration, approvals, migration, and verification.
+
+Operations completes the loop by returning incidents, performance measurements, and user experience to planning. This matters in network automation because a workflow that succeeds in a laboratory may still be too slow across distant sites or difficult to recover during controller failure. Operational evidence should therefore influence the next iteration rather than remain in a separate support system.
+
 ## 7. Development Models
 
 ### 7.1 Waterfall
@@ -317,6 +343,12 @@ Review can involve peers, internal stakeholders, or independent assessors. Findi
 White-box testing uses knowledge of internal implementation. Black-box testing evaluates behavior through public interfaces. Gray-box testing uses partial knowledge.
 
 An automation renderer can be unit-tested with desired-state input and expected configuration output. Integration tests can exercise a device simulator. System tests can run approval, deployment, and validation as one workflow. A limited production canary can confirm behavior against low-risk devices before full rollout.
+
+### 9.2 Reviews and Layered Testing
+
+A professional review considers requirement fit, architectural consistency, correctness, error handling, security, maintainability, performance, and supportability. Network automation adds questions about target scope, idempotency, rate limits, partial failure, rollback, and proof of success. Peer, architecture, security, and stakeholder reviews offer different perspectives and should be used according to change risk.
+
+Testing supplies repeatable evidence. Unit tests isolate calculations and validation; contract tests detect incompatible API changes; integration tests exercise databases, queues, and controller sandboxes; system tests follow the complete workflow; and acceptance tests connect results to user requirements. If a workflow creates a VLAN, one test rejects reserved IDs, another validates the REST payload, another creates the VLAN in a lab, and an end-to-end test confirms client connectivity. A resilience test can then interrupt the response and verify that the workflow finds the existing controller task instead of creating a duplicate.
 
 ## 10. Sequence Diagrams for API Workflows
 

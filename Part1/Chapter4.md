@@ -2,7 +2,9 @@
 
 ## Chapter Purpose
 
-Change is constant in software and network automation. Source code, templates, schemas, infrastructure definitions, documentation, tests, and release metadata all evolve. Version control records those changes so a team can understand what changed, who changed it, why it changed, and how to recover an earlier state.
+Change is constant in software and network automation. Source code changes, but so do device templates, YANG models, schemas, infrastructure definitions, tests, runbooks, and pipeline configuration. Git gives the team a shared history of those changes: what changed, who changed it, why it changed, and how to recover when the result is not what the team expected.
+
+Think of Git as more than a place to store files. It is part of the safety system around production automation. A focused commit supports review. A protected branch prevents unapproved integration. A signed release connects the deployed artifact to tested source. A useful history shortens incident investigation.
 
 This chapter organizes Git around the decisions a professional team must make:
 
@@ -12,6 +14,19 @@ This chapter organizes Git around the decisions a professional team must make:
 4. Choose a branching strategy that matches release needs.
 5. Resolve conflicts and recover from mistakes.
 6. Connect commits to secure, repeatable releases.
+
+```mermaid
+flowchart LR
+    Intent["Issue or change intent"] --> Branch["Focused branch"]
+    Branch --> Commit["Reviewed commits"]
+    Commit --> PR["Pull request and CI"]
+    PR --> Main["Protected main branch"]
+    Main --> Artifact["Signed release artifact"]
+    Artifact --> Deploy["Controlled deployment"]
+    Deploy --> Observe["Operational verification"]
+```
+
+This lifecycle is especially important for network automation because a software defect can be repeated across hundreds of devices faster than a human could make the same mistake manually.
 
 ## 1. Version Control Fundamentals
 
@@ -813,6 +828,8 @@ The pipeline executes untrusted repository content and therefore needs restricte
 Release notes translate commit history into operational impact. They identify added behavior, corrections, security changes, deprecated interfaces, migration steps, known issues, and rollback constraints.
 
 A change log generated only from commit subjects may omit user impact. Release owners curate the information needed by operators and consumers. API and SDK releases should identify compatibility, while network automation releases should identify supported platforms and any change in device behavior.
+
+> **Study guide takeaway:** A good Git workflow creates evidence. The branch explains the scope, commits explain the change, the pull request records review, CI records verification, and the release artifact identifies exactly what reached production.
 
 ## Chapter Summary
 

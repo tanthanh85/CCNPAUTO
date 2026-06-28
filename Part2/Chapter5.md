@@ -2,9 +2,29 @@
 
 ## Chapter Purpose
 
-An application programming interface (API) defines how software accesses another system's data and capabilities. Network APIs allow applications to retrieve inventory, observe operational state, provision services, apply configuration, and integrate controllers with business workflows.
+An application programming interface (API) is a contract between software systems. It explains what a client may request, how the request must be formatted, what security is required, and what the provider will return. In network automation, APIs replace screen scraping and fragile command sequences with structured access to inventory, topology, operational state, configuration, and controller services.
+
+The practical goal of this chapter is to help you look at an API and answer four questions: **What resource am I addressing? What operation am I requesting? What representation will cross the network? How will both sides handle security, failure, and change?**
 
 This chapter develops API concepts from the request-response exchange through REST, RPC, gRPC, OpenAPI, and HTTP caching. Chapter 6 builds on these foundations with client development, authentication, OAuth, pagination, streaming, and resilient error handling.
+
+### Where Network APIs Fit
+
+```mermaid
+flowchart TB
+    Portal["Operations portal or automation script"] --> Gateway["API gateway"]
+    Gateway --> Inventory["Inventory service"]
+    Gateway --> Change["Change service"]
+    Gateway --> Assurance["Assurance service"]
+    Inventory --> Controller["Network controller"]
+    Change --> Controller
+    Assurance --> Controller
+    Controller --> Campus["Campus fabric"]
+    Controller --> WAN["SD-WAN"]
+    Controller --> Cloud["Cloud and data-center network"]
+```
+
+The API gateway provides a stable entry point, while specialized services own inventory, change, and assurance behavior. The controller translates higher-level intent into actions on the underlying infrastructure.
 
 ## 1. API Fundamentals
 
@@ -678,6 +698,8 @@ sequenceDiagram
 ```
 
 The workflow uses the controller for inventory ownership, NETCONF for modeled configuration, REST resource semantics for findings, caching for repeated reads, and push notification for completion.
+
+> **Study guide takeaway:** Read an unfamiliar API from the outside in: identify the resource, method, headers, representation, status behavior, authentication, and retry semantics before writing client code.
 
 ## Chapter Summary
 

@@ -2,13 +2,19 @@
 
 ## Chapter Purpose
 
-Application architecture determines how safely software can change, how efficiently it uses resources, and how quickly operators can understand failure. This chapter connects three concerns that are often treated separately:
+Application architecture affects much more than code organization. It determines how safely the software can change, how efficiently it uses compute and network resources, and how quickly an operations team can understand a failure.
+
+This chapter brings together three concerns that are often discussed separately but behave as one system in production:
 
 - Maintainable design and implementation
 - Latency, throughput, and resource protection
 - Observability and database selection
 
-Network automation provides the operating context because these applications sit directly between user intent and production infrastructure.
+Network automation provides the operating context. These applications sit directly between human intent and production infrastructure, so poor maintainability slows every enhancement, poor performance delays operations, and poor observability turns a small fault into a long incident.
+
+### The Engineering Mindset
+
+When an application is slow, resist the temptation to begin by tuning code. First identify the user-visible symptom and follow the request across the application, database, network path, controller, and device. When a change is difficult, look for hidden coupling and unclear ownership rather than simply adding another conditional branch. Evidence should guide both diagnosis and design.
 
 ## 1. Maintainable Design and Implementation
 
@@ -685,6 +691,8 @@ A production migration should avoid coupling schema activation to one irreversib
 The expand-and-contract sequence adds a new field or table while preserving the old form. New code writes both forms or writes the new form while remaining able to read old data. A background process migrates historical records and verifies counts and checksums. Consumers switch to the new representation. The old structure is removed only after rollback no longer requires it.
 
 Large migrations need rate control so they do not starve production queries. Progress, errors, and remaining volume should be observable. Backups and restoration are verified before destructive change.
+
+> **Study guide takeaway:** Start performance work with a timeline, not a guess. Follow the transaction across code, database, network, controller, and device; then optimize the stage that actually consumes the latency budget.
 
 ## Chapter Summary
 

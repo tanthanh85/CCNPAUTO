@@ -2,7 +2,9 @@
 
 ## Chapter Purpose
 
-API development includes both provider and consumer responsibilities. Providers must design consistent resources, authentication, pagination, limits, and errors. Consumers must validate responses, control retries, preserve user intent, and stop safely when continued execution would be harmful.
+API development has two sides. Providers must publish a consistent, secure, and supportable contract. Consumers must call that contract responsibly, validate what comes back, respect limits, and stop safely when continuing would create more damage.
+
+This chapter approaches API development from the perspective of a network automation engineer. The important question is not simply, “Did the HTTP request work?” It is, “Does the application know what happened, and can it make the next decision safely?” A timeout after a GET is inconvenient. A timeout after a configuration POST may leave the client uncertain whether the device change already started.
 
 This chapter develops API clients and services around four operational concerns:
 
@@ -10,6 +12,24 @@ This chapter develops API clients and services around four operational concerns:
 - Pagination, webhooks, and streaming
 - Python handling for timeouts and rate limits
 - Explicit flow control for unrecoverable REST API errors
+
+### A Resilient Client in Context
+
+```mermaid
+flowchart LR
+    User["Operator or scheduled workflow"] --> Domain["Business workflow"]
+    Domain --> Client["API client / SDK"]
+    Client --> Auth["Token manager"]
+    Client --> Cache["HTTP cache"]
+    Client --> Transport["TLS, timeout, retry policy"]
+    Transport --> API["Controller or service API"]
+    API --> Job["Asynchronous job"]
+    Job --> Network["Network devices"]
+    Network --> Verify["Post-change verification"]
+    Verify --> Domain
+```
+
+The SDK handles protocol mechanics, but the business workflow decides whether to retry, continue with other devices, compensate for partial success, or stop the entire operation.
 
 ## 1. API Clients and SDKs
 
@@ -854,6 +874,8 @@ Client telemetry should record method, normalized endpoint, status class, durati
 Metrics distinguish original calls from retries. Otherwise, a retry storm can look like legitimate demand. Traces create one parent span for the user operation and child spans for each attempt.
 
 An error log should retain provider request ID and local trace ID. These identifiers allow consumer and provider teams to correlate evidence without exchanging credentials or complete payloads.
+
+> **Study guide takeaway:** A production client is a decision-making component. It knows which failures are transient, which operations are safe to repeat, when one item may fail independently, and when the entire workflow must stop.
 
 ## Chapter Summary
 

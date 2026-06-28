@@ -2,9 +2,11 @@
 
 ## Chapter Purpose
 
-Functional requirements describe what an application does. Quality attributes describe how well it performs those functions under defined conditions. A network automation service may correctly deploy a configuration, but it is not a successful design if it takes an hour, exposes credentials, fails when one worker stops, or cannot support the required number of devices.
+Functional requirements tell us **what** an application must do. Quality attributes tell us whether the application is good enough to trust in production. A configuration service may eventually deploy the correct commands, but the design is still poor if the change takes an hour, exposes credentials in logs, loses jobs after a worker restart, or collapses when several engineers use it at once.
 
-This chapter reorganizes software quality into a practical architecture workflow:
+This chapter treats quality as an engineering decision rather than a vague promise. Terms such as *fast*, *secure*, *scalable*, and *highly available* become useful only when they are attached to a workload, an operating condition, an expected response, and a measurable target.
+
+Use the following workflow whenever you review an application design:
 
 1. Define measurable quality scenarios.
 2. Establish priorities and trade-offs.
@@ -12,6 +14,18 @@ This chapter reorganizes software quality into a practical architecture workflow
 4. Plan for scale.
 5. Engineer availability, resilience, and recovery.
 6. Validate the design with evidence.
+
+### A Running Scenario
+
+Imagine a compliance platform that checks 10,000 routers and switches every night. It collects configuration, evaluates policy, and opens remediation jobs for violations. That single workflow raises nearly every quality question in this chapter:
+
+- Can collection finish inside the maintenance window?
+- Can workers scale without overwhelming device management planes?
+- What happens when the database or WAN is unavailable?
+- Can another worker safely resume an interrupted job?
+- Can an operator understand why a device was marked noncompliant?
+
+The design is successful only when those questions have measurable answers.
 
 ## 1. Quality Attributes and Nonfunctional Requirements
 
@@ -569,6 +583,8 @@ flowchart LR
 ```
 
 Recovery planning identifies which side is authoritative, how conflict is resolved, how backlog is limited, and which capabilities remain available during partition. Hybrid availability is not achieved merely by deploying components in two places.
+
+> **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
 
 ## Chapter Summary
 

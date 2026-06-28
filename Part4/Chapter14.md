@@ -100,6 +100,45 @@ flowchart LR
 
 AI-generated code or documentation becomes a configuration item once accepted. It needs the same review, attribution, license checks, security testing, and version control as human-written material.
 
+## 9. Configuration Identification and Naming
+
+SCM starts by identifying exactly what is controlled. Ambiguous names such as `final-config-v2-new` cannot establish lineage. Repositories, modules, releases, artifacts, environments, and deployment targets need stable naming and version rules. Semantic versioning can communicate incompatible, compatible feature, and corrective changes for software libraries, although infrastructure modules may also require environment-specific release conventions.
+
+Every release should be reconstructable from immutable identifiers. A Git tag alone is insufficient if dependency versions float or a container base image tag later points to different content. Record commit IDs, lock files, provider and collection versions, image digests, compiler or runtime versions, and build parameters. Reproducibility makes rollback and forensic investigation significantly more reliable.
+
+Branching strategy should match team size and release cadence. Short-lived feature branches and frequent integration reduce merge risk. Protected main branches, required reviews, and status checks enforce policy. Long-lived environment branches can drift and accumulate difficult merges; promoting an immutable artifact through environment-specific configuration is generally clearer.
+
+## 10. Requirements Traceability in Practice
+
+Consider a requirement that only approved administrators may deploy a branch routing change and that every deployment must be attributable for one year. Architecture translates this into federated identity, role-based authorization, protected repositories, pipeline service identities, signed artifacts, and centralized audit retention. Tests confirm that unauthorized identities cannot deploy and that the record includes requester, approver, artifact, target, timestamp, and result.
+
+This chain illustrates why requirements cannot remain in a forgotten document. A change from one-year to seven-year retention affects storage, access, cost, backup, and privacy. Traceability identifies the systems and tests that must change. It also prevents a developer from “simplifying” an audit field without understanding the compliance reason behind it.
+
+```mermaid
+flowchart LR
+    R["Requirement ID"] --> ADR["Architecture decision"]
+    ADR --> Impl["Implementation item"]
+    Impl --> Test["Automated acceptance test"]
+    Test --> Rel["Release evidence"]
+    Rel --> Oper["Operational control"]
+```
+
+## 11. Managing Environments and Variants
+
+Development, test, staging, and production should use the same artifact wherever possible. Environment-specific values such as controller URLs, site inventories, certificates, capacity, and feature flags belong in governed configuration, not separate code copies. This reduces the possibility that production contains logic never tested elsewhere.
+
+Network platforms also create variants by software release and hardware capability. A module may support IOS XE 17.9 but encounter a different YANG path or API response on another release. Compatibility matrices, automated lab tests, and explicit minimum versions become configuration items. Avoid silently detecting every variation at runtime; unsupported combinations should fail early with a clear explanation.
+
+Configuration data needs schema validation and ownership. A YAML file can be valid YAML while containing an overlapping subnet, invalid ASN, or forbidden VLAN. Formal schemas catch types and ranges, while cross-resource policy checks catch semantic conflicts. Changes to the schema itself require versioning and migration planning.
+
+## 12. Release and Operational Handoff
+
+A release is not complete when a binary or playbook is produced. It should include deployment prerequisites, compatibility, configuration migration, security changes, observability, rollback, known limitations, and support ownership. Operational teams need dashboards and runbooks before the first incident, not after it.
+
+A configuration audit compares the approved baseline with deployed reality. Differences may be authorized emergency changes, platform-generated state, or genuine drift. The process should classify the difference instead of automatically overwriting it. After an emergency, reconcile the approved source, verify the final state, and close the temporary exception.
+
+SCM metrics should encourage quality rather than paperwork. Useful signals include lead time, deployment failure rate, rollback frequency, unplanned drift, time to reconstruct a release, dependency age, and percentage of requirements linked to tests. These measures reveal weaknesses in the system while leaving teams room to improve the process.
+
 > **Study guide takeaway:** SCM creates confidence that a release is defined, reproducible, authorized, and traceable. It governs the full product, not just source code.
 
 ## Chapter Summary

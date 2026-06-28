@@ -143,6 +143,47 @@ A strong edge use case benefits from low latency, local autonomy, bandwidth redu
 
 AI inference at the edge can classify events without sending raw data centrally, but model size, accelerator availability, power, privacy, update integrity, and drift monitoring must be considered. Training generally belongs on centralized compute; the edge is better suited to bounded inference.
 
+## 11. Edge Architecture and Failure Behavior
+
+The main architectural advantage of edge computing is not simply geographical proximity; it is the ability to make a useful decision inside the local failure domain. A manufacturing gateway can continue translating sensor protocols and enforcing safe thresholds when the WAN is unavailable. A retail application can buffer transactions locally and synchronize when connectivity returns. The application must therefore define which operations are safe offline, how long data may be buffered, how conflicts are resolved, and what happens when local storage reaches its limit.
+
+Local autonomy also creates distributed-state challenges. Hundreds of sites may run different application versions, certificate generations, or cached policy if fleet management is weak. Desired state should identify the image digest, configuration version, resource allocation, and certificate profile for every deployment group. Devices report actual state, allowing the manager to detect drift and stage remediation.
+
+```mermaid
+flowchart TD
+    Desired["Fleet desired state"] --> Compare["Compare reported app state"]
+    Report["Version, health, resources, certificate age"] --> Compare
+    Compare -->|compliant| Observe["Continue monitoring"]
+    Compare -->|drift| Risk["Classify risk and connectivity"]
+    Risk --> Canary["Update canary device"]
+    Canary --> Verify["Verify app and host health"]
+    Verify --> Rollout["Roll out in bounded groups"]
+```
+
+## 12. Packaging and Platform Compatibility
+
+Container portability has limits. An image built for x86-64 will not run on an ARM target unless a corresponding image is built. Kernel features, device access, storage drivers, and runtime versions also differ. Multi-architecture build pipelines can produce platform-specific images under one manifest, but each target still requires testing.
+
+IOx applications may use Cisco packaging metadata to declare resources, startup behavior, networking, and application properties. Docker images for supported Catalyst application hosting must comply with platform requirements and be transferred in a supported form. The exact workflow varies across IOS XE releases, which is why a deployment system should maintain a platform compatibility matrix rather than assume one package works everywhere.
+
+Persistent data must be treated separately from the replaceable image. An upgrade should not unexpectedly destroy buffered telemetry, databases, or locally issued certificates. At the same time, unlimited persistent data can fill device storage and affect the host. Define quotas, retention, export, backup, and cleanup behavior explicitly.
+
+## 13. Operational Troubleshooting
+
+Troubleshooting proceeds from host to runtime to application to network. First confirm that the platform supports application hosting and has sufficient resources. Then inspect installation, activation, and running state. Review application logs and exit status. Finally, test the AppGigabitEthernet path, VLAN or routing, DNS, NTP, TLS trust, firewall policy, and remote-service reachability.
+
+A container can be running while the service is unusable. Health checks should verify meaningful dependencies without becoming destructive or overly expensive. A liveness check determines whether the process should restart. A readiness check determines whether it should receive traffic. If the application depends on a central API, decide whether temporary API failure should make the local application unready or whether degraded offline behavior remains useful.
+
+Resource exhaustion requires correlation. High application CPU may be legitimate processing, an application defect, or hostile input. Storage growth may come from buffered events or uncontrolled logs. Monitor the network device control plane and forwarding health alongside the container so operators can stop the workload before it threatens the primary network function.
+
+## 14. Secure Fleet Lifecycle
+
+Supply-chain controls begin before deployment. The pipeline should build from approved base images, pin dependencies, scan code and packages, generate an SBOM, sign the image, and publish it to a controlled registry. The deployment platform verifies provenance and digest before installation. Runtime configuration supplies environment-specific endpoints and short-lived secrets.
+
+Patch policy must account for intermittently connected sites. Critical updates may need staged distribution and local scheduling. Certificate rotation should begin well before expiration and tolerate temporary clock or WAN issues without disabling identity validation. When a device or application is retired, revoke credentials, remove it from fleet inventory, export required evidence, and securely erase sensitive data.
+
+Rollbacks should use a previously approved immutable image and compatible configuration. Database or data-format migrations can make rollback impossible unless the application supports backward compatibility or preserves a recovery snapshot. This is another reason to test upgrade and rollback as a pair rather than treating rollback as a line in a runbook.
+
 > **Study guide takeaway:** Application hosting turns a network platform into a carefully shared edge-compute environment. Success depends on selecting the right workload and protecting the device's primary networking responsibility through isolation, resource limits, secure images, and fleet lifecycle management.
 
 ## Chapter Summary

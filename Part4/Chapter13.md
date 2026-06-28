@@ -134,6 +134,51 @@ The best choice depends on APIs, state ownership, team skills, scale, failure be
 
 Cisco-supported and community collections and providers cover IOS, IOS XE, NX-OS, IOS XR, ACI, Meraki, Intersight, and other platforms. Test compatibility against exact software and collection/provider versions. A lab or digital twin should exercise plans before production.
 
+## 10. Structuring an Ansible Network Project
+
+A maintainable Ansible repository separates inventory, group variables, host exceptions, roles, playbooks, templates, and tests. Grouping devices only by platform is rarely enough. A switch may inherit values from its environment, region, site, role, and software family. The hierarchy should remain understandable so an engineer can explain the final value without tracing dozens of overrides.
+
+Roles package related defaults, tasks, handlers, templates, and documentation. A campus-access role might manage AAA, NTP, logging, telemetry, interface defaults, and controller reachability. Site-specific data supplies server addresses and local prefixes, while the role supplies behavior. This separation allows the same tested implementation to serve many sites without copying playbooks.
+
+Ansible network connections are persistent enough to execute modules efficiently but are not resident agents. `network_cli` interacts through the CLI, `netconf` uses structured NETCONF operations, and `httpapi` supports platform APIs. The collection and module determine the correct connection. Raw command modules are valuable for diagnostics or unsupported features, but structured resource modules provide stronger idempotency and parsed state.
+
+```mermaid
+flowchart TB
+    Repo["Automation repository"] --> Inv["Inventories"]
+    Repo --> Vars["Group and host variables"]
+    Repo --> Roles["Reusable roles"]
+    Repo --> Tests["Lint and integration tests"]
+    Inv & Vars & Roles --> Play["Environment playbook"]
+    Play --> Batch["Serial device batches"]
+    Batch --> Verify["Assertions and service tests"]
+```
+
+Templates should contain presentation logic, not an undocumented policy engine. Calculate and validate intended values before rendering Jinja. Compare generated configuration with known examples, and make whitespace deterministic. If a template can remove configuration, show the proposed difference and require an appropriate approval boundary.
+
+## 11. Puppet, Chef, and Convergence
+
+Puppet compiles a catalog describing the resources a node should contain. The agent applies the catalog and reports changes to the server. This pull-oriented convergence is useful when nodes must continuously correct drift, even if an operator is not running a central job. Certificates establish trust between agents and the Puppet infrastructure, so certificate lifecycle and server availability become operational dependencies.
+
+Chef uses cookbooks, recipes, resources, attributes, and node data to define convergence. Although recipe code looks imperative, resources aim to be idempotent. In both systems, custom extensions add power but also increase the testing and maintenance burden. A module downloaded from a public community should be reviewed, version-pinned, and scanned like any other software dependency.
+
+Network equipment often favors agentless operation because the network OS exposes supported management interfaces but does not permit an arbitrary long-running agent. A proxy or controller can still integrate an agent-oriented platform with network APIs. The design question is not whether one model is universally better; it is where convergence logic runs, how it authenticates, and what happens when the control service is unreachable.
+
+## 12. Terraform Planning and State Discipline
+
+Terraform builds a dependency graph from resource references. During planning, it refreshes known remote state, compares it with configuration, and proposes create, update, replace, or destroy actions. Replacement deserves careful review because an apparently small attribute change may force recreation of a network resource and all dependent relationships.
+
+Modules provide reusable abstractions. An ACI application-profile module can accept tenant, VRF, bridge-domain, EPG, and contract intent while hiding repeated resource wiring. However, a module should not hide destructive behavior or expose dozens of loosely related options. Version modules semantically and provide migration guidance when resource addresses change.
+
+Import can bring an existing remote object under Terraform state, but importing does not automatically create complete configuration. The engineer must write configuration that matches the object and inspect the resulting plan until Terraform proposes no unintended change. Moving or renaming resource addresses should use supported state-move mechanisms rather than destroy and recreate.
+
+Remote backends, state locking, encryption, narrow access, and separated environments are essential for teams. A production apply should use the reviewed plan artifact when the workflow supports it, ensuring that approval and execution refer to the same proposed changes. Secrets marked sensitive may be hidden from console output yet still exist in state, so the state store remains confidential.
+
+## 13. Open-Source Governance
+
+Tool selection should examine release cadence, maintainer activity, vulnerability response, documentation, test quality, license, extension ecosystem, and backward compatibility. Establish an internal ownership model even when community support is excellent. Someone must approve upgrades, test Cisco release compatibility, respond to security advisories, and maintain custom modules.
+
+An internal registry or mirror can preserve approved Ansible collections, Terraform providers, Puppet modules, container images, and Python packages. Pinning versions makes builds reproducible, while a controlled update process prevents pinning from becoming permanent neglect. Software composition analysis and a software bill of materials help identify exposure when a dependency vulnerability is announced.
+
 > **Study guide takeaway:** IaC makes infrastructure change reviewable and repeatable. Ansible excels at agentless network tasks, Terraform manages declarative API resources and state, while Puppet and Chef continuously converge agent-managed systems.
 
 ## Chapter Summary

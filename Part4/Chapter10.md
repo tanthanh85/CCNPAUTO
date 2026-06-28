@@ -131,6 +131,63 @@ Automation should follow change policy without recreating slow manual bureaucrac
 
 AI-assisted development can explain APIs, generate tests, and identify patterns in failures. Treat generated code as untrusted until reviewed and tested; never send production secrets or sensitive configurations to an unapproved model.
 
+## 10. Designing Reliable Automation Logic
+
+Reliable automation begins by separating intent from execution. Intent describes the outcome, such as “all access switches at Site 21 must provide the voice VLAN on authenticated phone ports.” Execution determines which controller or device APIs are required. When these concerns are mixed, a change in platform syntax forces business logic to be rewritten. A cleaner design validates the request, resolves inventory and policy, creates a normalized desired state, and then delegates platform-specific translation to adapters.
+
+Input validation must occur before a connection is opened to a device. Validate IP prefixes, VLAN ranges, interface identities, site ownership, allowed software versions, and mutually exclusive options. Schema tools can verify shape and type, while policy checks verify meaning. A syntactically valid request for VLAN 1 on every trunk may still violate organizational policy. Validation errors are unrecoverable until input changes, whereas a controller returning HTTP 503 may be transient. This distinction controls whether the workflow stops, retries, or requests human action.
+
+```mermaid
+flowchart TD
+    Request["Service request"] --> Schema{"Schema valid?"}
+    Schema -->|no| Reject["Reject with actionable error"]
+    Schema -->|yes| Policy{"Policy and ownership valid?"}
+    Policy -->|no| Reject
+    Policy -->|yes| Current["Read current state"]
+    Current --> Diff["Calculate intended difference"]
+    Diff --> Risk{"Within automated risk boundary?"}
+    Risk -->|no| Review["Require engineering approval"]
+    Risk -->|yes| Apply["Apply bounded change"]
+    Review --> Apply
+    Apply --> Verify["Verify technical and service outcomes"]
+```
+
+Idempotency is particularly important when a worker crashes after sending a request but before recording the response. If an API supports client-generated idempotency keys, use them. Otherwise, read current state before retrying and determine whether the resource already exists. For a non-idempotent operation such as triggering a software upgrade, a blind retry may start a second job or collide with the first. Persist the remote task identifier and poll its documented status endpoint.
+
+## 11. Error Classification and Recovery
+
+Automation should produce an error taxonomy rather than one generic “failed” result. Authentication failures normally require credential or identity correction. Authorization failures require scope or role review. Validation failures require new input. Rate-limit responses require waiting for `Retry-After` or applying exponential backoff. Server errors may be transient, but repeated errors should open a circuit breaker so the workflow does not overwhelm a degraded controller.
+
+Partial failure is the harder case. Imagine an orchestration workflow that reserves an address, creates a fabric segment, and then fails to create firewall policy. Deleting the segment may be safe if no endpoint has attached, but releasing the address while a delayed controller task still references it may be unsafe. Each stage should therefore define a compensating action and the conditions under which it is permitted. When safe rollback cannot be proven, stop, preserve evidence, and escalate rather than attempting increasingly speculative repairs.
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+
+class ResultType(Enum):
+    SUCCESS = "success"
+    RETRYABLE = "retryable"
+    INPUT_ERROR = "input_error"
+    AUTH_ERROR = "auth_error"
+    PARTIAL = "partial"
+
+@dataclass
+class StepResult:
+    kind: ResultType
+    message: str
+    remote_task_id: str | None = None
+```
+
+Structured results make pipeline decisions explicit and testable. They also improve operational reporting because engineers can distinguish a malformed request from infrastructure unavailability.
+
+## 12. Testing Network Automation
+
+Unit tests should cover transformations, validation, and error decisions without connecting to equipment. Contract tests confirm that code still understands the API schema. Integration tests exercise a sandbox controller or virtual lab. Finally, pre- and post-change tests verify behavior on the target scope. For a routing change, checking that the configuration line exists is insufficient; validate adjacency state, route installation, path selection, and representative reachability.
+
+Mocks are useful but can make tests unrealistically successful. Record sanitized API responses for important edge cases, and deliberately test timeouts, malformed bodies, empty result sets, pagination, duplicate resources, asynchronous failures, and rollback. A canary deployment to one noncritical site provides another feedback layer before a broad rollout.
+
+Observability should use correlation identifiers carried from the originating request through API calls, device jobs, and verification. Logs must avoid tokens and passwords but include resource IDs, controller task IDs, timing, retry count, and the decision that caused a workflow to stop. Metrics such as success rate, change duration, retry frequency, rollback rate, and verification failure reveal whether the automation system is genuinely improving operations.
+
 > **Study guide takeaway:** Enterprise automation combines APIs, reliable software practices, and operational safeguards. The goal is not maximum change speed; it is predictable change with fast feedback and controlled risk.
 
 ## Chapter Summary

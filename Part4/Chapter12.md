@@ -116,6 +116,39 @@ flowchart LR
 
 AI can assist anomaly detection and correlation, but baselines must account for scheduled changes and normal seasonality. Automated remediation should be narrow, rate-limited, reversible, and disabled when evidence is incomplete.
 
+## 10. Designing Subscriptions for Operational Questions
+
+Telemetry design should begin with a decision the operations team must make. If the objective is capacity planning, five-minute aggregated utilization may be sufficient. If the objective is detecting microbursts or queue congestion, that interval hides the event, and hardware-specific queue measurements may be necessary. Conversely, collecting every available path every second creates expense without automatically creating insight. The engineer must connect the symptom, metric, sampling behavior, threshold, and response.
+
+A useful interface subscription often combines counters with context. Octets alone cannot distinguish normal backup traffic from congestion. Interface speed permits utilization calculation, discards reveal pressure, errors suggest physical problems, and operational state shows transitions. Topology and service metadata identify whether the link is an access port, WAN circuit, fabric connection, or redundant member. Enrichment can occur at collection time, but stable labels should come from an authoritative inventory.
+
+Counters require transformation. A cumulative octet counter becomes a rate by subtracting two samples and dividing by elapsed time. The consumer must handle counter rollover, device reload, interface reset, missing samples, and irregular timestamps. Device timestamps and collector arrival times should not be confused; reliable NTP is fundamental to event correlation.
+
+## 11. Platform and Subscription Considerations
+
+Cisco IOS XE, IOS XR, and NX-OS support telemetry through platform-specific configuration and overlapping protocols. The concepts remain consistent - destination, sensor path, subscription, encoding, and update policy - but syntax and path availability differ. Therefore, a cross-platform collector should normalize data after preserving the original device, path, timestamp, and subscription identifiers. Normalization that discards source context makes troubleshooting difficult.
+
+Dial-out configuration usually binds a destination group and sensor group to a subscription. The destination defines collector address, port, protocol, encoding, and security. The sensor group defines one or more modeled paths. The subscription joins them and specifies an update policy. Before broad deployment, test that the receiver decodes the selected encoding and that the device reports the intended keys and values.
+
+With gNMI, a collector can use `Get` for a snapshot and `Subscribe` for streaming updates. Subscription modes can include once, poll, or stream; stream behavior can further use sample or on-change semantics. gNMI paths are modeled and can carry JSON_IETF or protobuf representations depending on implementation. Do not assume that support for gNMI implies support for every OpenConfig path.
+
+## 12. Storage, Retention, and Data Quality
+
+Time-series storage must be planned as a lifecycle. High-resolution raw data supports immediate troubleshooting but becomes expensive over months. Downsampling can retain five-minute minimum, maximum, average, and percentile values after raw samples expire. Fault investigations may require longer retention for selected critical metrics, while privacy or regulatory policy may limit storage of user-associated telemetry.
+
+Data quality should be observable. Record gaps, late arrivals, duplicates, schema changes, and decoding failures. When a device upgrade changes a path or field type, a dashboard should not silently become empty. Schema compatibility tests and canary upgrades can detect this condition before an entire fleet moves to the new release.
+
+```mermaid
+flowchart LR
+    Raw["High-resolution raw stream"] --> Hot["Short-term hot storage"]
+    Hot --> Downsample["Aggregate and downsample"]
+    Downsample --> Long["Long-term trend storage"]
+    Hot --> Incident["Detailed incident investigation"]
+    Long --> Capacity["Capacity and seasonal analysis"]
+```
+
+Alerting must account for missing data. “No updates received” can indicate a failed link, device reload, collector failure, certificate expiry, or a broken subscription. It is a separate signal from a healthy zero value. Monitoring the telemetry pipeline and attaching confidence to derived conclusions prevents false certainty.
+
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
 ## Chapter Summary

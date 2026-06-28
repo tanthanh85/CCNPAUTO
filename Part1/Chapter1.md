@@ -2,29 +2,15 @@
 
 ## Chapter Introduction
 
-> **Side note:** Treat an automation script as a software product as soon as other people or production systems depend on it.
-
 Network automation starts with code, but useful automation quickly grows beyond a script. The moment several engineers depend on it, the software needs requirements, interfaces, security controls, testing, state management, and a reliable delivery process. This chapter explains those foundations in the language of network operations.
 
-As you work through the chapter, follow one central question: **How does an operator's intent become a safe, observable change in the network?** The answer connects front-end applications, APIs, job queues, workers, databases, controllers, and network devices. Later chapters build on this foundation by examining software quality, performance, observability, Git, and API development in more depth.
-
-### How to Study This Chapter
-
-Do not memorize architecture terms in isolation. For each concept, connect it to a familiar operational task such as collecting interface state, deploying an access list, or onboarding a branch. Ask where state is stored, what can fail, how the failure is detected, and whether retrying the operation is safe.
+As you work through the chapter, follow one central question: **How does an operator's intent become a safe, observable change in the network?** The answer connects front-end applications, APIs, job queues, workers, databases, controllers, and network devices.
 
 ## 1. From Network Management to Software-Driven Operations
 
 Early enterprise networks were managed one device at a time. An administrator connected to a router or switch, entered commands, checked the result, and repeated the process on the next device. That approach was workable for a small environment, but it became slow and risky as networks grew. Two engineers could perform the same task differently, and even a small typing mistake could create an outage.
 
-The adoption of the Simple Network Management Protocol (SNMP) introduced a standard relationship between agents on managed devices and central managers. Network management systems could collect status and performance data across many devices. The ISO FCAPS model further organized management responsibilities:
-
-| Area | Responsibility |
-|---|---|
-| Fault | Detect, isolate, report, and correct failures |
-| Configuration | Control and record device and service configuration |
-| Accounting | Measure resource use and support allocation or billing |
-| Performance | Observe and optimize behavior and capacity |
-| Security | Control access and protect management information |
+The adoption of the Simple Network Management Protocol (SNMP) introduced a standard relationship between agents on managed devices and central managers. Network management systems could collect status and performance data across many devices.
 
 Virtualization then separated logical functions from dedicated hardware. Servers, routers, firewalls, and load balancers could be represented and controlled through software. APIs exposed those functions to automation, while software-defined networking separated control decisions from packet forwarding.
 
@@ -517,7 +503,7 @@ Defense in depth assumes one control can fail. Even after the UI hides a button,
 
 > **Study guide takeaway:** When evaluating an automation design, trace one change from user intent to post-change verification. If you cannot identify the owner of state, the trust boundaries, the failure path, and the evidence of success, the design is not yet complete.
 
-## AI in Modern Software Design
+## 18. AI in Modern Software Design
 
 Machine learning adds data preparation, feature quality, model evaluation, drift, and retraining to the normal software lifecycle. Generative AI can accelerate design exploration, documentation, tests, and code scaffolding, while agentic AI can plan and invoke tools across several steps. These capabilities do not remove architecture or review: generated code, tool permissions, model output, and retrieved context require validation, observability, and clear human-approval boundaries. “Vibe coding” is useful for fast prototypes, but production network automation still needs explicit requirements, tests, least privilege, and reproducible releases.
 

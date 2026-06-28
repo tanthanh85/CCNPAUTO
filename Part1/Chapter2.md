@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** “Highly available” is not a design specification until the service boundary, measurement period, exclusions, and target are defined.
-
 Functional requirements tell us **what** an application must do. Quality attributes tell us whether the application is good enough to trust in production. A configuration service may eventually deploy the correct commands, but the design is still poor if the change takes an hour, exposes credentials in logs, loses jobs after a worker restart, or collapses when several engineers use it at once.
 
 This chapter treats quality as an engineering decision rather than a vague promise. Terms such as *fast*, *secure*, *scalable*, and *highly available* become useful only when they are attached to a workload, an operating condition, an expected response, and a measurable target.
@@ -588,7 +586,7 @@ Recovery planning identifies which side is authoritative, how conflict is resolv
 
 > **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
 
-## AI and Quality Attributes
+## 16. AI and Quality Attributes
 
 AI introduces additional quality scenarios. An ML service must be evaluated for predictive quality, drift, latency, data privacy, explainability, and safe fallback when confidence is low. GenAI systems also require controls for hallucination, prompt injection, retrieval quality, and unpredictable token cost. Agentic systems need stricter availability and safety boundaries because they can take actions, not merely produce text. Define measurable thresholds and require deterministic validation before an AI-generated network change reaches production.
 

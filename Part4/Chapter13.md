@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Open source removes a license barrier, not the need for ownership, security review, compatibility testing, and support planning.
-
 Open-source tools make infrastructure definitions reviewable, repeatable, and extensible. This chapter compares infrastructure-as-code models, provisioning and configuration management, agent and agentless designs, and the roles of Puppet, Chef, Ansible, and Terraform in Cisco environments.
 
 ## 1. Infrastructure as Code
@@ -285,10 +283,6 @@ Use a weighted decision matrix rather than selecting by popularity. For a hetero
 Pilot the shortlisted solution with a representative workflow, including failure and recovery. Measure time to implement, plan clarity, idempotency, scale, debugging, upgrade compatibility, and operational handoff. The correct result can be a governed toolchain rather than one universal tool.
 
 > **Study guide takeaway:** IaC makes infrastructure change reviewable and repeatable. Ansible excels at agentless network tasks, Terraform manages declarative API resources and state, while Puppet and Chef continuously converge agent-managed systems.
-
-## AI-Assisted Infrastructure as Code
-
-GenAI can draft Ansible tasks, Terraform resources, tests, and documentation from stated intent. Treat the output as an untrusted starting point: verify module names, provider versions, idempotency, resource ownership, secret handling, and destructive behavior. Vibe coding is useful in a disposable lab, but production IaC requires plans, peer review, policy checks, and canary execution. Agents may open pull requests, but applying infrastructure should remain behind established approval controls.
 
 ## Key Takeaways
 

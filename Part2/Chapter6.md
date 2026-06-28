@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** A retry policy is part of application behavior. Retrying an unsafe operation can duplicate work or widen an outage.
-
 API development has two sides. Providers must publish a consistent, secure, and supportable contract. Consumers must call that contract responsibly, validate what comes back, respect limits, and stop safely when continuing would create more damage.
 
 This chapter approaches API development from the perspective of a network automation engineer. The important question is not simply, “Did the HTTP request work?” It is, “Does the application know what happened, and can it make the next decision safely?” A timeout after a GET is inconvenient. A timeout after a configuration POST may leave the client uncertain whether the device change already started.
@@ -878,10 +876,6 @@ Metrics distinguish original calls from retries. Otherwise, a retry storm can lo
 An error log should retain provider request ID and local trace ID. These identifiers allow consumer and provider teams to correlate evidence without exchanging credentials or complete payloads.
 
 > **Study guide takeaway:** A production client is a decision-making component. It knows which failures are transient, which operations are safe to repeat, when one item may fail independently, and when the entire workflow must stop.
-
-## GenAI and Agentic API Clients
-
-GenAI can translate user intent into structured API parameters, while an agent can select and call several tools to complete a workflow. The application must validate every generated argument against a schema and authorization policy before execution. Separate planning from action, use allowlisted tools, limit iteration and cost, preserve tool-call evidence, and require approval for high-impact network changes. Prompt injection in retrieved API data must never be allowed to override system policy or grant additional permissions.
 
 ## Key Takeaways
 

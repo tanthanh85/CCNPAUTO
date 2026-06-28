@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Encryption, authentication, and authorization solve different problems. A strongly encrypted request can still be unauthorized or malicious.
-
 Security is not a feature that can be added just before release. It influences requirements, architecture, coding, testing, deployment, and operations. A secure application protects information, preserves trustworthy behavior, remains available to authorized users, and produces evidence when something unusual happens.
 
 This chapter explains privacy, secrets, public key infrastructure (PKI), TLS, browser and mobile security, common web vulnerabilities, and OAuth. Cisco-oriented scenarios connect these ideas to controllers, network automation services, CI/CD systems, and device credentials.
@@ -515,11 +513,11 @@ The following checklist should be applied after these controls are designed.
 
 > **Study guide takeaway:** Security controls work as a system. Identity, authorization, encryption, secret management, input validation, secure delivery, and monitoring reinforce one another. If one control fails, another should still limit the impact.
 
-## AI Security Considerations
+## 20. Security Risks in AI Network Automation
 
-ML and GenAI systems expand the attack surface through training data, model artifacts, prompts, retrieval sources, plugins, and tool calls. Protect against data poisoning, model theft, prompt injection, sensitive-data disclosure, insecure output handling, and excessive agency. An agent must never treat model-generated instructions as authorization. Apply least privilege to tools, validate outputs before execution, isolate untrusted content, record decisions, and provide a reliable human override for consequential actions.
+The controls discussed earlier in this chapter also apply to AI-enabled automation, but the introduction of models, retrieval, and tool use creates additional trust boundaries. ML and GenAI systems expand the attack surface through training data, model artifacts, prompts, retrieval sources, plugins, and tool calls. Therefore, an agent must never treat model-generated instructions as authorization. Tools should use least privilege, outputs should be validated before execution, untrusted content should be isolated, and consequential actions should retain a reliable human override.
 
-### Interpreting Risk in an AI Network-Automation Solution
+### 20.1 Interpreting Risk in an AI Network-Automation Solution
 
 Consider a conversational assistant that reads network telemetry and configurations, uses a retrieval system for runbooks, and can call Catalyst Center and RESTCONF tools. The assistant proposes a remediation and, after user confirmation, applies it. A security review should trace data and trust boundaries rather than focus only on the model.
 
@@ -534,7 +532,7 @@ flowchart LR
     Agent --> Logs["Prompts, tool calls, and audit logs"]
 ```
 
-The solution contains several distinct risks:
+Following the data flow reveals several distinct risks:
 
 - **Prompt injection:** A retrieved ticket, interface description, or runbook can contain instructions that attempt to override policy. Treat retrieved content as untrusted data, separate it from system instructions, and never let it grant permissions.
 - **Excessive agency:** A broadly privileged configuration tool can turn one mistaken recommendation into a network-wide outage. Separate read and write tools, restrict target scope, require change plans and approval, and impose rate and blast-radius limits.

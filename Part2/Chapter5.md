@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** An HTTP 200 response proves protocol success, not necessarily a correct network or business outcome.
-
 An application programming interface (API) is a contract between software systems. It explains what a client may request, how the request must be formatted, what security is required, and what the provider will return. In network automation, APIs replace screen scraping and fragile command sequences with structured access to inventory, topology, operational state, configuration, and controller services.
 
 The practical goal of this chapter is to help you look at an API and answer four questions: **What resource am I addressing? What operation am I requesting? What representation will cross the network? How will both sides handle security, failure, and change?**
@@ -702,10 +700,6 @@ sequenceDiagram
 The workflow uses the controller for inventory ownership, NETCONF for modeled configuration, REST resource semantics for findings, caching for repeated reads, and push notification for completion.
 
 > **Study guide takeaway:** Read an unfamiliar API from the outside in: identify the resource, method, headers, representation, status behavior, authentication, and retry semantics before writing client code.
-
-## AI-Ready API Design
-
-AI applications are still API consumers and providers. Model endpoints need explicit schemas, quotas, timeout behavior, streaming semantics, safety metadata, and version identifiers. Retrieval-augmented generation may call inventory, documentation, and telemetry APIs, so access must remain constrained to the requesting user's authorization. Tool descriptions supplied to an agent should be precise and narrow; ambiguous tools increase the risk of an incorrect action. Cache stable embeddings or capability metadata where safe, but do not cache sensitive prompts or user-specific responses without an explicit policy.
 
 ## Key Takeaways
 

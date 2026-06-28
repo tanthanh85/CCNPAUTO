@@ -350,38 +350,13 @@ sequenceDiagram
 
 The diagram reveals design questions: whether submission is idempotent, how long authentication may take, what happens when the device commits but the worker loses connectivity, how duplicate delivery is handled, and which identifiers connect telemetry across participants.
 
-## 11. AI in Modern Application Development
-
-AI assists developers with code explanation, test scaffolding, documentation, refactoring suggestions, incident summarization, and natural-language interfaces. AI-enabled network applications can correlate telemetry, retrieve approved procedures, identify anomalies, and produce candidate remediation plans.
-
-Model output is probabilistic. It can be convincing and wrong. Generated code must pass the same review, testing, security, and licensing controls as human-written code. Sensitive source, configurations, credentials, and customer data must remain within approved systems.
-
-For production automation, probabilistic reasoning should be separated from deterministic execution:
-
-```mermaid
-flowchart LR
-    Intent["Engineer intent"] --> AI["AI assistant"]
-    Knowledge["Approved inventory, telemetry, and documentation"] --> AI
-    AI --> Proposal["Structured proposal"]
-    Proposal --> Validate["Schema and policy validation"]
-    Validate --> Lab["Simulation or lab test"]
-    Lab --> Approval["Human approval"]
-    Approval --> Engine["Deterministic automation engine"]
-    Engine --> Devices["Production devices"]
-    Devices --> Verify["Post-change verification"]
-```
-
-Retrieval-augmented generation can ground the model in approved enterprise knowledge. Tool-using agents should receive narrow permissions, validated inputs, output limits, and complete audit logging. Read-only diagnostic tools should be separated from mutation tools.
-
-AI systems need evaluation beyond normal availability and latency. Teams should measure task success, factual grounding, unsafe output, tool-call rejection, human correction, model cost, and behavior across model or prompt changes.
-
-## 12. Requirements Engineering in Practice
+## 11. Requirements Engineering in Practice
 
 Requirement discovery is iterative. Stakeholders often describe a desired feature without identifying data ownership, failure behavior, authorization, scale, or operational impact. The development team turns that broad intent into a collection of testable statements.
 
 A useful discovery sequence begins with the business outcome and identifies actors, triggers, inputs, normal behavior, alternate behavior, outputs, and downstream effects. A request to “automate branch deployment” expands into questions about inventory source, device identity, address allocation, controller availability, approval, retries, rollback, and evidence of success.
 
-### 12.1 Requirement Categories
+### 11.1 Requirement Categories
 
 Business requirements explain why the system exists. User requirements describe results that operators and consumers need. Administrative requirements cover identity, policy, audit, retention, and routine support. System requirements identify software, hardware, interface, and protocol behavior.
 
@@ -398,7 +373,7 @@ A single requirement should address one behavior and should identify the respons
 
 Negative requirements are equally important. A network change service shall not deploy an unapproved candidate, reveal credentials, continue after failed prechecks, or apply a template to an unsupported platform.
 
-### 12.2 Traceability
+### 11.2 Traceability
 
 Traceability connects a business need to requirements, design elements, code, tests, and release evidence. When a security policy changes, the team can identify affected interfaces and tests. When a test fails, the team can identify the requirement at risk.
 
@@ -411,7 +386,7 @@ Traceability connects a business need to requirements, design elements, code, te
 | Verification | Contract, integration, performance, and rollback tests |
 | Operational evidence | Job events, configuration diff, post-change validation |
 
-## 13. Architecture Documentation and Decision-Making
+## 12. Architecture Documentation and Decision-Making
 
 No single diagram can describe an entire architecture. Teams need views suited to different questions:
 
@@ -425,7 +400,7 @@ Architecture decision records capture a decision, context, alternatives, consequ
 
 Documentation must evolve with the implementation. A stale architecture diagram is worse than a visibly incomplete one because it creates false confidence. Automated generation can help inventory deployed components, but it does not replace explanations of intent and trade-offs.
 
-## 14. Testing Strategy Across the Delivery Lifecycle
+## 13. Testing Strategy Across the Delivery Lifecycle
 
 A test strategy balances speed, isolation, and realism.
 
@@ -443,7 +418,7 @@ Test data needs the same care as production data. Captured device output may con
 
 Automated tests reduce regression risk but cannot prove that every operational condition is safe. Architecture review, threat modeling, load testing, failure injection, and staged deployment address risks that ordinary functional tests miss.
 
-## 15. Delivery Models and Organizational Fit
+## 14. Delivery Models and Organizational Fit
 
 Waterfall provides value when scope is stable, formal approval is mandatory, and later change is rare. Agile methods are effective when feedback and requirements evolve. Most organizations combine elements: annual architecture and budget planning, iterative product delivery, continuous integration, and controlled production change windows.
 
@@ -451,7 +426,7 @@ Scrum uses a prioritized backlog, time-boxed sprint, review, and retrospective. 
 
 The development model does not eliminate operational responsibilities. A sprint that ends with unreviewed code is not a finished increment. The definition of done should include tests, documentation, security checks, packaging, deployment readiness, and relevant telemetry.
 
-## 16. End-to-End Architecture Walkthrough
+## 15. End-to-End Architecture Walkthrough
 
 Consider a platform that validates and remediates network configuration. Its purpose is not simply to send commands. It must translate business policy into controlled actions and preserve evidence.
 
@@ -478,7 +453,7 @@ Each stage exposes a contract. Inventory does not need to understand template sy
 
 Failure behavior is part of architecture. If collection fails, the system records unknown state rather than assuming compliance. If approval expires, execution stops. If the device commits but the response is lost, the worker checks observed state before retrying. If validation fails, the workflow follows a defined rollback or escalation policy.
 
-## 17. Security Throughout the Lifecycle
+## 16. Security Throughout the Lifecycle
 
 Security requirements apply to design, implementation, delivery, and operation.
 
@@ -503,15 +478,11 @@ Defense in depth assumes one control can fail. Even after the UI hides a button,
 
 > **Study guide takeaway:** When evaluating an automation design, trace one change from user intent to post-change verification. If you cannot identify the owner of state, the trust boundaries, the failure path, and the evidence of success, the design is not yet complete.
 
-## 18. AI in Modern Software Design
-
-Machine learning adds data preparation, feature quality, model evaluation, drift, and retraining to the normal software lifecycle. Generative AI can accelerate design exploration, documentation, tests, and code scaffolding, while agentic AI can plan and invoke tools across several steps. These capabilities do not remove architecture or review: generated code, tool permissions, model output, and retrieved context require validation, observability, and clear human-approval boundaries. “Vibe coding” is useful for fast prototypes, but production network automation still needs explicit requirements, tests, least privilege, and reproducible releases.
-
 ## Key Takeaways
 
 - Distributed applications separate front-end interaction, back-end logic, data, execution, and telemetry across cooperating components.
 - Requirements, constraints, and quality attributes guide the choice among monolithic, service-oriented, microservices, and event-driven architectures.
-- The SDLC, DevOps, reviews, testing, sequence diagrams, and governed AI assistance turn code into dependable operational software.
+- The SDLC, DevOps, reviews, testing, and sequence diagrams turn code into dependable operational software.
 
 With the software-development foundation established, Chapter 2 examines the quality attributes that determine whether an application is trustworthy in production.
 
@@ -519,4 +490,3 @@ With the software-development foundation established, Chapter 2 examines the qua
 
 - [The Twelve-Factor App](https://12factor.net/) - principles for portable service design.
 - [Mermaid sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html) - syntax for documenting API interactions.
-- [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) - governance guidance for trustworthy AI systems.

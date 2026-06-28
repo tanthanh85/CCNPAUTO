@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Missing telemetry is itself a signal. A dashboard must distinguish a healthy zero from stale or absent data.
-
 Automation needs timely evidence about network state. Model-driven telemetry (MDT) streams structured measurements from devices to collectors, replacing much repetitive polling with efficient subscriptions. This chapter covers push models, sensor paths, transport, storage, visualization, and event-driven operations.
 
 ## 1. From Polling to Streaming
@@ -224,9 +222,9 @@ Before selecting a sample interval, estimate detection requirements and data vol
 
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
-## Evaluating the Accuracy of AI Recommendations
+## 18. Evaluating AI Recommendations
 
-An AI recommendation is not accurate merely because it sounds reasonable or matches an engineer's intuition. Evaluate whether its claims are supported by current evidence, whether the proposed action satisfies policy, and whether deterministic tests confirm the predicted outcome. Network evaluation should include normal, degraded, ambiguous, and adversarial scenarios.
+Telemetry provides the evidence on which an AI recommendation should be judged. A recommendation is not accurate merely because it sounds reasonable or matches an engineer's intuition. Instead, determine whether its claims are supported by current observations, whether the proposed action satisfies policy, and whether deterministic tests confirm the predicted outcome. A representative evaluation should include normal, degraded, ambiguous, and adversarial scenarios.
 
 Build a curated evaluation set from sanitized incidents and lab scenarios. Each case should contain the user question, approved input evidence, expected diagnosis or acceptable diagnoses, prohibited conclusions, safe recommended actions, required citations, and verification steps. Keep a hidden test set so prompt or model tuning does not simply memorize the evaluation examples.
 
@@ -258,13 +256,13 @@ flowchart LR
 
 Do not use the same LLM as the sole judge of its own answer. Automated model-based scoring can assist, but deterministic schema checks, network simulators, API dry runs, policy engines, and qualified human review provide independent evidence. Re-run the suite whenever the model, system prompt, retrieval corpus, MCP server, tool schema, or controller API changes. In production, compare recommendations with actual outcomes and feed confirmed failures back into the evaluation set.
 
-### Worked Recommendation Review
+### 18.1 Worked Recommendation Review
 
 Suppose an agent observes high application latency and recommends shutting an interface because it reports errors. The evaluator should confirm that the error counter is recent, increasing, and associated with the application path; compare redundant links; inspect loss, queue, routing, and maintenance context; and determine whether shutdown would isolate the site. If the evidence only proves historical errors on an unused interface, the recommendation is ungrounded even though the command is technically valid. A safer answer states the uncertainty, requests missing evidence, and proposes a read-only diagnostic step.
 
-## AIOps and AI for Observability
+## 19. AIOps and AI for Observability
 
-AIOps combines telemetry with topology, incidents, and change history to detect anomalies and rank likely causes. ML baselines should account for seasonality, site role, maintenance, and missing data. GenAI can create incident summaries or natural-language query assistance, but every conclusion should link to source metrics and events. Closed-loop remediation needs confidence thresholds, blast-radius limits, rate limits, rollback, and human escalation when signals disagree.
+The same evaluation discipline applies when AI is used continuously in operations. AIOps combines telemetry with topology, incidents, and change history to detect anomalies and rank likely causes. ML baselines should account for seasonality, site role, maintenance, and missing data. GenAI can create incident summaries or natural-language query assistance; however, every conclusion should link to source metrics and events. Closed-loop remediation additionally requires confidence thresholds, blast-radius limits, rate limits, rollback, and human escalation when signals disagree.
 
 ## Key Takeaways
 

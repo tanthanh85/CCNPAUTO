@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Automation is complete only after verification. Sending commands or receiving an accepted task is not the final outcome.
-
 Automation is more than running commands quickly. It converts operational intent into repeatable, tested, and observable actions. This chapter explains why networks need automation, how SDN and APIs enable it, and how to design workflows that remain safe at enterprise scale.
 
 ## 1. Why Automate?
@@ -276,9 +274,9 @@ Automation can also create toil if users must repeatedly correct unclear input e
 
 > **Study guide takeaway:** Enterprise automation combines APIs, reliable software practices, and operational safeguards. The goal is not maximum change speed; it is predictable change with fast feedback and controlled risk.
 
-## Building a Network Information MCP Server
+## 18. Building a Network Information MCP Server
 
-The Model Context Protocol (MCP) gives an AI application a standard way to discover and call tools. An MCP server should expose meaningful, bounded operations rather than unrestricted shell or Python execution. For a network-information server, start with read-only tools that return validated inventory and operational facts. Tool names and descriptions matter because the model uses them to decide when and how to call the tool.
+The preceding automation patterns separate intent, policy, execution, and verification. MCP applies that same separation to AI applications by giving them a standard way to discover and call tools. An MCP server should expose meaningful, bounded operations rather than unrestricted shell or Python execution. Therefore, a network-information server should begin with read-only tools that return validated inventory and operational facts. Tool names and descriptions matter because the model uses them to decide when and how to call the tool.
 
 Install the standalone FastMCP package in an isolated environment and pin the tested version:
 
@@ -370,9 +368,9 @@ flowchart LR
     Normalize --> Agent
 ```
 
-## Building a Conversational Network Agent
+## 19. Building a Conversational Network Agent
 
-A conversational agent combines an LLM with conversation state and a controlled tool loop. The LLM interprets the user's question and requests an MCP tool; application code validates and executes the call; the tool result returns to the model; and the model produces a grounded response. The LLM should not connect directly to a device or receive credentials.
+Once the MCP server provides a safe information boundary, it can be connected to a conversational agent. The agent combines an LLM with conversation state and a controlled tool loop. The LLM interprets the user's question and requests an MCP tool; application code validates and executes the call; the result returns to the model; and the model produces a grounded response. At no point should the LLM connect directly to a device or receive network credentials.
 
 ```mermaid
 sequenceDiagram
@@ -438,9 +436,9 @@ async def run_network_conversation(llm, user_prompt: str) -> str:
 
 For a change-capable agent, keep read and write tools separate. Require the agent to produce a structured change plan containing targets, proposed differences, assumptions, risks, validation, and rollback. A deterministic policy engine and authorized human should approve the plan before a separate execution identity can call a write tool. The agent must not approve its own recommendation.
 
-## Agentic Network Automation
+## 20. Governing Agentic Network Automation
 
-Agentic AI can decompose an operational request, retrieve inventory, select tools, and propose a change plan. Safe implementations separate reasoning from execution: schemas validate parameters, policy engines constrain scope, dry runs reveal differences, and high-impact actions require approval. The agent should receive short-lived credentials and a restricted tool catalog. Its final success criterion must be an independently verified network outcome, not the model's statement that the task is complete.
+Together, MCP tools and the conversational loop create the foundation for agentic automation. An agent can decompose an operational request, retrieve inventory, select tools, and propose a change plan. Nevertheless, reasoning must remain separate from execution: schemas validate parameters, policy engines constrain scope, dry runs reveal differences, and high-impact actions require approval. The agent should receive short-lived credentials and a restricted tool catalog. Its final success criterion must be an independently verified network outcome, not the model's statement that the task is complete.
 
 ## Key Takeaways
 

@@ -704,10 +704,6 @@ Large migrations need rate control so they do not starve production queries. Pro
 
 > **Study guide takeaway:** Start performance work with a timeline, not a guess. Follow the transaction across code, database, network, controller, and device; then optimize the stage that actually consumes the latency budget.
 
-## 19. AI for Performance and Observability
-
-AIOps applies analytics and ML to event correlation, anomaly detection, forecasting, and probable-cause ranking. It is most useful when telemetry has reliable timestamps, stable identity, topology context, and known change events. GenAI can summarize incidents and translate natural-language questions into queries, but it should cite the underlying logs, metrics, and traces. Model inference also creates latency, GPU/CPU, memory, and cost constraints that belong in performance tests. Observe prompt and model versions, retrieval latency, token use, confidence, and fallback behavior alongside conventional service metrics.
-
 ## Key Takeaways
 
 - Maintainable applications isolate responsibilities, use stable abstractions, and expose behavior for testing and operations.

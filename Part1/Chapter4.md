@@ -833,9 +833,9 @@ A change log generated only from commit subjects may omit user impact. Release o
 
 ## 25. AI-Assisted Development and Git Governance
 
-AI coding assistants can explain unfamiliar code, propose Python functions, generate unit tests, translate API examples, draft documentation, and accelerate repetitive refactoring. In network automation, they can help create parsers, payload models, Ansible tasks, Terraform resources, and test fixtures. Vibe coding is useful for exploring a lab idea quickly, but production code must pass through the same requirements, review, testing, security, and release controls as human-written code.
+The Git and release controls developed throughout this chapter also provide the correct framework for AI-assisted coding. AI coding assistants can explain unfamiliar code, propose Python functions, generate unit tests, translate API examples, draft documentation, and accelerate repetitive refactoring. In network automation, they can help create parsers, payload models, Ansible tasks, Terraform resources, and test fixtures. Vibe coding is useful for exploring a lab idea quickly; however, production code must pass through the same requirements, review, testing, security, and release controls as human-written code.
 
-### 26. Benefits and Risks of AI-Assisted Network Automation
+### 25.1 Benefits and Risks of AI-Assisted Network Automation
 
 | Area | Potential benefit | Risk and required control |
 |---|---|---|
@@ -847,11 +847,11 @@ AI coding assistants can explain unfamiliar code, propose Python functions, gene
 | Security | Assistants can identify unsafe patterns | They can also generate injection flaws, disabled TLS checks, hard-coded secrets, or excessive permissions; run SAST, secret scanning, and peer review |
 | Agentic execution | An agent can edit, test, and open a pull request | Excessive repository, shell, or deployment authority increases blast radius; sandbox tools and require approval |
 
-Before placing code or network data in a prompt, determine whether the provider retains prompts, uses them for training, stores them in another jurisdiction, or permits administrators to review them. Remove secrets and personal data, minimize topology detail, and use an enterprise-approved private deployment where policy requires it. A confidentiality label that forbids sharing with an external service still applies when the recipient is an AI system.
+These benefits are useful only when information is handled appropriately. Before placing code or network data in a prompt, determine whether the provider retains prompts, uses them for training, stores them in another jurisdiction, or permits administrators to review them. Remove secrets and personal data, minimize topology detail, and use an enterprise-approved private deployment where policy requires it. A confidentiality label that forbids sharing with an external service still applies when the recipient is an AI system.
 
 IP ownership depends on jurisdiction, service terms, employment agreements, open-source licenses, and the amount of human authorship. Teams should not assume that generated output is automatically owned, unique, or free of third-party obligations. Record where material came from, avoid requests to reproduce proprietary code, and review surprisingly sophisticated output for recognizable licensed content.
 
-### Code-Validation Workflow
+### 25.2 Code-Validation Workflow
 
 ```mermaid
 flowchart LR
@@ -864,7 +864,7 @@ flowchart LR
     Lab --> PR["Controlled pull request and provenance"]
 ```
 
-Validation must include negative paths: timeouts, HTTP 429, malformed data, partial controller tasks, authentication failure, and rollback. Never accept generated code that disables certificate validation, catches every exception without action, retries non-idempotent operations blindly, or embeds an administrator credential. Agentic coding tools should receive repository and deployment permissions no broader than their assigned task.
+Consequently, validation must include negative paths: timeouts, HTTP 429, malformed data, partial controller tasks, authentication failure, and rollback. Never accept generated code that disables certificate validation, catches every exception without action, retries non-idempotent operations blindly, or embeds an administrator credential. Agentic coding tools should receive repository and deployment permissions no broader than their assigned task.
 
 ## Key Takeaways
 

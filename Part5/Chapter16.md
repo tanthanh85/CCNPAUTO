@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Product APIs evolve independently. Pin SDK versions, test contracts against the deployed platform release, and preserve platform-specific error details.
-
 Cisco platforms expose programmability in different ways because they solve different operational problems. Webex provides cloud collaboration APIs; Cisco Secure Firewall Management Center controls security policy; Meraki Dashboard manages cloud-operated networks; Intersight manages computing and infrastructure services; UCS Manager exposes a hierarchical managed-object model; Cisco Catalyst Center automates campus networks; and AppDynamics provides application-performance observability.
 
 Although the resource models differ, the engineering method remains consistent. An application must authenticate safely, understand the API contract, select the correct resource, handle pagination and asynchronous tasks, interpret errors, respect rate limits, and verify that the requested business outcome occurred. This chapter develops that method through Cisco-oriented workflows and Python examples.
@@ -419,7 +417,7 @@ metric_data = r.json()
 
 An application slowdown can result from code regression, database saturation, downstream API failure, packet loss, DNS delay, or path change. AppDynamics provides transaction and dependency evidence; Catalyst Center, Meraki, SD-WAN, or telemetry platforms provide network context. Correlation should use time, site, application, endpoint, and change identifiers.
 
-An automated workflow can receive an AppDynamics health-rule event, identify affected tiers and user locations, query network assurance for those sites, retrieve recent controller changes, and post a summarized incident to Webex. AI may help rank likely causes, but the workflow should preserve source evidence and distinguish observed facts from inferred diagnosis.
+An automated workflow can receive an AppDynamics health-rule event, identify affected tiers and user locations, query network assurance for those sites, retrieve recent controller changes, and post a summarized incident to Webex. The workflow should preserve source evidence and distinguish observed facts from inferred diagnosis.
 
 ## 9. Cross-Platform Automation Architecture
 
@@ -700,10 +698,6 @@ Before releasing a Cisco platform integration, confirm that the team can answer 
 - Can the integration be disabled safely during a platform incident?
 
 > **Study guide takeaway:** Cisco platforms share common software-engineering concerns but expose distinct identities, resource models, and task behavior. Reliable integrations respect those differences while presenting consistent validation, error handling, verification, and audit behavior to the wider automation system.
-
-## AI Across Cisco Platforms
-
-Cisco platform data can support AIOps and GenAI use cases such as incident summarization, service-health correlation, capacity forecasting, and conversational operations. A tool-using agent might retrieve Catalyst Center wireless health, correlate AppDynamics degradation, inspect Meraki site state, and draft a Webex incident update. Keep collection identities read-only where possible, separate recommendations from changes, validate every tool argument, and retain direct links to source evidence. Platform APIs remain the governed execution boundary; the model is not the authority.
 
 ## Key Takeaways
 

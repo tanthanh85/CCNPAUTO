@@ -349,8 +349,6 @@ Preventive practices include:
 - Test capacity, failover, restoration, and rollback.
 - Protect services from resource exhaustion and denial of service.
 
-AI-assisted anomaly detection can help identify unusual CPU, error, or path behavior, but predictions should be treated as evidence rather than unquestioned truth. Automated remediation still needs policy limits, deterministic validation, and audit records.
-
 ## 6. Business Continuity and Deployment Models
 
 Business continuity planning keeps essential processes operating. Disaster recovery restores services after a major site or regional event.
@@ -586,10 +584,6 @@ Recovery planning identifies which side is authoritative, how conflict is resolv
 
 > **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
 
-## 16. AI and Quality Attributes
-
-AI introduces additional quality scenarios. An ML service must be evaluated for predictive quality, drift, latency, data privacy, explainability, and safe fallback when confidence is low. GenAI systems also require controls for hallucination, prompt injection, retrieval quality, and unpredictable token cost. Agentic systems need stricter availability and safety boundaries because they can take actions, not merely produce text. Define measurable thresholds and require deterministic validation before an AI-generated network change reaches production.
-
 ## Key Takeaways
 
 - Quality attributes become useful when they are expressed through measurable scenarios and acceptance thresholds.
@@ -602,4 +596,3 @@ Chapter 3 builds on these quality goals by showing how architecture, performance
 
 - [Google Site Reliability Engineering books](https://sre.google/books/) - availability, reliability, SLO, and incident practices.
 - [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html) - quality trade-offs for cloud systems.
-- [NIST AI RMF Playbook](https://airc.nist.gov/airmf-resources/playbook/) - practical AI risk-management actions.

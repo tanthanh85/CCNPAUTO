@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** Discover device capabilities and implemented YANG revisions instead of assuming every platform supports the same model and datastore behavior.
-
 NETCONF and RESTCONF replace fragile screen scraping with structured, model-driven network management. Both use YANG models to describe valid data, but they differ in transport and operations. This chapter develops the protocols through Cisco IOS XE configuration scenarios.
 
 ## 1. Why Model-Driven Management?
@@ -340,10 +338,6 @@ For a VLAN, the workflow uses the IOS XE VLAN model supported by the device. A r
 After creating the VLAN, retrieve it and confirm any required switchport association and spanning-tree state. After creating the route, retrieve configuration and operational routing state; a configured route whose next hop is unresolved may not be installed. When several resources form one service, apply dependency-aware rollback or use NETCONF candidate/confirmed-commit capabilities where supported.
 
 > **Study guide takeaway:** YANG defines the contract; NETCONF and RESTCONF carry requests against that contract. Reliable automation discovers capabilities, sends minimal validated changes, interprets structured errors, and verifies resulting state.
-
-## AI with Model-Driven Interfaces
-
-YANG schemas provide a valuable safety boundary for AI-assisted networking. A GenAI system can explain a model or draft a payload, but the payload must be validated against the implemented schema and organizational policy. An agent can retrieve operational state through RESTCONF or NETCONF and propose remediation, yet transaction scope, datastore locks, confirmed commit, and post-change verification should remain controlled by deterministic workflow code.
 
 ## Key Takeaways
 

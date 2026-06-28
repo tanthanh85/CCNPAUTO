@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** The management platform is production infrastructure; its identity, backup, monitoring, and recovery paths require the same rigor as the network it manages.
-
 Infrastructure automation begins with a clear understanding of the network lifecycle. A script that changes a device is useful, but an operational system must also plan, validate, observe, secure, and eventually retire that device. This chapter connects traditional network management with zero-touch provisioning, controller-based networking, and intent-based operations.
 
 ## 1. The Infrastructure Lifecycle
@@ -107,7 +105,7 @@ flowchart LR
     Remediate --> Observe
 ```
 
-For example, the intent “guest users may reach the internet but not corporate services” can become identity groups, segmentation, access policy, and continuous assurance tests. AI can help correlate anomalies or propose remediation, but policy limits, explainability, human approval, and deterministic rollback remain important when network reachability is at stake.
+For example, the intent “guest users may reach the internet but not corporate services” can become identity groups, segmentation, access policy, and continuous assurance tests. Any automated remediation must remain within policy limits, require appropriate approval, and support deterministic verification and rollback when network reachability is at stake.
 
 ## 7. Operational Design
 
@@ -184,7 +182,7 @@ Intent-based networking depends on assurance. Translation converts business inte
 
 Suppose an automation workflow creates a new branch segment. The API may return success and the VLAN may appear in configuration, yet DHCP can fail because the relay address is absent. Even if the client receives an address, DNS or security policy may block the required application. A complete acceptance test follows the dependency chain from endpoint onboarding through addressing, name resolution, routing, segmentation, and application reachability.
 
-Assurance systems can use baselines and machine learning to identify unusual conditions, but an anomaly is not automatically a fault. A planned backup can produce atypical utilization, and a new site naturally differs from an established baseline. Operational context, maintenance windows, topology, and recent changes help separate expected variation from genuine degradation. Automated remediation should require high-confidence evidence and a narrow, preapproved action.
+Assurance systems can use statistical baselines to identify unusual conditions, but an anomaly is not automatically a fault. A planned backup can produce atypical utilization, and a new site naturally differs from an established baseline. Operational context, maintenance windows, topology, and recent changes help separate expected variation from genuine degradation. Automated remediation should require high-confidence evidence and a narrow, preapproved action.
 
 ## 14. Infrastructure Lifecycle Scenario
 
@@ -195,10 +193,6 @@ At each branch, ZTP gives the WAN edge and access switches enough connectivity t
 Operations then watches service health rather than merely device uptime. Telemetry and assurance identify circuit quality, client onboarding failures, policy violations, and configuration drift. Repeated incidents become optimization input. If stores frequently exhaust wireless capacity during seasonal peaks, the design and capacity tier are revised. Finally, decommissioning revokes device identity, archives required records, releases licenses and addresses, and removes obsolete monitoring. In this way, automation supports the complete lifecycle rather than only initial configuration.
 
 > **Study guide takeaway:** Modern network management moves from isolated commands toward lifecycle automation and closed-loop assurance. ZTP establishes devices, controllers translate policy, and telemetry confirms whether the network continues to satisfy intent.
-
-## AI in Infrastructure Operations
-
-AIOps can correlate alarms, topology, configuration changes, and service impact to reduce noise and prioritize incidents. ML forecasting can identify capacity risk, while GenAI can summarize evidence and explain proposed changes. Intent and policy must remain deterministic, and an agent should not receive unrestricted controller access. Use AI to recommend and enrich; permit automated remediation only for bounded, reversible actions with strong verification.
 
 ## Key Takeaways
 

@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** The hosted workload must never jeopardize the network device’s primary forwarding and control-plane responsibilities.
-
 Edge computing places selected processing near users, devices, and data sources. Cisco application hosting allows containerized workloads to run on supported Catalyst 9000 and IOx-enabled platforms. This chapter explains the benefits, constraints, deployment workflow, networking, security, and lifecycle management of those applications.
 
 ## 1. Why Compute at the Edge?
@@ -143,8 +141,6 @@ Monitor both application and host: process health, restarts, CPU, memory, disk, 
 
 A strong edge use case benefits from low latency, local autonomy, bandwidth reduction, protocol locality, or data sovereignty. A weak use case requires large elastic compute, depends on many cloud services, grows storage unpredictably, or risks competing with critical network functions.
 
-AI inference at the edge can classify events without sending raw data centrally, but model size, accelerator availability, power, privacy, update integrity, and drift monitoring must be considered. Training generally belongs on centralized compute; the edge is better suited to bounded inference.
-
 ## 11. Edge Architecture and Failure Behavior
 
 The main architectural advantage of edge computing is not simply geographical proximity; it is the ability to make a useful decision inside the local failure domain. A manufacturing gateway can continue translating sensor protocols and enforcing safe thresholds when the WAN is unavailable. A retail application can buffer transactions locally and synchronize when connectivity returns. The application must therefore define which operations are safe offline, how long data may be buffered, how conflicts are resolved, and what happens when local storage reaches its limit.
@@ -241,13 +237,7 @@ Edge is appropriate when local latency, autonomy, bandwidth cost, protocol acces
 
 The decision should consider the total operating model. A cloud service may be technically distant but far easier to patch, observe, and scale. An edge application may save bandwidth but create hundreds of small production environments. Quantify WAN savings, latency, outage behavior, hardware resource cost, support travel, security exposure, and fleet-management effort.
 
-For AI workloads, small inference models may run near cameras or sensors, returning classifications rather than raw media. The design must monitor model version, input drift, confidence, resource use, and privacy. Centralized retraining and controlled model signing are normally preferable, with staged deployment to edge canaries. An AI model is another executable artifact and belongs under the same supply-chain and rollback controls as application code.
-
 > **Study guide takeaway:** Application hosting turns a network platform into a carefully shared edge-compute environment. Success depends on selecting the right workload and protecting the device's primary networking responsibility through isolation, resource limits, secure images, and fleet lifecycle management.
-
-## Edge AI and Local Inference
-
-Edge AI can classify video, sensor, or operational events locally, reducing latency, bandwidth, and raw-data exposure. Select models that fit the device's CPU, memory, storage, power, and accelerator capabilities. Track model version, confidence, input drift, and resource impact. Central systems normally train and sign models; edge platforms perform bounded inference. An agent running at the edge must retain safe offline behavior and must not compete with critical forwarding resources.
 
 ## Key Takeaways
 

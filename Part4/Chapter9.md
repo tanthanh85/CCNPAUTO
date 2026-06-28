@@ -1,6 +1,6 @@
 # Chapter 9: Infrastructure and Network Management
 
-## Chapter Purpose
+## Chapter Introduction
 
 Infrastructure automation begins with a clear understanding of the network lifecycle. A script that changes a device is useful, but an operational system must also plan, validate, observe, secure, and eventually retire that device. This chapter connects traditional network management with zero-touch provisioning, controller-based networking, and intent-based operations.
 
@@ -194,6 +194,10 @@ Operations then watches service health rather than merely device uptime. Telemet
 
 > **Study guide takeaway:** Modern network management moves from isolated commands toward lifecycle automation and closed-loop assurance. ZTP establishes devices, controllers translate policy, and telemetry confirms whether the network continues to satisfy intent.
 
-## Chapter Summary
+## Key Takeaways
 
-PDIOO gives infrastructure work a lifecycle. Secure management networks and structured APIs make operations safer and more scalable. ZTP reduces manual onboarding, while SDN and intent-based systems shift engineering toward network-wide policy, assurance, and controlled remediation.
+- PDIOO organizes infrastructure planning, design, implementation, operation, optimization, and eventual retirement.
+- Secure management planes, authoritative inventory, structured APIs, and tested recovery improve operational control.
+- ZTP, SDN, intent-based networking, and assurance enable scalable onboarding and policy-driven remediation.
+
+Chapter 10 builds on this managed infrastructure by turning repeatable operational intent into reliable network automation workflows.

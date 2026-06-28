@@ -1,6 +1,6 @@
 # Chapter 11: NETCONF and RESTCONF
 
-## Chapter Purpose
+## Chapter Introduction
 
 NETCONF and RESTCONF replace fragile screen scraping with structured, model-driven network management. Both use YANG models to describe valid data, but they differ in transport and operations. This chapter develops the protocols through Cisco IOS XE configuration scenarios.
 
@@ -339,6 +339,10 @@ After creating the VLAN, retrieve it and confirm any required switchport associa
 
 > **Study guide takeaway:** YANG defines the contract; NETCONF and RESTCONF carry requests against that contract. Reliable automation discovers capabilities, sends minimal validated changes, interprets structured errors, and verifies resulting state.
 
-## Chapter Summary
+## Key Takeaways
 
-NETCONF offers XML RPC operations, datastores, locks, and commit behavior over SSH. RESTCONF presents YANG-modeled data as HTTP resources using JSON or XML. Cisco IOS XE supports both, allowing applications to configure interfaces, VLANs, routes, and other modeled functions without parsing CLI output.
+- YANG defines structured configuration, operational data, constraints, RPCs, and notifications.
+- NETCONF provides XML RPC operations, datastores, locks, validation, and transactional commit capabilities over SSH.
+- RESTCONF maps YANG resources to HTTP and can configure IOS XE interfaces, VLANs, and static routes using JSON or XML.
+
+Chapter 12 uses the same model-driven foundation to stream operational state through modern network telemetry pipelines.

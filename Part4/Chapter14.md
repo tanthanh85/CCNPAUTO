@@ -1,6 +1,6 @@
 # Chapter 14: Software Configuration Management
 
-## Chapter Purpose
+## Chapter Introduction
 
 Software configuration management (SCM) controls the many artifacts and decisions that define a software or automation product. It connects requirements, architecture, code, dependencies, infrastructure, testing, releases, and support evidence so a team can explain and reproduce what it delivered.
 
@@ -190,6 +190,10 @@ When an audit finds drift, classify it. Some differences are runtime-generated, 
 
 > **Study guide takeaway:** SCM creates confidence that a release is defined, reproducible, authorized, and traceable. It governs the full product, not just source code.
 
-## Chapter Summary
+## Key Takeaways
 
-SCM identifies configuration items, establishes baselines, controls change, reports status, and audits results. Clear requirements and measurable quality attributes guide architecture. Technical debt and tool decisions should be recorded so short-term delivery does not silently undermine long-term operation.
+- SCM identifies configuration items, establishes baselines, controls change, reports status, and audits delivered products.
+- Traceability connects requirements and architecture decisions to implementation, tests, releases, and operational controls.
+- Reproducible builds, immutable artifacts, controlled dependencies, documented technical debt, and clear ownership protect long-term maintainability.
+
+Chapter 15 brings these lifecycle controls to edge computing by deploying and operating applications directly on supported Cisco network devices.

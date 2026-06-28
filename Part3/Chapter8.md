@@ -1,6 +1,6 @@
 # Chapter 8: Security in Application Design
 
-## Chapter Purpose
+## Chapter Introduction
 
 Security is not a feature that can be added just before release. It influences requirements, architecture, coding, testing, deployment, and operations. A secure application protects information, preserves trustworthy behavior, remains available to authorized users, and produces evidence when something unusual happens.
 
@@ -513,10 +513,10 @@ The following checklist should be applied after these controls are designed.
 
 > **Study guide takeaway:** Security controls work as a system. Identity, authorization, encryption, secret management, input validation, secure delivery, and monitoring reinforce one another. If one control fails, another should still limit the impact.
 
-## Chapter Summary
+## Key Takeaways
 
-Secure application design begins with confidentiality, integrity, and availability and extends through identity, authorization, auditing, and anomaly detection. Privacy requirements influence collection, storage, retention, and data location.
+- Confidentiality, integrity, availability, privacy, identity, authorization, and auditing must be designed as complementary controls.
+- Secret management, PKI, TLS certificates, encryption, and OAuth protect application and API communications.
+- Secure applications mitigate access-control failures, injection, XSS, CSRF, misconfiguration, vulnerable dependencies, and supply-chain threats.
 
-Secrets require a managed lifecycle, while PKI and TLS establish trustworthy encrypted communication. Web applications must defend against broken access control, injection, XSS, misconfiguration, and vulnerable components.
-
-OAuth supports delegated and machine-to-machine authorization without sharing user passwords. Secure CI/CD, artifact provenance, and operational monitoring protect the path from source to production. In Cisco automation, these controls ensure that software can observe and change the network without becoming an uncontrolled path into it.
+Chapter 9 shifts from application concerns to the infrastructure lifecycle, showing how modern networks are provisioned, managed, and assured.

@@ -1,6 +1,6 @@
 # Chapter 15: Hosting Applications on Network Devices
 
-## Chapter Purpose
+## Chapter Introduction
 
 Edge computing places selected processing near users, devices, and data sources. Cisco application hosting allows containerized workloads to run on supported Catalyst 9000 and IOx-enabled platforms. This chapter explains the benefits, constraints, deployment workflow, networking, security, and lifecycle management of those applications.
 
@@ -243,6 +243,10 @@ For AI workloads, small inference models may run near cameras or sensors, return
 
 > **Study guide takeaway:** Application hosting turns a network platform into a carefully shared edge-compute environment. Success depends on selecting the right workload and protecting the device's primary networking responsibility through isolation, resource limits, secure images, and fleet lifecycle management.
 
-## Chapter Summary
+## Key Takeaways
 
-Edge computing reduces latency and WAN dependence while supporting local autonomy and data-location needs. Containers package applications efficiently, and Cisco IOx and supported Catalyst platforms provide hosting capabilities. Deployment must address image integrity, networking, resources, observability, upgrades, and rollback across the fleet.
+- Edge computing supports low latency, local autonomy, bandwidth reduction, protocol locality, and data-location requirements.
+- Cisco IOx and supported Catalyst platforms can host carefully isolated containerized applications near users and devices.
+- Secure fleet operations require compatible images, controlled resources, network policy, observability, staged upgrades, offline behavior, and tested rollback.
+
+Chapter 16 concludes the guide by applying the accumulated design and automation skills to major Cisco platform APIs and SDKs.

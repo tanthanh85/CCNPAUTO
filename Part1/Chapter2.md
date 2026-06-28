@@ -1,6 +1,6 @@
 # Chapter 2: Software Quality Attributes
 
-## Chapter Purpose
+## Chapter Introduction
 
 Functional requirements tell us **what** an application must do. Quality attributes tell us whether the application is good enough to trust in production. A configuration service may eventually deploy the correct commands, but the design is still poor if the change takes an hour, exposes credentials in logs, loses jobs after a worker restart, or collapses when several engineers use it at once.
 
@@ -586,8 +586,10 @@ Recovery planning identifies which side is authoritative, how conflict is resolv
 
 > **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
 
-## Chapter Summary
+## Key Takeaways
 
-Software quality is contextual and measurable. A good design does not merely claim to be fast, secure, scalable, or available; it describes the event, operating environment, expected response, and acceptance threshold.
+- Quality attributes become useful when they are expressed through measurable scenarios and acceptance thresholds.
+- Modularity supports controlled change, testing, reuse, security, and independent scaling.
+- Scalability, high availability, and resilience require deliberate trade-offs across compute, data, traffic, geography, recovery, and cost.
 
-Modularity supports change, testing, reuse, security, and scale through cohesive components and controlled interfaces. Scalability requires attention to compute, data, traffic distribution, state, geography, and cost. High availability depends on detection, redundancy, recovery, and prevention, while resilience demands acceptable behavior during disruption. These attributes must be balanced according to business priorities and validated through realistic tests.
+Chapter 3 builds on these quality goals by showing how architecture, performance engineering, observability, and database selection make them achievable.

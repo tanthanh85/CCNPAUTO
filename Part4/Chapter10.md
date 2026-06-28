@@ -1,6 +1,6 @@
 # Chapter 10: Network Automation
 
-## Chapter Purpose
+## Chapter Introduction
 
 Automation is more than running commands quickly. It converts operational intent into repeatable, tested, and observable actions. This chapter explains why networks need automation, how SDN and APIs enable it, and how to design workflows that remain safe at enterprise scale.
 
@@ -274,6 +274,10 @@ Automation can also create toil if users must repeatedly correct unclear input e
 
 > **Study guide takeaway:** Enterprise automation combines APIs, reliable software practices, and operational safeguards. The goal is not maximum change speed; it is predictable change with fast feedback and controlled risk.
 
-## Chapter Summary
+## Key Takeaways
 
-Automation addresses scale and consistency but introduces software-system concerns such as concurrency, state, errors, and security. SDN controllers provide abstractions, REST APIs provide contracts, and orchestration coordinates multiple domains. Verification and evidence complete every workflow.
+- Automation improves scale and consistency but must manage concurrency, state, errors, security, and partial failure.
+- SDN controllers and APIs expose programmable abstractions, while orchestration coordinates dependent technology domains.
+- Reliable workflows validate intent, limit blast radius, verify service outcomes, and preserve operational evidence.
+
+Chapter 11 introduces NETCONF, RESTCONF, and YANG as structured mechanisms for applying those workflows directly to network devices.

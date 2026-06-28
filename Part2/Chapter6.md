@@ -1,6 +1,6 @@
 # Chapter 6: API Development
 
-## Chapter Purpose
+## Chapter Introduction
 
 API development has two sides. Providers must publish a consistent, secure, and supportable contract. Consumers must call that contract responsibly, validate what comes back, respect limits, and stop safely when continuing would create more damage.
 
@@ -877,8 +877,10 @@ An error log should retain provider request ID and local trace ID. These identif
 
 > **Study guide takeaway:** A production client is a decision-making component. It knows which failures are transient, which operations are safe to repeat, when one item may fail independently, and when the entire workflow must stop.
 
-## Chapter Summary
+## Key Takeaways
 
-Well-designed clients hide repetitive protocol mechanics without hiding important behavior. Authentication establishes identity, authorization controls access, and the three-step OAuth 2 authorization code flow obtains delegated access through authorization, token exchange, and protected-resource access.
+- Authentication establishes identity, authorization controls permitted actions, and OAuth obtains delegated access without sharing user passwords.
+- Pagination, webhooks, streaming, and cache-aware requests improve performance and reduce unnecessary API traffic.
+- Resilient clients use explicit timeouts, bounded retries, `Retry-After`, idempotency protection, and decisive handling of unrecoverable errors.
 
-Pagination controls large collections, while webhooks and streaming reduce polling delay. Resilient clients distinguish transport failure, transient HTTP status, rate limiting, and unrecoverable request conditions. Python code should use explicit timeouts, bounded backoff, `Retry-After`, idempotency protection, and clear user-flow outcomes. Cache-aware requests further reduce bandwidth and quota consumption when resource freshness permits safe reuse.
+Chapter 7 follows the completed application into CI/CD, packaging, container deployment, GitOps, and production operations.

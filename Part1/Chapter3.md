@@ -1,6 +1,6 @@
 # Chapter 3: Architectural Considerations and Performance Management
 
-## Chapter Purpose
+## Chapter Introduction
 
 Application architecture affects much more than code organization. It determines how safely the software can change, how efficiently it uses compute and network resources, and how quickly an operations team can understand a failure.
 
@@ -704,10 +704,10 @@ Large migrations need rate control so they do not starve production queries. Pro
 
 > **Study guide takeaway:** Start performance work with a timeline, not a guess. Follow the transaction across code, database, network, controller, and device; then optimize the stage that actually consumes the latency budget.
 
-## Chapter Summary
+## Key Takeaways
 
-Maintainable applications isolate responsibilities, depend on stable abstractions, and expose behavior for testing and operations. SOLID principles provide practical guidance for managing change without turning every implementation into a tightly coupled system.
+- Maintainable applications isolate responsibilities, use stable abstractions, and expose behavior for testing and operations.
+- Performance must be measured end to end before applying caching, pagination, concurrency, backoff, or asynchronous processing.
+- Logs, metrics, traces, and event correlation support failure diagnosis, while database selection must match data shape, query, scale, and consistency requirements.
 
-Performance is an end-to-end property involving application code, databases, network paths, security controls, and downstream services. Caching, pagination, rate limiting, parallelism, backoff, and asynchronous work can improve results when applied to a measured constraint.
-
-Observability combines logs, metrics, traces, and documentation to explain system behavior. Database selection must account for volume, velocity, variety, correctness, and queries. Together, maintainability, performance management, observability, and appropriate data design reduce both user-facing delay and operational uncertainty.
+Chapter 4 turns these design practices into controlled teamwork through Git, advanced history operations, release packaging, and dependency management.

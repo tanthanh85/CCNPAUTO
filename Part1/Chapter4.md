@@ -1,6 +1,6 @@
 # Chapter 4: Version Control and Release Management with Git
 
-## Chapter Purpose
+## Chapter Introduction
 
 Change is constant in software and network automation. Source code changes, but so do device templates, YANG models, schemas, infrastructure definitions, tests, runbooks, and pipeline configuration. Git gives the team a shared history of those changes: what changed, who changed it, why it changed, and how to recover when the result is not what the team expected.
 
@@ -831,10 +831,10 @@ A change log generated only from commit subjects may omit user impact. Release o
 
 > **Study guide takeaway:** A good Git workflow creates evidence. The branch explains the scope, commits explain the change, the pull request records review, CI records verification, and the release artifact identifies exactly what reached production.
 
-## Chapter Summary
+## Key Takeaways
 
-Git is a distributed, snapshot-based version-control system that supports local history, parallel work, integrity checking, and controlled integration. The working tree, staging area, local repository, and remotes give developers precise control over what becomes part of a commit and when it is shared.
+- Git provides distributed history, integrity, parallel development, and precise control through the working tree, staging area, repositories, and remotes.
+- Merge, rebase, cherry-pick, revert, stash, bisect, and reflog solve different collaboration and recovery problems.
+- Reliable releases use immutable artifacts, pinned dependencies, provenance, staged promotion, observability, and tested rollback.
 
-Branch-and-pull offers a simple workflow for trusted teams, while fork-and-pull supports contributors without upstream write access. GitHub Flow, Git Flow, and trunk-based development address different release patterns. Merge, rebase, cherry-pick, revert, stash, bisect, and reflog are valuable when their effects on history are understood.
-
-Release management extends beyond Git. A reliable delivery system builds once, tests and scans the artifact, records provenance, promotes it gradually, observes production behavior, and supports rollback without corrupting persistent state. For network automation, these controls are especially important because software changes can directly affect production infrastructure.
+Chapter 5 now applies these disciplined software practices to the network APIs through which automation systems communicate.

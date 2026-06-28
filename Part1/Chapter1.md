@@ -1,6 +1,6 @@
 # Chapter 1: Software Development Essentials
 
-## Chapter Purpose
+## Chapter Introduction
 
 Network automation starts with code, but useful automation quickly grows beyond a script. The moment several engineers depend on it, the software needs requirements, interfaces, security controls, testing, state management, and a reliable delivery process. This chapter explains those foundations in the language of network operations.
 
@@ -515,10 +515,10 @@ Defense in depth assumes one control can fail. Even after the UI hides a button,
 
 > **Study guide takeaway:** When evaluating an automation design, trace one change from user intent to post-change verification. If you cannot identify the owner of state, the trust boundaries, the failure path, and the evidence of success, the design is not yet complete.
 
-## Chapter Summary
+## Key Takeaways
 
-Software-driven operations evolved from monitoring individual devices to orchestrating complete business workflows. Distributed applications divide front-end interaction, back-end logic, state management, execution, and telemetry across cooperating components.
+- Distributed applications separate front-end interaction, back-end logic, data, execution, and telemetry across cooperating components.
+- Requirements, constraints, and quality attributes guide the choice among monolithic, service-oriented, microservices, and event-driven architectures.
+- The SDLC, DevOps, reviews, testing, sequence diagrams, and governed AI assistance turn code into dependable operational software.
 
-Architecture defines those components and their relationships according to functional requirements, quality attributes, and constraints. Monolithic, service-oriented, microservices, and event-driven models provide different combinations of simplicity, independence, and operational cost.
-
-The SDLC and development models organize how software is planned, designed, built, tested, deployed, and improved. DevOps adds shared responsibility and automated feedback. Reviews, layered testing, sequence diagrams, and governed AI assistance help teams turn code into safe, understandable, and operationally useful systems.
+With the software-development foundation established, Chapter 2 examines the quality attributes that determine whether an application is trustworthy in production.

@@ -1,6 +1,6 @@
 # Chapter 13: Open-Source Automation Solutions
 
-## Chapter Purpose
+## Chapter Introduction
 
 Open-source tools make infrastructure definitions reviewable, repeatable, and extensible. This chapter compares infrastructure-as-code models, provisioning and configuration management, agent and agentless designs, and the roles of Puppet, Chef, Ansible, and Terraform in Cisco environments.
 
@@ -284,6 +284,10 @@ Pilot the shortlisted solution with a representative workflow, including failure
 
 > **Study guide takeaway:** IaC makes infrastructure change reviewable and repeatable. Ansible excels at agentless network tasks, Terraform manages declarative API resources and state, while Puppet and Chef continuously converge agent-managed systems.
 
-## Chapter Summary
+## Key Takeaways
 
-Open-source automation spans imperative and declarative styles, provisioning and configuration, and agent or agentless execution. Operational success depends less on tool popularity than on clear state ownership, version pinning, secret protection, testing, and verification.
+- Infrastructure as code can use imperative or declarative models for provisioning and configuration management.
+- Puppet and Chef provide convergence-oriented agent workflows, while Ansible and Terraform suit agentless tasks and declarative API resources.
+- Tool selection should balance technical capability, business requirements, ownership, version control, secrets, testing, drift, and support.
+
+Chapter 14 broadens this tool-level view into software configuration management across requirements, artifacts, releases, audits, and technical debt.

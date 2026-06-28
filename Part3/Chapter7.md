@@ -1,6 +1,6 @@
 # Chapter 7: Application Deployment
 
-## Chapter Purpose
+## Chapter Introduction
 
 Writing an application is only half the job. The other half is delivering it to an environment where users can depend on it, updating it without unnecessary disruption, and operating it when something goes wrong.
 
@@ -530,10 +530,10 @@ The following checklist remains useful after those controls have been assessed.
 
 > **Study guide takeaway:** A deployment pipeline should make the safe path the easy path. It converts source into one verified artifact, promotes that artifact through controlled environments, and produces enough evidence to explain what reached production and how it behaved.
 
-## Chapter Summary
+## Key Takeaways
 
-Application delivery evolved from manual handoffs to shared DevOps responsibility and SRE practices. CI validates integrated changes, continuous delivery creates deployable releases, and continuous deployment automates production rollout when policy allows.
+- DevOps and SRE connect development, delivery, reliability, and shared operational responsibility.
+- CI/CD troubleshooting, continuous testing, static analysis, immutable packaging, and structured logging protect the release path.
+- Rolling, blue-green, and canary strategies, together with Docker, Kubernetes, IaC, GitOps, and 12-factor principles, support controlled deployment.
 
-Deployment strategies trade capacity, speed, and risk. Infrastructure as code and GitOps bring review, history, and reconciliation to infrastructure and Kubernetes. Terraform and Atlantis can place Cisco ACI changes inside a pull-request workflow, while Flux continuously reconciles approved Kubernetes state.
-
-Cloud platforms offer increasing abstraction through managed Kubernetes, serverless containers, and functions. Regardless of platform, 12-factor principles help applications remain portable, scalable, observable, and operationally predictable.
+Chapter 8 adds the security controls needed to protect applications, data, identities, pipelines, and API communications throughout that lifecycle.

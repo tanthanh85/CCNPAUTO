@@ -1,6 +1,6 @@
 # Chapter 5: Network APIs
 
-## Chapter Purpose
+## Chapter Introduction
 
 An application programming interface (API) is a contract between software systems. It explains what a client may request, how the request must be formatted, what security is required, and what the provider will return. In network automation, APIs replace screen scraping and fragile command sequences with structured access to inventory, topology, operational state, configuration, and controller services.
 
@@ -701,8 +701,10 @@ The workflow uses the controller for inventory ownership, NETCONF for modeled co
 
 > **Study guide takeaway:** Read an unfamiliar API from the outside in: identify the resource, method, headers, representation, status behavior, authentication, and retry semantics before writing client code.
 
-## Chapter Summary
+## Key Takeaways
 
-Network APIs expose platform capabilities through documented methods, resources, formats, and security controls. REST uses HTTP resource semantics, while RPC, gRPC, GraphQL, and SOAP address different operational and integration needs.
+- APIs expose platform capabilities through defined methods, resources, data formats, authentication, and error contracts.
+- REST, RPC, gRPC, GraphQL, and SOAP suit different communication and integration requirements.
+- Idempotency, OpenAPI contracts, and HTTP cache controls improve safety, testability, bandwidth use, and client efficiency.
 
-Safe and idempotent behavior determines whether a request can be retried. OpenAPI makes contracts reviewable and supports documentation, testing, and client generation. HTTP cache controls improve API efficiency through freshness and conditional validation, provided cache scope, identity, staleness, and invalidation are handled correctly.
+Chapter 6 moves from understanding API contracts to building resilient clients and providers that handle authentication, scale, and failure correctly.

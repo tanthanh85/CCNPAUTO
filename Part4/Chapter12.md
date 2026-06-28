@@ -1,6 +1,6 @@
 # Chapter 12: Model-Driven Telemetry
 
-## Chapter Purpose
+## Chapter Introduction
 
 Automation needs timely evidence about network state. Model-driven telemetry (MDT) streams structured measurements from devices to collectors, replacing much repetitive polling with efficient subscriptions. This chapter covers push models, sensor paths, transport, storage, visualization, and event-driven operations.
 
@@ -222,6 +222,10 @@ Before selecting a sample interval, estimate detection requirements and data vol
 
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
-## Chapter Summary
+## Key Takeaways
 
-Streaming telemetry uses subscriptions and YANG sensor paths to provide timely structured data. Dial-out and dial-in determine who initiates the session; periodic and on-change modes determine when data is sent. Collectors, time-series databases, and dashboards must be sized and monitored as production services.
+- Monitoring-model selection depends on operational purpose, device support, detection delay, bandwidth, scale, retention, and security.
+- Model-driven telemetry uses YANG sensor paths, dial-in or dial-out subscriptions, and periodic or on-change delivery.
+- Collectors, queues, time-series databases, dashboards, alerts, and event workflows must be engineered and monitored as production services.
+
+Chapter 13 applies these automation and observability foundations through open-source tools such as Ansible, Terraform, Puppet, and Chef.

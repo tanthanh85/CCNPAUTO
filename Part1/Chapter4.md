@@ -664,15 +664,13 @@ When several production versions are supported, each maintenance branch needs a 
 A defect corrected on the current main branch may need backporting:
 
 ```mermaid
-gitGraph
-    commit id: "v2 baseline"
-    branch release-1.x
-    checkout main
-    commit id: "fix parser defect"
-    checkout release-1.x
-    cherry-pick id: "backport fix"
-    checkout main
-    commit id: "continue v2"
+flowchart LR
+    Baseline["Shared release baseline"] --> MainFix["Correct parser defect on main"]
+    MainFix --> MainWork["Continue version 2 development"]
+    Baseline --> Release["Maintain release-1.x"]
+    MainFix -. "cherry-pick tested correction" .-> Backport["Create release-1.x backport"]
+    Release --> Backport
+    Backport --> Patch["Publish maintenance release"]
 ```
 
 The backport should be tested in the older dependency and schema environment. Cherry-picking a patch that compiles on main does not prove compatibility with the maintenance branch.

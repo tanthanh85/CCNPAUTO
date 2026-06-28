@@ -310,6 +310,18 @@ Agile does not mean absence of architecture or documentation. Teams still need s
 
 A network automation team may use Kanban for unpredictable operational requests while using sprint planning for larger platform capabilities. The method should serve the work rather than become an administrative objective.
 
+### 7.4 Selecting a Development Model
+
+No development model is universally superior. The choice depends on requirement stability, delivery frequency, regulatory expectations, technical uncertainty, team structure, and the cost of changing direction. Waterfall can remain appropriate when a product has fixed contractual milestones, formal sign-off, and expensive deployment constraints. Agile methods are usually stronger when users can provide frequent feedback and the team can release useful increments without waiting for the complete product.
+
+In practice, many organizations use a hybrid approach. A data-center migration may have fixed architecture gates, procurement dates, and change windows that resemble waterfall planning. Within that program, the automation team may still deliver inventory discovery, validation, provisioning, and reporting capabilities in short Agile increments. The outer program supplies governance, while the inner development cycle reduces technical uncertainty through frequent working software.
+
+Consider a team building branch-deployment automation. During the first sprint, it may create a read-only workflow that validates inventory and address data. The next sprint adds controller provisioning in a lab, followed by approval and rollback functions. Stakeholders can inspect each increment and correct assumptions early. By contrast, waiting six months to demonstrate the entire workflow could reveal too late that the source-of-truth data is incomplete or that the controller's task model differs from the original design.
+
+Scrum is useful when a stable product team can commit to a sprint goal. Kanban fits support and platform teams whose incoming work is less predictable. Extreme Programming practices such as test-driven development, pair programming, continuous integration, and small releases can strengthen either model. Lean principles help the team question whether a feature creates customer value or merely adds handoffs, inventory, and delay.
+
+Regardless of the model, teams should avoid confusing activity with progress. Completing many tickets does not prove that the application is safer or more useful. Working software, measurable service outcomes, defect trends, user feedback, and operational stability provide stronger evidence.
+
 ## 8. DevOps and Delivery Automation
 
 DevOps connects development and operations through shared responsibility, automation, and rapid feedback.
@@ -326,6 +338,34 @@ Useful delivery and operational metrics include:
 - Service-request and incident trends
 
 Automation reduces human error and creates repeatable procedures, but unsafe logic becomes repeatably unsafe. Reviews, tests, policy checks, limited permissions, staged rollout, and observability remain necessary.
+
+### 8.1 DevOps as an Operating Model
+
+DevOps is often mistaken for a job title or a collection of pipeline products. More accurately, it is an operating model in which the people who design and build a service share responsibility for deploying, observing, supporting, and improving it. Operations knowledge influences design before release, while production evidence returns directly to development.
+
+This shared responsibility shortens a familiar and costly feedback loop. In a traditional handoff, developers may deliver a package that works in their environment, while operators discover missing configuration, unclear health checks, or unsafe recovery behavior during installation. A DevOps team addresses those questions while the feature is being designed. Deployment manifests, dashboards, alerts, runbooks, and rollback procedures become part of the deliverable rather than follow-up work.
+
+For network automation, the collaboration must also include network domain experts and security teams. A developer may understand the controller API but not the operational effect of replacing a route policy on hundreds of WAN edges. Conversely, a network engineer may know the intended routing behavior but not the consequences of an unbounded retry loop. The safest solution emerges when those perspectives shape one workflow.
+
+### 8.2 From Commit to Verified Release
+
+A mature pipeline turns a source change into evidence. It checks formatting and static analysis, runs unit and contract tests, builds an immutable artifact, scans dependencies and the container image, deploys to a representative environment, and performs integration and acceptance tests. If the artifact is approved, the same digest is promoted rather than rebuilt.
+
+```mermaid
+flowchart LR
+    Commit["Reviewed commit"] --> CI["Build and automated checks"]
+    CI --> Artifact["Signed immutable artifact"]
+    Artifact --> Stage["Staging deployment"]
+    Stage --> Verify["Functional, security, and resilience tests"]
+    Verify --> Canary["Limited production canary"]
+    Canary --> Observe["Service and change metrics"]
+    Observe -->|healthy| Promote["Controlled promotion"]
+    Observe -->|unhealthy| Rollback["Stop and recover"]
+```
+
+Suppose a new compliance worker supports another IOS XE release. The pipeline can test parsing against recorded sanitized responses, run contract tests against a sandbox, and deploy one worker instance that handles a limited device group. If parse failures or job duration rise, the rollout stops before the entire inventory is affected.
+
+Delivery metrics should be interpreted together. A higher deployment frequency is beneficial only when change failure rate and recovery remain acceptable. Short lead time is not useful if teams bypass review or accumulate operational debt. Likewise, mean time to recovery improves when releases are observable, reversible, and small enough to diagnose—not merely when incidents are closed quickly.
 
 ## 9. Reviews and Testing
 
@@ -349,6 +389,20 @@ An automation renderer can be unit-tested with desired-state input and expected 
 A professional review considers requirement fit, architectural consistency, correctness, error handling, security, maintainability, performance, and supportability. Network automation adds questions about target scope, idempotency, rate limits, partial failure, rollback, and proof of success. Peer, architecture, security, and stakeholder reviews offer different perspectives and should be used according to change risk.
 
 Testing supplies repeatable evidence. Unit tests isolate calculations and validation; contract tests detect incompatible API changes; integration tests exercise databases, queues, and controller sandboxes; system tests follow the complete workflow; and acceptance tests connect results to user requirements. If a workflow creates a VLAN, one test rejects reserved IDs, another validates the REST payload, another creates the VLAN in a lab, and an end-to-end test confirms client connectivity. A resilience test can then interrupt the response and verify that the workflow finds the existing controller task instead of creating a duplicate.
+
+### 9.3 Conducting an Effective Review
+
+An effective review begins with context. The author should explain the problem, intended behavior, important design choices, risk, testing, and rollback. Reviewers can then focus on whether the solution is correct rather than reverse-engineering its purpose from a large diff. Small, coherent changes receive deeper review than submissions that mix refactoring, formatting, new behavior, and dependency upgrades.
+
+Comments should be specific and constructive. “This is wrong” provides little guidance; “this retry can submit the non-idempotent POST twice after a read timeout” identifies both the defect and its consequence. Teams should distinguish required corrections from optional suggestions and record significant architectural decisions outside the pull-request conversation so they remain discoverable.
+
+### 9.4 Testing Failure, Not Only Success
+
+The happy path is usually the easiest behavior to implement. Production failures occur when DNS is slow, a token expires between pages, a controller returns malformed data, one device rejects a batch, or the network connection disappears after an operation has started. Tests should therefore exercise uncertainty and partial completion, not only expected responses.
+
+A useful network-automation test environment includes simulators or sandboxes, representative software versions, controlled fault injection, and test identities with realistic permissions. Test data should include empty collections, duplicate names, large inventories, unexpected fields, and sensitive values that must be redacted. Finally, a deployment test should confirm not only that the application starts, but that it can reach its queue, secret service, database, controller, and required device networks.
+
+Testing is strongest when failures lead to better design. If a timeout test cannot determine whether a remote task began, the interface may need an idempotency key or reconciliation step. If rollback cannot restore service after a schema migration, the release strategy may need expand-and-contract compatibility. In this way, testing does more than find defects; it exposes architectural assumptions before production does.
 
 ## 10. Sequence Diagrams for API Workflows
 

@@ -2,8 +2,6 @@
 
 ## Chapter Introduction
 
-> **Side note:** A clean Git history is operational evidence. Commit messages should explain intent and risk, not merely list edited files.
-
 Change is constant in software and network automation. Source code changes, but so do device templates, YANG models, schemas, infrastructure definitions, tests, runbooks, and pipeline configuration. Git gives the team a shared history of those changes: what changed, who changed it, why it changed, and how to recover when the result is not what the team expected.
 
 Think of Git as more than a place to store files. It is part of the safety system around production automation. A focused commit supports review. A protected branch prevents unapproved integration. A signed release connects the deployed artifact to tested source. A useful history shortens incident investigation.
@@ -833,11 +831,11 @@ A change log generated only from commit subjects may omit user impact. Release o
 
 > **Study guide takeaway:** A good Git workflow creates evidence. The branch explains the scope, commits explain the change, the pull request records review, CI records verification, and the release artifact identifies exactly what reached production.
 
-## AI-Assisted Development and Git Governance
+## 25. AI-Assisted Development and Git Governance
 
 AI coding assistants can explain unfamiliar code, propose Python functions, generate unit tests, translate API examples, draft documentation, and accelerate repetitive refactoring. In network automation, they can help create parsers, payload models, Ansible tasks, Terraform resources, and test fixtures. Vibe coding is useful for exploring a lab idea quickly, but production code must pass through the same requirements, review, testing, security, and release controls as human-written code.
 
-### Benefits and Risks of AI-Assisted Network Automation
+### 26. Benefits and Risks of AI-Assisted Network Automation
 
 | Area | Potential benefit | Risk and required control |
 |---|---|---|

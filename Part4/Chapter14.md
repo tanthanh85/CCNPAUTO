@@ -35,6 +35,8 @@ Traceability connects a requirement to a design decision, implementation, test, 
 
 ## 3. Change Control
 
+After configuration items and baselines have been identified, the team needs a consistent way to move from a proposed change to an approved release. The following flow captures that control path without assuming that every change requires the same level of manual review.
+
 ```mermaid
 flowchart LR
     Request["Change request"] --> Impact["Impact and risk analysis"]
@@ -88,6 +90,8 @@ Ansible and Terraform solve different state problems. Ansible commonly executes 
 Tool evaluation should consider API support, idempotency, transaction behavior, drift, secrets, scale, debugging, community or vendor support, and team capability. Record major choices in architecture decision records.
 
 ## 8. SCM in a Delivery Pipeline
+
+These SCM responsibilities become most effective when the delivery pipeline records them automatically. In the following flow, source control, tests, immutable artifacts, deployment evidence, and operational inventory form one traceable chain.
 
 ```mermaid
 flowchart LR

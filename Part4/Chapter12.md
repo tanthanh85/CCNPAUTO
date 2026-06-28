@@ -4,6 +4,8 @@
 
 Automation needs timely evidence about network state. Model-driven telemetry (MDT) streams structured measurements from devices to collectors, replacing much repetitive polling with efficient subscriptions. This chapter covers push models, sensor paths, transport, storage, visualization, and event-driven operations.
 
+Imagine that users report a two-second application slowdown every morning, but the five-minute interface polling graphs look normal. The monitoring system is not necessarily wrong; it is simply too coarse to capture the event. A carefully selected streaming path can reveal the queue drop or utilization burst, while topology and application context determine whether that observation actually explains the complaint. This relationship between collection, context, and trustworthy conclusions runs throughout the chapter.
+
 ## 1. From Polling to Streaming
 
 SNMP managers traditionally poll MIB objects at intervals. Polling is widely supported, but a short event can occur between polls and large environments generate repeated requests even when nothing changes.
@@ -22,6 +24,8 @@ flowchart LR
 MDT uses YANG-modeled paths, precise subscription behavior, and efficient encodings. It complements rather than automatically replaces SNMP, syslog, and flow data.
 
 ## 2. Telemetry Architecture
+
+Moving from polling to streaming changes more than the device configuration. Data must travel through a collection and storage pipeline before it becomes useful to an operator, as the following architecture shows.
 
 ```mermaid
 flowchart LR
@@ -47,6 +51,8 @@ In **dial-out**, the network device initiates a connection to configured collect
 Dial-out is useful through restrictive inbound policies. Dial-in gives the collector greater subscription flexibility. High availability may require multiple collectors and careful duplicate handling.
 
 ## 4. Subscription Modes
+
+Once the connection direction is chosen, the engineer must decide when the device should send data. The main subscription modes reflect different operational needs:
 
 - **Periodic:** send values at a defined sample interval.
 - **On-change:** send an update when supported data changes, often with heartbeat behavior.

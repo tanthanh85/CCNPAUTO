@@ -574,6 +574,8 @@ This workflow links code review, Git history, artifact provenance, deployment, o
 
 ## 14. Git and Release Checklist
 
+The preceding workflows can be reduced to a practical review before a change is merged or released. The checklist is most useful when the answers are supported by repository and pipeline evidence rather than assumption.
+
 - Is the change on a focused branch?
 - Were unstaged and staged differences reviewed?
 - Does the commit contain tests and no secrets?

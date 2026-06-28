@@ -13,6 +13,8 @@ This chapter develops API clients and services around four operational concerns:
 - Python handling for timeouts and rate limits
 - Explicit flow control for unrecoverable REST API errors
 
+Consider an engineer who submits a request to upgrade fifty branch devices. The controller accepts the request, but the client loses its connection before receiving the task identifier. Retrying immediately might start the upgrade twice, while stopping without investigation might leave the engineer unaware that production work has begun. Situations like this explain why the chapter treats timeouts, idempotency, task state, and user-facing flow control as one connected design problem rather than unrelated API features.
+
 ### A Resilient Client in Context
 
 ```mermaid
@@ -285,6 +287,8 @@ WebSocket and streaming APIs maintain a connection through which messages can ar
 Network telemetry is naturally stream-oriented. Interface counters and route events can be delivered as changes rather than repeatedly polling every device for a complete snapshot.
 
 ## 7. HTTP Status and Error Classification
+
+Once a request has been sent, the client needs to translate protocol results into application decisions. HTTP status families provide the starting point, but the response body, method semantics, and current workflow state determine what should happen next.
 
 | Class | Meaning | Client direction |
 |---|---|---|
@@ -569,6 +573,8 @@ Device platform capabilities and software catalogs are strong cache candidates. 
 Caching optimizes frequency limits only when semantics allow reuse. A stale cached response must not be mistaken for confirmation that a change completed or that a device remains healthy.
 
 ## 12. API Development Checklist
+
+The ideas in this chapter are closely related, so a final review should consider them as one client behavior rather than a collection of isolated features. The following checklist provides that consolidated view.
 
 - Is the interface defined before implementation?
 - Are resource names and methods consistent?

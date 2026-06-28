@@ -446,6 +446,8 @@ Do not cache unsafe methods by default. Invalidate or version affected represent
 
 ## 10. API Selection and Consumption Checklist
 
+Selecting an API style or endpoint is only the beginning. Before implementation, work through the following questions to confirm that the client understands the contract, security model, scale, and failure behavior.
+
 - Is the interface supported and documented?
 - Are methods aligned with resource behavior?
 - Is retry safety understood for every operation?

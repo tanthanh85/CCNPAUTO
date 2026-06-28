@@ -226,6 +226,8 @@ The total budget prevents every dependency from choosing a two-second timeout. T
 
 ## 4. Performance Trade-offs
 
+Improving one part of a system can move cost or delay somewhere else. Therefore, performance decisions should be evaluated together with their effect on consistency, reliability, security, resource use, and operational complexity.
+
 - **Availability:** Replication and failover coordination can add latency.
 - **Scalability:** Distribution adds serialization and network communication.
 - **Security:** Encryption and deep inspection consume resources.
@@ -501,6 +503,8 @@ The original choice should be informed, but analysis should not prevent delivery
 A platform stores change approvals in a relational database because transactions and audit relationships matter. It writes high-frequency interface counters to a time-series database with a 30-day detailed retention and one-year hourly rollups. Topology relationships are stored in a graph database only if multi-hop path queries justify the added operational burden. Polyglot persistence is valuable when specialized requirements outweigh the cost of operating multiple platforms.
 
 ## 8. Performance and Observability Review Checklist
+
+Before approving the design, use the following questions to confirm that the team has connected performance goals with the evidence needed to operate the application.
 
 - Are latency, throughput, and capacity targets measurable?
 - Is the actual bottleneck known from tests?

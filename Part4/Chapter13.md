@@ -4,6 +4,8 @@
 
 Open-source tools make infrastructure definitions reviewable, repeatable, and extensible. This chapter compares infrastructure-as-code models, provisioning and configuration management, agent and agentless designs, and the roles of Puppet, Chef, Ansible, and Terraform in Cisco environments.
 
+A useful way to approach the comparison is to follow one service request. A new application may need an ACI tenant and bridge domain, configuration on IOS XE edge devices, and a Linux telemetry collector. Terraform can manage the API resource lifecycle, Ansible can configure and verify the network devices, and Puppet or Chef can keep the server in its intended state. The tools complement one another only when ownership is explicit; otherwise, two systems may repeatedly overwrite the same setting.
+
 ## 1. Infrastructure as Code
 
 Infrastructure as code (IaC) represents desired infrastructure in files that can be versioned, tested, reviewed, and deployed by software.
@@ -26,6 +28,8 @@ Provisioning creates or allocates resources: a VM, cloud network, ACI tenant, or
 IaC should be idempotent so repeated execution converges on the same result. It should also detect drift, protect secrets, and expose a plan before high-impact changes.
 
 ## 3. Agent-Based and Agentless Models
+
+Provisioning behavior also depends on where the management logic runs. Agent-based systems place a resident component on the managed node, whereas agentless systems use an existing management protocol or API from a control node.
 
 ```mermaid
 flowchart TB
@@ -120,6 +124,8 @@ resource "aci_tenant" "automation" {
 Terraform state maps configuration addresses to remote objects. It can contain sensitive values and must be protected with encryption, access control, locking, and backups. Remote state supports team workflows. Never manually edit state unless following a controlled recovery process.
 
 ## 8. Selecting a Tool
+
+The earlier descriptions make it clear that no tool is strongest in every situation. A useful initial selection can therefore begin with the dominant state-management requirement, while later sections add business, support, and governance criteria.
 
 | Requirement | Strong starting point |
 |---|---|

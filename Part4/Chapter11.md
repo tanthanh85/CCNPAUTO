@@ -4,6 +4,8 @@
 
 NETCONF and RESTCONF replace fragile screen scraping with structured, model-driven network management. Both use YANG models to describe valid data, but they differ in transport and operations. This chapter develops the protocols through Cisco IOS XE configuration scenarios.
 
+Suppose a campus team must create the same VLAN, loopback, and static route on a mixed group of IOS XE devices. A CLI script might work until a prompt, command form, or output layout changes. With YANG-modeled data, the application can validate types and hierarchy before sending the change and can interpret a structured error afterward. The chapter therefore begins with the model, moves through the protocols, and finishes with complete configuration and verification workflows.
+
 ## 1. Why Model-Driven Management?
 
 CLI syntax varies across platforms and releases. A model describes data independently of screen layout, including hierarchy, type, constraints, configuration, and operational state.
@@ -103,6 +105,8 @@ Use these media types:
 
 ## 7. RESTCONF Operations
 
+After the client has identified the correct YANG resource, the HTTP operation becomes straightforward. The following request retrieves the modeled interface collection and illustrates the headers, authentication, timeout, and response handling that later configuration calls will reuse.
+
 ```python
 import requests
 
@@ -118,6 +122,8 @@ interfaces = r.json()["ietf-interfaces:interfaces"]["interface"]
 To configure a loopback, send a JSON body whose top-level member matches the target resource. After the write, retrieve the interface and verify both configuration and operational state.
 
 ## 8. NETCONF or RESTCONF?
+
+Because both protocols operate on YANG-modeled data, the decision is usually shaped by transaction requirements, existing application skills, and platform capabilities rather than by the data model itself. The comparison below brings those practical differences together.
 
 | Consideration | NETCONF | RESTCONF |
 |---|---|---|

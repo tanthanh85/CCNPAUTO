@@ -4,6 +4,8 @@
 
 Infrastructure automation begins with a clear understanding of the network lifecycle. A script that changes a device is useful, but an operational system must also plan, validate, observe, secure, and eventually retire that device. This chapter connects traditional network management with zero-touch provisioning, controller-based networking, and intent-based operations.
 
+Consider a retailer preparing to open twenty branches in one month. Shipping configured switches from a central office may work for the first few sites, but it soon creates delays, inconsistent software, and difficult recovery when a device is replaced. A lifecycle-based approach instead records device identity before shipment, uses zero-touch onboarding, applies site policy through a controller, verifies service health, and retains a recovery path. That situation provides the practical thread for the management methods that follow.
+
 ## 1. The Infrastructure Lifecycle
 
 Cisco's PDIOO model organizes work into **plan, design, implement, operate, and optimize**. Automation belongs in every phase, not only implementation.

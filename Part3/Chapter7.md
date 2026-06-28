@@ -8,6 +8,8 @@ For a network automation engineer, deployment may involve more than an applicati
 
 This chapter explains how application responsibility evolved from separate development and operations teams into DevOps and site reliability engineering (SRE). It then develops CI/CD, GitOps, infrastructure as code, deployment strategies, cloud execution models, and the 12-factor application method.
 
+To see why these topics belong together, imagine a team releasing a new network-compliance worker late on a Friday. The code passes local tests, yet the production image contains a different library version and fails immediately after deployment. Without an immutable build, useful pipeline logs, and a tested rollback, a small dependency mismatch becomes an extended operational incident. The practices in this chapter are designed to prevent that familiar kind of failure.
+
 ### How to Study This Chapter
 
 Follow one change from commit to production. Ask who owns each stage, what evidence is produced, what can fail, and how the team can roll back. A pipeline is not merely a chain of tools; it is the technical expression of the organization's delivery and risk policy.

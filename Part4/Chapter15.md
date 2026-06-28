@@ -4,6 +4,8 @@
 
 Edge computing places selected processing near users, devices, and data sources. Cisco application hosting allows containerized workloads to run on supported Catalyst 9000 and IOx-enabled platforms. This chapter explains the benefits, constraints, deployment workflow, networking, security, and lifecycle management of those applications.
 
+Consider a manufacturing site that produces high-frequency sensor data but has an expensive and occasionally unreliable WAN connection. Sending every raw event to the cloud wastes bandwidth and delays local action. A small hosted application can filter routine measurements, retain important events, and continue operating during an outage. However, that benefit is worthwhile only if the workload is isolated, observable, securely updated, and prevented from exhausting resources needed by the network device itself.
+
 ## 1. Why Compute at the Edge?
 
 Central cloud platforms offer elasticity and operational consistency, but sending every event to a distant data center can add latency, consume WAN bandwidth, and conflict with data-location requirements.
@@ -44,6 +46,8 @@ Capability is platform-, license-, architecture-, and release-specific. Confirm 
 
 ## 4. Application Architecture
 
+With the platform selected, the next question is how the hosted workload fits into the device. The application runtime, allocated resources, virtual interface, storage, and management system form a small but complete operating environment.
+
 ```mermaid
 flowchart TB
     Mgmt["Management / deployment system"] --> IOSXE["Cisco IOS XE"]
@@ -74,6 +78,8 @@ CMD ["python", "edge_collector.py"]
 Scan the image for known vulnerabilities, produce a software bill of materials, sign the approved image, and record its digest. A tag such as `latest` is not a reproducible release identity.
 
 ## 6. Deployment Lifecycle
+
+Building the image produces only one part of the deployable workload. The package must then move through a controlled lifecycle in which installation, resource activation, startup, and service verification are separate observable steps.
 
 ```mermaid
 flowchart LR
@@ -106,7 +112,7 @@ DNS, NTP, certificate validation, proxy behavior, MTU, and default routing are c
 
 ## 8. Security and Resource Protection
 
-Treat an edge container as a production workload:
+Because the application shares a platform with critical network functions, it must be treated as a production workload. In practice, that means applying the following controls as one coordinated security and resource policy:
 
 - Use signed and scanned images from a controlled registry.
 - Remove unnecessary packages and Linux capabilities.

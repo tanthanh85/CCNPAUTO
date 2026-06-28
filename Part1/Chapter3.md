@@ -379,6 +379,14 @@ Do not log secrets, tokens, private keys, or full sensitive configurations. A ha
 
 Severity should reflect operational impact. If every event is an error, alerts lose meaning.
 
+#### Diagnosing Application Failures from Event-Related Logs
+
+Diagnosis begins with the first user-visible or monitoring symptom and a bounded time window. Search by correlation, trace, request, or job identifier rather than reading unrelated lines chronologically. Reconstruct the event sequence across the API gateway, worker, queue, database, Cisco controller task, and device response. The first error is not always the root cause: a database timeout may follow connection-pool exhaustion, while a device authentication failure may follow an earlier secret-rotation event.
+
+Compare the failing transaction with a successful transaction of the same type. Check application version, instance, environment, input identifiers, duration, retry count, dependency status, and recent deployment or configuration events. Repeated identical errors across every instance suggest a shared dependency or configuration problem; errors isolated to one instance suggest local resource exhaustion, stale configuration, or an unhealthy node. A burst following a release should be correlated with the artifact digest and deployment timeline.
+
+Logs should support a defensible conclusion. Preserve the original event, record timestamps in a consistent timezone, and distinguish facts from inference. If the workflow retries, the log must show each attempt and the final decision so an operator can determine whether the original operation completed remotely. After diagnosis, improve the event schema, metric, alert, or runbook where evidence was missing; observability should become stronger after each difficult incident.
+
 ### 6.2 Metrics
 
 Useful application metrics include:
@@ -443,6 +451,8 @@ Database choice affects correctness, performance, scale, and maintainability. Se
 | Graph | Relationship traversal | topology, dependencies, reachability paths |
 | Column-family | Distributed high-volume writes | large event and activity datasets |
 | Time series | Timestamped ingestion, retention, aggregation | interface counters and telemetry |
+
+A document database stores related fields as flexible JSON-like documents and is useful when device facts or configuration snapshots vary by platform. That flexibility does not remove the need for schema governance: applications should still validate required fields, identifiers, versions, and indexes.
 
 ### 7.2 The Three Vs
 

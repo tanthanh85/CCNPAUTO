@@ -257,6 +257,31 @@ Document ownership at the resource and attribute level. If an emergency manual c
 
 Open-source tools should be connected through an orchestrator or pipeline rather than one tool shelling out unpredictably to another. Exchange explicit inputs and outputs, preserve correlation IDs, and define failure and compensation. This produces a system whose behavior can be tested and explained.
 
+## 18. Process for Configuring Network Parameters
+
+A repeatable network-parameter process begins with validated intent, not a device template. The request identifies site, service, owner, addresses, VLAN, routing or security requirements, maintenance constraints, and acceptance criteria. The workflow retrieves authoritative inventory and IPAM data, checks policy and conflicts, calculates the intended difference, and presents a plan for review.
+
+```mermaid
+flowchart LR
+    Request["Validated service request"] --> SoT["Resolve inventory, IPAM, and policy"]
+    SoT --> Model["Build normalized desired state"]
+    Model --> Plan["Generate device/controller-specific plan"]
+    Plan --> Approve["Risk-based review"]
+    Approve --> Deploy["Apply in bounded batches"]
+    Deploy --> Verify["Verify configuration, control plane, and service"]
+    Verify --> Record["Update source of truth and evidence"]
+```
+
+Ansible is well suited when parameters must be applied and verified across device inventories. Terraform is stronger when the target exposes resource lifecycle through an API and remote objects need declarative state. A controller API is preferable when it owns fabric-wide policy. The process may use several tools, but one system must own each attribute. Failure handling should stop the rollout, preserve successful and failed targets, and apply rollback only when the previous state remains safe.
+
+## 19. Selecting a Configuration Management Solution
+
+Technical requirements include target platforms, available APIs, scale, idempotency, transaction support, drift detection, offline behavior, performance, secret integration, and testing. Business requirements include support model, licensing, staff skills, auditability, regulatory controls, delivery speed, vendor strategy, and total operating cost. A tool that supports every device but cannot satisfy change evidence or team support requirements is not a complete solution.
+
+Use a weighted decision matrix rather than selecting by popularity. For a heterogeneous enterprise network, Ansible may score highly for agentless reach and Cisco collections. Terraform may be selected for ACI, cloud, and Intersight resources with clear lifecycle ownership. Puppet or Chef can continuously converge server systems. Cisco NSO may be appropriate where transactional multi-vendor service orchestration and rollback are central requirements. A commercial controller may provide deeper assurance and lifecycle integration for its domain than a general-purpose tool.
+
+Pilot the shortlisted solution with a representative workflow, including failure and recovery. Measure time to implement, plan clarity, idempotency, scale, debugging, upgrade compatibility, and operational handoff. The correct result can be a governed toolchain rather than one universal tool.
+
 > **Study guide takeaway:** IaC makes infrastructure change reviewable and repeatable. Ansible excels at agentless network tasks, Terraform manages declarative API resources and state, while Puppet and Chef continuously converge agent-managed systems.
 
 ## Chapter Summary

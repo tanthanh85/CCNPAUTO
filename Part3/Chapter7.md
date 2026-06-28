@@ -465,7 +465,56 @@ flowchart TB
     Processes --> Logs["Event streams"]
 ```
 
-## 14. Deployment Readiness Checklist
+## 14. Troubleshooting CI/CD Pipelines
+
+CI/CD failures should be diagnosed by stage rather than treated as one generic deployment problem. A source-stage failure may involve a missing branch, inaccessible submodule, or expired repository credential. Build failures commonly result from unavailable package repositories, incompatible runtime or base-image versions, missing compilers, or dependency-resolution conflicts. Test failures can expose a genuine regression, unstable test data, a timing-sensitive test, or a service dependency that was not isolated correctly. Deployment failures may arise from invalid Kubernetes manifests, unavailable cluster capacity, failed health probes, insufficient permissions, or an application that cannot connect to its backing services.
+
+```mermaid
+flowchart TD
+    Failed["Pipeline failure"] --> Stage{"Which stage failed?"}
+    Stage --> Build["Build: dependencies, compiler, base image"]
+    Stage --> Test["Test: regression, fixture, environment, flaky test"]
+    Stage --> Package["Package: digest, signing, registry, architecture"]
+    Stage --> Deploy["Deploy: policy, capacity, probes, configuration"]
+    Build & Test & Package & Deploy --> Evidence["Inspect logs, artifact metadata, and prior successful run"]
+    Evidence --> Reproduce["Reproduce in the same execution environment"]
+    Reproduce --> Correct["Correct cause; do not bypass the failed control"]
+```
+
+Incompatible component versions deserve deliberate management. Pin direct dependencies and record transitive dependencies in a lock file. Pin container base images by digest for reproducible releases, and maintain a tested compatibility matrix for Python, libraries, Kubernetes APIs, Helm charts, Cisco SDKs, controller releases, Terraform providers, and Ansible collections. When a controller upgrade changes an API response, the correct response is to update the adapter and contract tests, not to weaken validation until the pipeline turns green.
+
+A failed test is evidence. First reproduce it using the same commit, artifact, dependency lock, environment image, and test data. If the test is flaky, quarantine only through a visible time-bounded process while the cause is corrected. Silently retrying every failed test can turn a real race condition into an apparently successful pipeline. Store test reports and logs with the build so that a failure can be compared with the last successful run.
+
+## 15. Continuous Testing and Static Analysis
+
+Continuous testing moves feedback earlier and makes smaller changes safer. A network automation project can run formatting and linting, unit tests for transformations, schema tests for YAML and JSON, policy tests for address and VLAN rules, contract tests for Cisco APIs, container scans, integration tests against a sandbox, and post-deployment service tests. Each layer catches a different class of problem; no single test proves production readiness.
+
+Static analysis examines source without executing the deployed application. Linters identify suspicious constructs, type checkers detect inconsistent assumptions, security analyzers find common unsafe patterns, dependency scanners identify known vulnerable libraries, and infrastructure-policy tools evaluate Dockerfiles, Kubernetes manifests, and Terraform plans. Static analysis is fast and repeatable, making it suitable for every pull request, but findings still require triage because context determines actual risk.
+
+```yaml
+# Illustrative CI quality stages
+quality:
+  steps:
+    - run: ruff check src tests
+    - run: mypy src
+    - run: pytest --junitxml=reports/tests.xml
+    - run: bandit -r src
+    - run: pip-audit -r requirements.txt
+    - run: docker build -t automation:${GIT_SHA} .
+    - run: trivy image automation:${GIT_SHA}
+```
+
+Quality gates should be risk based. A newly introduced critical vulnerability, failed unit test, invalid manifest, or unsigned artifact should stop promotion. Code-coverage percentages and style warnings can guide improvement, but chasing a number without meaningful assertions creates false confidence.
+
+## 16. Effective Application Logging Strategy
+
+Logs should explain significant events and decisions, not merely state that an error occurred. Use structured fields for timestamp, severity, service, version, environment, correlation ID, request or job ID, target platform, operation, duration, outcome, and a sanitized error classification. Propagate the correlation ID from the API request through queue messages, controller task IDs, and device verification so an operator can reconstruct the complete workflow.
+
+Never log passwords, bearer tokens, private keys, session cookies, or complete sensitive configurations. Redact user data and network details according to privacy and operational policy. Centralize logs, protect them from unauthorized modification, define retention, and ensure clocks are synchronized. Metrics identify that failure rates have increased, traces reveal which dependency is slow, and logs explain the event-level decisions; an effective strategy uses all three.
+
+## 17. Deployment Readiness Checklist
+
+The following checklist remains useful after those controls have been assessed.
 
 - Is the deployable artifact immutable and traceable to a Git commit?
 - Are dependencies pinned and scanned?

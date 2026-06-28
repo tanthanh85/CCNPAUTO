@@ -447,7 +447,55 @@ flowchart TB
 
 The gateway handles coarse authentication and rate limits. The API enforces resource-level authorization. The worker retrieves a scoped secret only when needed. The controller remains the policy-aware path to the infrastructure. Every stage produces correlated evidence.
 
-## 16. Security Design Checklist
+## 16. Cross-Site Request Forgery
+
+Cross-site request forgery (CSRF) occurs when a browser automatically includes a user's authenticated cookie with a state-changing request initiated from an untrusted site. The vulnerable application may see a valid session but cannot tell that the user did not intend the action. Network automation portals are high-value targets because a forged request might approve a change, create an API credential, or alter policy.
+
+Mitigation begins by avoiding state changes through `GET`. Cookie-authenticated applications should use unpredictable anti-CSRF tokens bound to the user session and validate them on every state-changing request. Cookies should use `Secure`, `HttpOnly`, and an appropriate `SameSite` setting. Applications should also validate `Origin` or `Referer` where practical and require reauthentication for highly sensitive operations. CORS is not a complete CSRF defense because submitting a simple cross-site request and reading its response are different browser capabilities.
+
+```mermaid
+sequenceDiagram
+    participant U as User browser
+    participant A as Trusted automation portal
+    participant M as Malicious site
+    U->>A: Authenticate; receive secure session cookie and CSRF token
+    U->>M: Visit malicious page
+    M-->>U: Attempt forged policy-change request
+    U->>A: Cookie included, but token missing or incorrect
+    A-->>U: Reject request with 403
+```
+
+Bearer-token APIs used by nonbrowser clients are not normally vulnerable in the same cookie-driven manner, but token theft, XSS, and overly broad scopes remain serious risks.
+
+## 17. Configuring Application-Specific TLS Certificates
+
+An application certificate binds a public key to an identity such as `automation.example.com`. Begin by selecting the DNS names the service will present, generating a private key with an approved algorithm and size, and creating a certificate signing request (CSR) containing the correct subject alternative names. Submit the CSR to the enterprise or public certificate authority, then install the issued server certificate together with the required intermediate chain. The private key must remain restricted to the application workload or approved key service.
+
+```text
+Generate protected private key
+        -> create CSR with DNS SANs
+        -> CA validates and signs
+        -> install leaf certificate and intermediate chain
+        -> configure HTTPS listener
+        -> validate hostname, chain, expiry, and revocation behavior
+        -> monitor and renew before expiration
+```
+
+In Kubernetes, a TLS secret can supply the key and certificate to an Ingress controller, while a certificate-management operator can automate issuance and renewal. In a traditional deployment, the web server or reverse proxy references protected key and certificate files. Do not place private keys in Git, container images, or general-purpose configuration maps. Test the complete trust chain from an external client because a server may appear correct locally while omitting an intermediate certificate.
+
+Mutual TLS adds client authentication. The server validates a client certificate issued by a trusted CA, and the client still validates the server. This is useful for service-to-service calls and selected network-controller integrations, but it requires client-certificate issuance, rotation, revocation, and mapping to application authorization.
+
+## 18. Encryption Applied to APIs
+
+Encryption in transit uses TLS to negotiate algorithms, authenticate the server, establish session keys, and protect confidentiality and integrity. Asymmetric cryptography supports identity and key establishment, while efficient symmetric encryption protects application data after the handshake. A certificate does not authorize an API operation; the application must still authenticate the client and enforce scopes or roles.
+
+Sensitive data at rest should use storage or database encryption, with keys protected separately in a key-management service or hardware security module. Highly sensitive fields may require application-level encryption so database administrators cannot read plaintext. Passwords are not decrypted at all; they should be processed with a salted, adaptive password-hashing algorithm.
+
+Application payload signing serves a different purpose from encryption. A webhook signature can prove integrity and origin even though the webhook is also sent over TLS. For Cisco API integrations, validate TLS, use secure token or certificate authentication, protect stored secrets, and avoid including confidential values in URLs where proxies and logs may record them.
+
+## 19. Security Design Checklist
+
+The following checklist should be applied after these controls are designed.
 
 - Have assets, threats, trust boundaries, and abuse cases been documented?
 - Is sensitive data minimized and classified?

@@ -263,6 +263,80 @@ Rate-limit clients and use bounded concurrency. A structured API is not free of 
 
 Finally, log intent and outcome rather than dumping raw payloads indiscriminately. A useful record states the requested service, target device and modeled resources, pre-change version or hash, RPC or HTTP result, verification, and correlation ID. Sensitive values can be redacted while preserving enough evidence for troubleshooting and audit.
 
+## 18. IOS XE RESTCONF Configuration Workflow
+
+The following client illustrates the common mechanics for configuring an IOS XE resource. The exact native-model path can vary with IOS XE release, so inspect the device's YANG library and RESTCONF API documentation before using a payload. Standards-based `ietf-interfaces` is used where possible.
+
+```python
+import os
+from urllib.parse import quote
+import requests
+
+BASE = os.environ["IOSXE_URL"].rstrip("/")
+AUTH = (os.environ["IOSXE_USER"], os.environ["IOSXE_PASSWORD"])
+HEADERS = {
+    "Accept": "application/yang-data+json",
+    "Content-Type": "application/yang-data+json",
+}
+
+def restconf(method, resource, *, payload=None):
+    response = requests.request(
+        method,
+        f"{BASE}/restconf/data/{resource}",
+        headers=HEADERS,
+        auth=AUTH,
+        json=payload,
+        timeout=(3, 20),
+    )
+    response.raise_for_status()
+    return response.json() if response.content else None
+
+name = "Loopback100"
+key = quote(name, safe="")
+interface_payload = {
+    "ietf-interfaces:interface": {
+        "name": name,
+        "description": "Managed by RESTCONF",
+        "type": "iana-if-type:softwareLoopback",
+        "enabled": True,
+        "ietf-ip:ipv4": {
+            "address": [{"ip": "192.0.2.100", "netmask": "255.255.255.255"}]
+        },
+    }
+}
+
+restconf(
+    "PUT",
+    f"ietf-interfaces:interfaces/interface={key}",
+    payload=interface_payload,
+)
+configured = restconf("GET", f"ietf-interfaces:interfaces/interface={key}")
+print(configured)
+```
+
+For a VLAN, the workflow uses the IOS XE VLAN model supported by the device. A representative payload has a keyed VLAN entry containing the VLAN ID and name. For a static route, the IOS XE native routing model represents the prefix, mask, and forwarding choice as structured data. Do not copy a model path from another release without checking advertised schemas.
+
+```json
+{
+  "Cisco-IOS-XE-vlan-cfg:vlan-list": {
+    "id": 310,
+    "name": "AUTOMATION-USERS"
+  }
+}
+```
+
+```json
+{
+  "Cisco-IOS-XE-native:ip-route-interface-forwarding-list": {
+    "prefix": "198.51.100.0",
+    "mask": "255.255.255.0",
+    "fwd-list": [{"fwd": "192.0.2.1"}]
+  }
+}
+```
+
+After creating the VLAN, retrieve it and confirm any required switchport association and spanning-tree state. After creating the route, retrieve configuration and operational routing state; a configured route whose next hop is unresolved may not be installed. When several resources form one service, apply dependency-aware rollback or use NETCONF candidate/confirmed-commit capabilities where supported.
+
 > **Study guide takeaway:** YANG defines the contract; NETCONF and RESTCONF carry requests against that contract. Reliable automation discovers capabilities, sends minimal validated changes, interprets structured errors, and verifies resulting state.
 
 ## Chapter Summary

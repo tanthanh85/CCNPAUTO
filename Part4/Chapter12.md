@@ -204,6 +204,22 @@ Certificate rotation is a frequent operational failure point. A collector with a
 
 Schema and dashboard changes also require governance. A renamed field can invalidate alerts without producing an obvious error. Treat collectors, transformations, retention rules, dashboards, and alert definitions as code. Review and test them together with device software upgrades. A telemetry system is trustworthy only when its own configuration and data quality are controlled.
 
+## 17. Selecting a Network Monitoring Model
+
+The monitoring model should be selected from operational requirements rather than product familiarity. Begin with the decisions the data must support: immediate fault response, capacity planning, compliance, user-experience assurance, forensic investigation, or closed-loop automation. Then evaluate device support, measurement frequency, acceptable detection delay, bandwidth, collector scale, data cardinality, storage retention, security, and the team's ability to operate the pipeline.
+
+| Consideration | Polling model | Streaming model | Event-driven model |
+|---|---|---|---|
+| Best suited to | Broad compatibility and periodic snapshots | High-frequency structured state and counters | Immediate meaningful transitions |
+| Device interaction | Manager repeatedly requests data | Device sends subscribed data | Device or event system publishes on occurrence |
+| Scaling pressure | Request load on manager and devices | Continuous ingestion, bandwidth, and storage | Burst handling and event correlation |
+| Data gaps | Events may occur between polls | Gaps appear when stream or collector fails | Events may lack surrounding trend context |
+| Typical Cisco use | SNMP inventory/counters | YANG-based MDT or gNMI | Syslog, notifications, assurance events |
+
+A hybrid approach is normally strongest. SNMP can cover legacy devices, model-driven telemetry can provide interface and queue measurements, syslog can explain discrete failures, flow records can describe traffic behavior, and synthetic probes can test the service from a user's perspective. The systems must share time synchronization, device identity, topology, and correlation so that their evidence can be combined.
+
+Before selecting a sample interval, estimate detection requirements and data volume. A 30-second poll cannot reliably explain a two-second microburst. Conversely, streaming slow-changing inventory every second wastes bandwidth and storage. Include encoding overhead, labels, replication, retention, and peak reconnect behavior in the capacity estimate. Finally, monitor subscription health and data freshness; stale monitoring data must never be displayed as if it were current.
+
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
 ## Chapter Summary

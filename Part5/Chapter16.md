@@ -446,7 +446,231 @@ Contract tests should run against sandboxes or representative labs to detect API
 
 Observability should measure request latency, success rate, retry count, rate-limit responses, authentication failures, task duration, and verification failure by platform and operation. A controller returning HTTP success while downstream tasks repeatedly fail is not healthy automation. Circuit breakers can temporarily stop calls to a degraded platform and prevent a workflow from amplifying an outage.
 
-## 11. Platform Comparison
+## 11. Testing a Webex Chatbot with API Requests
+
+A bot test should verify identity, room access, message creation, and response handling. Create or identify a test room, add the bot, and store its token in a secret environment variable. The script below lists memberships indirectly by locating the room and posts a controlled test message.
+
+```python
+import os
+import requests
+
+session = requests.Session()
+session.headers.update({
+    "Authorization": f"Bearer {os.environ['WEBEX_BOT_TOKEN']}",
+    "Content-Type": "application/json",
+})
+
+me = session.get("https://webexapis.com/v1/people/me", timeout=15)
+me.raise_for_status()
+print("Testing bot:", me.json()["displayName"])
+
+message = session.post(
+    "https://webexapis.com/v1/messages",
+    json={
+        "roomId": os.environ["WEBEX_TEST_ROOM_ID"],
+        "markdown": "**DevNet test:** the automation bot can reach this room.",
+    },
+    timeout=15,
+)
+message.raise_for_status()
+print("Created message:", message.json()["id"])
+```
+
+An interactive chatbot also requires a webhook for new-message events. Ignore messages created by the bot itself to prevent a response loop, retrieve the message details using its ID, authorize the requested operation, and respond quickly while longer work runs asynchronously.
+
+## 12. Building an FDM Access-Policy Request
+
+Firewall Device Manager (FDM) provides a device-local REST API for supported Secure Firewall Threat Defense deployments. This differs from the FMC API used for centrally managed devices. A common workflow authenticates to FDM, discovers API and object versions, resolves the access-policy ID, creates network and port objects where needed, and inserts an access rule. To allow traffic to exit the firewall, the rule usually needs corresponding routing and NAT; an access rule alone does not create a usable outbound path.
+
+```python
+import os
+import requests
+
+base = os.environ["FDM_URL"].rstrip("/")
+login = requests.post(
+    f"{base}/api/fdm/latest/fdm/token",
+    json={
+        "grant_type": "password",
+        "username": os.environ["FDM_USER"],
+        "password": os.environ["FDM_PASSWORD"],
+    },
+    timeout=20,
+)
+login.raise_for_status()
+token = login.json()["access_token"]
+headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
+policies = requests.get(
+    f"{base}/api/fdm/latest/policy/accesspolicies",
+    headers=headers,
+    timeout=20,
+)
+policies.raise_for_status()
+for policy in policies.json().get("items", []):
+    print(policy["id"], policy["name"])
+```
+
+When creating the rule, use references returned by FDM for source/destination networks, zones, and ports instead of inventing IDs. Set the action explicitly, enable logging according to policy, place the rule at the intended order, deploy pending changes, and verify both an allowed flow and a flow that should remain denied. For inbound access, limit destination and service precisely and confirm any static NAT requirement. Because endpoint schemas differ among FDM releases, build the final rule body from the live API Explorer for the deployed version.
+
+## 13. Meraki Task Workflow
+
+Meraki tasks should begin by resolving organization and network IDs. The following SDK workflow inventories networks and retrieves wireless SSIDs only for wireless-capable networks. It handles pagination through the SDK and keeps identifiers rather than names as resource keys.
+
+```python
+import os
+import meraki
+
+dashboard = meraki.DashboardAPI(
+    os.environ["MERAKI_DASHBOARD_API_KEY"],
+    suppress_logging=True,
+)
+org_id = os.environ["MERAKI_ORG_ID"]
+
+for network in dashboard.organizations.getOrganizationNetworks(
+    org_id, total_pages="all"
+):
+    if "wireless" not in network.get("productTypes", []):
+        continue
+    ssids = dashboard.wireless.getNetworkWirelessSsids(network["id"])
+    enabled = [ssid["name"] for ssid in ssids if ssid.get("enabled")]
+    print(network["name"], enabled)
+```
+
+A configuration task should read current state, calculate the intended difference, update only the selected networks, honor rate limits, and verify the result. For large changes, use action batches where supported and inspect every action result.
+
+## 14. Intersight Data Retrieval
+
+Intersight queries commonly use OData filters and return managed objects identified by Moid. With an authenticated SDK client, retrieve a narrow collection rather than downloading every object and filtering locally. A server inventory workflow might filter compute blades by serial number, name, or management mode and then follow references to profiles and organizations. Preserve the Moid in internal state because display names can change.
+
+```python
+# The configured SDK client signs requests with the API key and private key.
+from intersight.api import compute_blades_api
+
+def list_blades(api_client, serial=None):
+    api = compute_blades_api.ComputeBladesApi(api_client)
+    query = f"Serial eq '{serial}'" if serial else None
+    result = api.get_compute_blade_list(filter=query, top=100)
+    return [
+        {"moid": blade.moid, "name": blade.name, "serial": blade.serial}
+        for blade in result.results
+    ]
+```
+
+SDK class names can change between generated versions, so pin the tested package and verify it against the Intersight OpenAPI release. Never place the private key in the script or repository.
+
+## 15. Provisioning an Australian UCS Server from a Template
+
+Assume a UCS service-profile template already defines the approved Australian server configuration: firmware policy, boot order, BIOS settings, vNIC/vHBA templates, and identity pools. The workflow instantiates a new service profile in the Australian organization and associates it with an available server. Template instantiation should be preferred over rebuilding every child policy in Python.
+
+```python
+import os
+from ucsmsdk.ucshandle import UcsHandle
+
+handle = UcsHandle(
+    os.environ["UCSM_HOST"],
+    os.environ["UCSM_USER"],
+    os.environ["UCSM_PASSWORD"],
+)
+
+try:
+    handle.login()
+    template_dn = "org-root/org-australia/ls-AU-Standard-Template"
+    server_dn = os.environ["UCS_AU_SERVER_DN"]
+    profile_name = os.environ.get("UCS_AU_PROFILE", "AU-SYD-APP-001")
+
+    profiles = handle.ls_instantiate_template(
+        dn=template_dn,
+        in_server_name=profile_name,
+        in_target_org="org-root/org-australia",
+        in_hierarchical="false",
+    )
+    profile = profiles[0]
+    profile.pn_dn = server_dn
+    handle.set_mo(profile)
+    handle.commit()
+
+    updated = handle.query_dn(profile.dn)
+    print(updated.dn, updated.assoc_state, updated.oper_state)
+finally:
+    handle.logout()
+```
+
+Method parameters vary by UCSM SDK release, so validate the exact `ucsmsdk` signature in the lab. Before association, confirm that the server is available and compatible with the template. After commit, monitor the service-profile finite-state machine and faults until association succeeds or fails; `commit()` confirms that UCS Manager accepted the configuration, not that hardware provisioning is complete.
+
+## 16. Retrieving Wireless Status from Catalyst Center
+
+Catalyst Center can provide device, client, site, and assurance information. A wireless-status script typically authenticates, requests client-health or wireless-device data for a time window, and formats the useful fields. Endpoint names and response schemas vary by release, so the path should be confirmed in the platform's API catalog.
+
+```python
+import os
+import time
+import requests
+
+base = os.environ["CATALYST_CENTER_URL"].rstrip("/")
+auth = requests.post(
+    f"{base}/dna/system/api/v1/auth/token",
+    auth=(os.environ["CC_USER"], os.environ["CC_PASSWORD"]),
+    timeout=20,
+)
+auth.raise_for_status()
+headers = {"X-Auth-Token": auth.json()["Token"], "Accept": "application/json"}
+
+health = requests.get(
+    f"{base}/dna/intent/api/v1/client-health",
+    headers=headers,
+    params={"timestamp": int(time.time() * 1000)},
+    timeout=30,
+)
+health.raise_for_status()
+
+for score in health.json().get("response", []):
+    for detail in score.get("scoreDetail", []):
+        if detail.get("scoreCategory", {}).get("value") == "WIRELESS":
+            print({
+                "clients": detail.get("clientCount"),
+                "score": detail.get("scoreValue"),
+            })
+```
+
+For a useful report, combine wireless client health with access-point inventory, site hierarchy, issue counts, and data freshness. A response with no clients may indicate an empty site, an API scope problem, delayed assurance data, or a collection failure; it is not automatically a healthy zero.
+
+## 17. AppDynamics Measurement Design
+
+Creating useful AppDynamics measurement begins by identifying important business transactions, tiers, nodes, and dependencies. Install or configure the appropriate agents, group nodes consistently, and verify that traffic reaches the application. Then define health rules from service objectives rather than arbitrary thresholds. Useful measures include calls per minute, error rate, average and percentile response time, slow or stalled transactions, JVM or runtime pressure, database time, and external-call latency.
+
+Baselines help identify deviation from normal behavior, but alerts should remain actionable. A health rule can trigger a policy that sends a webhook to an incident workflow, which then correlates AppDynamics evidence with Cisco network assurance. Validate the system by generating a controlled transaction and confirming that the metric, snapshot, health evaluation, and notification all appear with correct timestamps.
+
+## 18. Building a Custom Cisco API Dashboard
+
+A custom dashboard should collect data through a backend service rather than expose Cisco credentials to browser JavaScript. The backend authenticates independently to each platform, retrieves only necessary fields, normalizes them into a common model, and stores short-lived snapshots or time-series data. The front end calls the backend using its own authenticated API.
+
+```mermaid
+flowchart LR
+    Webex["Webex API"] --> Collect["Scheduled collectors"]
+    Meraki["Meraki API"] --> Collect
+    Intersight["Intersight API"] --> Collect
+    CC["Catalyst Center API"] --> Collect
+    AppD["AppDynamics API"] --> Collect
+    Collect --> Normalize["Normalize, timestamp, and validate"]
+    Normalize --> Store["Cache / time-series database"]
+    Store --> Backend["Dashboard backend API"]
+    Backend --> UI["Authenticated custom dashboard"]
+```
+
+Build the dashboard in these steps:
+
+1. Define the operational questions and freshness target for each panel.
+2. Create least-privilege platform identities and store secrets centrally.
+3. Implement collectors with timeouts, pagination, rate-limit handling, and schema validation.
+4. Normalize identifiers, site names, timestamps, health states, and error classifications.
+5. Store collection time separately from source-event time and mark stale data visibly.
+6. Expose a narrow backend API with caching and user authorization.
+7. Create overview, drill-down, and failure panels with links to source systems.
+8. Monitor collector failures, credential expiry, API latency, and missing data.
+
+Avoid querying every Cisco platform whenever a user refreshes the browser. Scheduled collection and cache controls protect rate limits and make dashboard latency predictable. Display the last successful collection time, partial-source failures, and data confidence so an attractive dashboard does not conceal stale or incomplete evidence.
+
+## 19. Platform Comparison
 
 | Platform | Primary domain | Typical interface characteristic | Important automation concern |
 |---|---|---|---|
@@ -458,7 +682,7 @@ Observability should measure request latency, success rate, retry count, rate-li
 | Catalyst Center | Campus automation and assurance | Token-based Intent APIs | Task polling and eventual consistency |
 | AppDynamics | Application observability | Metrics, events, and controller REST | Time ranges, metric paths, application context |
 
-## 12. Implementation Checklist
+## 20. Implementation Checklist
 
 Before releasing a Cisco platform integration, confirm that the team can answer the following operational questions:
 

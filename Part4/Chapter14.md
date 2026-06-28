@@ -139,6 +139,55 @@ A configuration audit compares the approved baseline with deployed reality. Diff
 
 SCM metrics should encourage quality rather than paperwork. Useful signals include lead time, deployment failure rate, rollback frequency, unplanned drift, time to reconstruct a release, dependency age, and percentage of requirements linked to tests. These measures reveal weaknesses in the system while leaving teams room to improve the process.
 
+## 13. SCM Roles and Responsibilities
+
+Effective SCM assigns ownership without isolating it in one “configuration manager.” Product owners clarify business priority and acceptance. Architects record important decisions and constraints. Developers and automation engineers maintain code, tests, and dependency declarations. Security specialists define controls and evaluate supply-chain risk. Operations engineers contribute deployability, observability, recovery, and support requirements. Release owners decide whether evidence satisfies promotion policy.
+
+The repository makes collaboration visible, but a pull request is not a substitute for responsibility. Reviewers should understand the affected domain and the proposed behavior. A cosmetic approval from someone unfamiliar with BGP policy or ACI contracts provides little risk reduction. CODEOWNERS-style rules can request appropriate reviewers, while automated checks handle repeatable syntax, schema, security, and policy verification.
+
+A RACI model can clarify who is responsible, accountable, consulted, and informed for baselines, emergency changes, dependency upgrades, and production releases. Avoid making every party an approver; excessive gates encourage bypass. The control should be proportionate to the blast radius and reversibility of the change.
+
+## 14. Build and Dependency Configuration
+
+Source code is only one build input. Python projects may depend on interpreter version, package indexes, lock files, native libraries, and environment variables. Ansible depends on Core, collections, Python modules, and execution-environment images. Terraform depends on CLI, providers, modules, backend configuration, and state schema. Each dependency can change behavior even when application code does not.
+
+Lock files and internal artifact repositories improve reproducibility. Dependency updates should be deliberate, automated where possible, and tested against representative Cisco platforms. Security scanners identify known vulnerabilities, but an update can also introduce incompatible API behavior. The team must balance vulnerability remediation with functional validation rather than blindly accepting or indefinitely postponing upgrades.
+
+Build outputs should be immutable and content-addressable where practical. A container digest, package checksum, or signed bundle proves which artifact moved through test and production. Rebuilding from the same commit during production deployment can produce different output if dependencies changed. Build once, test that artifact, and promote the identical artifact.
+
+## 15. Configuration Control for Network Automation
+
+Network automation has several configuration layers: application settings, environment endpoints, inventories, credentials, policy data, device templates, controller objects, and live device state. They should not all be stored or managed identically. Nonsecret desired state fits version control; secrets belong in a secret manager; high-volume operational state belongs in monitoring or inventory systems; Terraform resource bindings belong in protected state.
+
+Templates require controlled inputs and rendered-output testing. A harmless-looking change to a Jinja default can alter thousands of interfaces. Store golden rendered examples for key platforms, perform semantic comparisons where available, and show device-specific differences before deployment. Tests should verify removal behavior as carefully as additions.
+
+```mermaid
+flowchart TB
+    Git["Versioned nonsecret intent"] --> Render["Validated rendering/model translation"]
+    Secrets["Runtime secret manager"] --> Deploy["Authenticated deployment"]
+    Render --> Diff["Device/controller-specific difference"]
+    Diff --> Approve["Risk-based approval"]
+    Approve --> Deploy
+    Deploy --> Actual["Observed operational state"]
+    Actual --> Audit["Baseline and drift audit"]
+```
+
+## 16. Managing Technical Debt Deliberately
+
+Debt should be described in operational terms. “The script is old” is vague; “the script parses an undocumented CLI table and fails on IOS XE 17.12, preventing the approved upgrade” identifies impact and a repayment trigger. Estimate probability, consequence, affected scope, workaround, and cost. Link the debt item to architecture and release planning.
+
+Some debt is prudent. A team may use a controlled CLI module for a feature not yet exposed through YANG, provided it adds parsing tests, restricts supported releases, and plans migration when a structured API becomes available. The problem is not imperfection; it is unacknowledged risk and indefinite dependence.
+
+Regular debt review should consider incident history and change friction. If every release requires manual inventory repair, the source-of-truth design is imposing recurring interest. If a monolithic Terraform state makes teams wait hours for locks, state boundaries need redesign. Paying debt can improve delivery speed and reliability simultaneously.
+
+## 17. Auditing a Release
+
+A functional configuration audit asks whether every required component is present and correctly identified. A physical audit asks whether the delivered product matches its documented configuration. In software and automation, this includes confirming that the deployed digest, dependency set, schemas, infrastructure definitions, database migrations, and operational configuration match the approved baseline.
+
+Audit evidence should be generated by the delivery process rather than reconstructed manually. A release manifest can list source commits, artifact digests, SBOM, tests, approvals, environment configuration versions, deployment targets, and verification results. Sign or otherwise protect the evidence from undetected alteration.
+
+When an audit finds drift, classify it. Some differences are runtime-generated, some are approved local values, some are emergency changes awaiting reconciliation, and some are unauthorized. Immediate automated overwrite is not always safe. The SCM process supplies ownership and context so the organization can restore the correct state without erasing valuable evidence.
+
 > **Study guide takeaway:** SCM creates confidence that a release is defined, reproducible, authorized, and traceable. It governs the full product, not just source code.
 
 ## Chapter Summary

@@ -184,6 +184,63 @@ Patch policy must account for intermittently connected sites. Critical updates m
 
 Rollbacks should use a previously approved immutable image and compatible configuration. Database or data-format migrations can make rollback impossible unless the application supports backward compatibility or preserves a recovery snapshot. This is another reason to test upgrade and rollback as a pair rather than treating rollback as a line in a runbook.
 
+## 15. Cisco IOx Application Model
+
+Cisco IOx provides a framework for packaging, deploying, and managing applications on supported edge platforms. The platform combines the networking functions of the device with an isolated application environment. Applications interact with explicitly assigned interfaces and resources rather than receiving unrestricted access to the network operating system. This boundary is central to the design: application innovation should not compromise forwarding stability or the integrity of IOS XE.
+
+An IOx package contains the application artifacts and metadata required by the platform. Depending on target capability, the workload may be a container or virtual-machine style package. Metadata declares resource requirements, startup commands, networking, and application properties. The package should be built for the target architecture and validated against platform-specific limits before distribution.
+
+IOx Local Manager is useful for managing applications on an individual device through a local interface. Broader fleets require centralized systems and APIs. Cisco Catalyst Center can support application-hosting workflows on appropriate Catalyst platforms, while IOx management tools and APIs serve supported edge families. The exact available method depends on device model, IOS XE release, licenses, and deployment architecture.
+
+## 16. IOS XE Application-Hosting Workflow
+
+On a supported Catalyst platform, an application is identified by an application ID. Configuration associates resources, virtual interfaces, VLAN or management connectivity, and optional storage. Operational commands install the package, activate its resources, start the application, and expose status or logs. The states matter: an application can be installed but not activated, activated but not running, or running but unhealthy.
+
+```text
+Package prepared and transferred
+        |
+        v
+Install -> Activate -> Start -> Verify
+   |          |          |        |
+ files     resources   process   service outcome
+```
+
+The engineer should capture prechecks before installation: platform support, available flash or application storage, CPU and memory capacity, AppGigabitEthernet availability, VLAN and routing dependencies, DNS/NTP, and certificate trust. Activation can fail if requested resources cannot be reserved. Startup can fail because of an incorrect command, missing dependency, architecture mismatch, permission problem, or unavailable network service.
+
+Automation should poll application state rather than assume that a CLI or API acknowledgement represents completion. After startup, verify the process, health endpoint, logs, network path, and host health. If the application provides a local data service, test a representative transaction. Record the deployed image digest and configuration version in fleet inventory.
+
+## 17. Network Integration Patterns
+
+A hosted application can use a dedicated VLAN, a routed application interface, or platform-supported management connectivity. The selection determines reachability and policy. A telemetry collector that communicates only with local devices and a central broker does not require unrestricted campus access. An industrial protocol gateway may require one interface toward an OT segment and another controlled path toward central services, with firewall policy preventing it from becoming a general bridge.
+
+IP addressing can be static or supplied through a local service, depending on platform and application requirements. Static addressing simplifies predictable inbound access but increases fleet address management. Dynamic addressing reduces per-device configuration but requires reliable DNS or service discovery. In either case, maintain a source of truth that associates application identity, host device, site, address, certificate, and version.
+
+MTU and fragmentation deserve attention when applications encapsulate telemetry or use VPN paths. DNS and NTP are foundational: name-resolution failure can appear to be an API outage, and incorrect time breaks certificates and event ordering. Proxy requirements, certificate authorities, and outbound firewall rules should be included in the application profile rather than discovered during deployment.
+
+## 18. Edge Data and Offline Operation
+
+Edge applications often exist because connectivity is constrained, so offline behavior is a primary design requirement. The application should use a bounded local queue, persist only necessary data, and assign sequence identifiers so the central service can detect duplicates and gaps after reconnection. Backpressure determines what happens when producers generate data faster than it can be stored or transmitted.
+
+Not all data has equal value. The application may aggregate high-frequency raw readings into summaries while preserving fault events at full fidelity. It can discard repetitive healthy samples before sending them over a metered WAN. These choices should be documented because local filtering changes what central analysts can later investigate.
+
+Synchronization must be idempotent. If an upload succeeds but the acknowledgement is lost, resending the same batch should not create duplicate business records. The central API can use batch IDs or idempotency keys, and the edge application should delete local data only after durable acknowledgement. Encryption at rest may be necessary because a physically remote device can be lost or tampered with.
+
+## 19. Application Observability at the Edge
+
+Logs, metrics, traces, and health state must operate under constrained bandwidth. Local logs should use structured records, timestamps, severity, and correlation IDs, with rotation and size limits. Critical events can be forwarded immediately, while verbose diagnostic logs remain local for a bounded period. Secrets and personal data should never be written merely because the site is remote.
+
+Metrics should distinguish application demand from resource saturation. Queue depth, processing latency, dropped events, synchronization age, API failures, restart count, CPU, memory, and disk provide a useful baseline. Host metrics reveal whether the workload affects the switch or router. A central dashboard should show version and certificate age as well as health so maintenance risks are visible before an outage.
+
+Distributed tracing may be too expensive for every edge request, but sampled correlation across edge, WAN, and cloud can explain latency. When the central service receives a batch, retaining the edge-generated correlation or batch ID makes it possible to follow the transaction without collecting every internal detail.
+
+## 20. Choosing Between Edge, Cloud, and Hybrid Deployment
+
+Edge is appropriate when local latency, autonomy, bandwidth cost, protocol access, or data sovereignty materially improves the service. Cloud is appropriate when workloads need elastic compute, centralized data, frequent software evolution, or rich managed services. Hybrid designs commonly perform filtering and immediate action at the edge while sending summaries to central analytics and fleet management.
+
+The decision should consider the total operating model. A cloud service may be technically distant but far easier to patch, observe, and scale. An edge application may save bandwidth but create hundreds of small production environments. Quantify WAN savings, latency, outage behavior, hardware resource cost, support travel, security exposure, and fleet-management effort.
+
+For AI workloads, small inference models may run near cameras or sensors, returning classifications rather than raw media. The design must monitor model version, input drift, confidence, resource use, and privacy. Centralized retraining and controlled model signing are normally preferable, with staged deployment to edge canaries. An AI model is another executable artifact and belongs under the same supply-chain and rollback controls as application code.
+
 > **Study guide takeaway:** Application hosting turns a network platform into a carefully shared edge-compute environment. Success depends on selecting the right workload and protecting the device's primary networking responsibility through isolation, resource limits, secure images, and fleet lifecycle management.
 
 ## Chapter Summary

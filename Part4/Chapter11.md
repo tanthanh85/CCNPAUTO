@@ -167,6 +167,102 @@ RESTCONF error bodies use a modeled `errors` container and can report error type
 
 TLS certificate verification should remain enabled. In a lab, it is tempting to use `verify=False`, but production automation should trust an enterprise CA or a pinned certificate chain. The connection identity, RESTCONF authorization, and YANG validation solve different security problems and all are required.
 
+## 13. YANG Model Structure in Greater Detail
+
+A YANG module declares its namespace, prefix, organization, revisions, imports, and data definitions. Imports allow one module to reference types or nodes from another module. Revisions matter because the same module name can evolve. An application should discover the module set implemented by a device rather than assume that a model found online exactly matches the deployed software.
+
+Reusable definitions improve consistency. A `typedef` creates a named type, a `grouping` defines a reusable node structure, and `uses` inserts that structure. `augment` allows one module to add data beneath a node defined elsewhere, which is common when a vendor extends a standards model. `deviation` describes where an implementation differs from the base model. These mechanisms explain why simply reading one model file may not reveal the complete effective schema.
+
+Constraints carry operational meaning. A leaf can define a range, length, pattern, default, mandatory status, or units. `must` expressions enforce conditions, while `when` makes a node conditional on other state. Lists define keys and may require uniqueness. A model-aware server checks these rules and returns structured errors, moving validation closer to the authoritative configuration system.
+
+```yang
+container services {
+  list service {
+    key "name";
+    leaf name {
+      type string { length "1..64"; }
+    }
+    leaf vlan-id {
+      type uint16 { range "2..4094"; }
+      mandatory true;
+    }
+    leaf enabled {
+      type boolean;
+      default true;
+    }
+  }
+}
+```
+
+YANG is not an encoding. The same modeled tree can be represented as XML for NETCONF or as JSON/XML for RESTCONF. In JSON, module names may qualify members where namespace context is required. In XML, namespace URIs provide that context. The application must preserve types: a boolean is not the string `"true"`, and an integer is not interchangeable with a quoted number unless the encoding rules say so.
+
+## 14. NETCONF Message Framing and Sessions
+
+NETCONF 1.0 uses the `]]>]]>` end-of-message delimiter. NETCONF 1.1 introduces chunked framing, which avoids limitations of searching message content for a delimiter. Version negotiation occurs through the capabilities in the hello exchange. Libraries such as `ncclient` handle framing, but engineers should recognize it when troubleshooting raw SSH captures or session failures.
+
+A session has an identifier and remains stateful. Locks, pending candidate configuration, and subscriptions can belong to that session. If the transport fails, the server releases session-scoped resources according to its implementation. Clients should close sessions cleanly and must not assume that a disconnected edit was rejected. Reconnect and read the datastore before deciding whether to repeat an operation.
+
+RPCs include a message ID that associates a reply with its request. Multiple RPCs can be in flight depending on client behavior, so a robust library rather than manual string exchange is appropriate for production. XML parsing must disable unsafe external-entity behavior and should not use regular expressions to interpret structured XML.
+
+## 15. A Transactional NETCONF Workflow
+
+Where capabilities permit, a safe multi-step change can lock candidate, copy or edit the intended configuration, validate candidate, request a confirmed commit, test management and service reachability, confirm the commit, and unlock. If validation fails, discard changes. If connectivity is lost before confirmation, the device automatically reverts after the timeout.
+
+```mermaid
+sequenceDiagram
+    participant A as Automation client
+    participant D as NETCONF server
+    A->>D: lock candidate
+    A->>D: edit-config candidate
+    A->>D: validate candidate
+    D-->>A: ok
+    A->>D: confirmed commit with timeout
+    A->>D: Verify management and service paths
+    alt Verification succeeds
+      A->>D: commit confirmation
+    else Verification fails
+      A->>D: cancel-commit or allow timeout rollback
+    end
+    A->>D: unlock candidate
+```
+
+Not every IOS XE feature or release offers this complete capability set. When editing running directly, obtain a pre-change snapshot of the managed subtree, calculate the exact difference, use rollback-on-error if supported, and maintain an explicit recovery payload. Device configuration rollback is still not equivalent to service rollback; external systems such as DNS, firewall policy, or controller inventory may also need compensation.
+
+## 16. RESTCONF Resource Construction
+
+A RESTCONF resource path follows the YANG hierarchy. A list entry is addressed with its key value, and multi-key lists encode keys in schema order according to the RESTCONF URI rules. Reserved characters in interface names, prefixes, or other keys require percent encoding. Building paths with string concatenation invites subtle errors; use a URL encoder while preserving the separators required by the API.
+
+Query parameters can request depth, fields, content, or default handling when supported. The `fields` parameter can reduce a large response to required descendants. Conditional HTTP requests using entity tags can protect against lost updates: retrieve a resource and ETag, then update with `If-Match`. If another client changes the resource first, the server can reject the stale update rather than overwrite it silently.
+
+```python
+from urllib.parse import quote
+import requests
+
+interface = quote("GigabitEthernet1/0/24", safe="")
+url = (
+    "https://router.example/restconf/data/"
+    f"ietf-interfaces:interfaces/interface={interface}"
+)
+
+get_response = requests.get(url, headers={
+    "Accept": "application/yang-data+json"
+}, auth=("automation", "secret"), timeout=15)
+get_response.raise_for_status()
+
+etag = get_response.headers.get("ETag")
+headers = {"Content-Type": "application/yang-data+json"}
+if etag:
+    headers["If-Match"] = etag
+```
+
+## 17. Security and Operational Practice
+
+Use dedicated automation identities with only the YANG paths and operations they require. Central AAA and command or API accounting improve attribution, but secrets and returned configuration must still be protected in application logs. NETCONF host-key verification and RESTCONF certificate validation prevent connections to an impersonated device. Rotate credentials and certificates without requiring code changes.
+
+Rate-limit clients and use bounded concurrency. A structured API is not free of device cost; large operational reads and frequent configuration transactions can consume control-plane resources. Cache stable schema information, filter reads, and avoid repeatedly downloading full trees. Maintenance windows and canary scopes remain relevant even when the protocol is transactional.
+
+Finally, log intent and outcome rather than dumping raw payloads indiscriminately. A useful record states the requested service, target device and modeled resources, pre-change version or hash, RPC or HTTP result, verification, and correlation ID. Sensitive values can be redacted while preserving enough evidence for troubleshooting and audit.
+
 > **Study guide takeaway:** YANG defines the contract; NETCONF and RESTCONF carry requests against that contract. Reliable automation discovers capabilities, sends minimal validated changes, interprets structured errors, and verifies resulting state.
 
 ## Chapter Summary

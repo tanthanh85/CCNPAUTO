@@ -149,6 +149,61 @@ flowchart LR
 
 Alerting must account for missing data. “No updates received” can indicate a failed link, device reload, collector failure, certificate expiry, or a broken subscription. It is a separate signal from a healthy zero value. Monitoring the telemetry pipeline and attaching confidence to derived conclusions prevents false certainty.
 
+## 13. Building a Production Telemetry Pipeline
+
+A production pipeline separates reception, transport, processing, storage, and consumption so that each layer can scale and fail independently. Collectors should be placed close enough to devices to provide reliable sessions and should not perform expensive analytics in the ingestion path. Their first responsibility is to authenticate sources, decode messages, preserve timestamps and path metadata, and hand data to a durable next stage. When the database slows, buffering or a message bus prevents an immediate wave of device reconnections.
+
+Redundancy must be designed carefully. Sending the same subscription to two collectors improves resilience but creates duplicate observations. The storage or processing layer needs a deduplication key based on device, path, keys, source timestamp, and sequence information where available. If devices are divided among collectors instead, a collector failure requires subscription reassignment. Both models are valid, but the recovery behavior should be tested rather than inferred.
+
+Telegraf input plugins can receive Cisco telemetry or gNMI streams, processors can rename and transform fields, and outputs can write to InfluxDB or another backend. Configuration should be version-controlled and validated before deployment. Avoid transformations that lose the original YANG path or units. A normalized measurement called `utilization` is useful only if engineers can trace how it was calculated and from which counters.
+
+```text
+Device telemetry
+    -> authenticated collector
+    -> decode and normalize
+    -> enrich with site/role metadata
+    -> durable queue
+    -> time-series and event stores
+    -> dashboards, alerts, capacity jobs, and automation
+```
+
+## 14. Visualization and Alert Engineering
+
+A dashboard should answer an operational question at a glance and support drill-down. A service overview may show availability, latency, loss, client health, and active changes by site. Selecting one site should reveal WAN circuits, routing state, device health, and affected applications. Raw metric panels without topology or service context force the operator to perform correlation mentally during an incident.
+
+Rates, moving averages, percentiles, and histograms serve different purposes. Average latency can look healthy while a significant minority of transactions are slow; the 95th or 99th percentile reveals the tail. Maximum values detect peaks but are sensitive to one bad sample. Interface counter rates need correct derivative handling, while utilization requires interface speed. Dashboard queries should document these calculations.
+
+An alert needs a condition, duration, scope, severity, ownership, and runbook. Requiring a condition to persist for several samples reduces noise, but excessive delay hides real faults. Multi-signal alerts are often stronger: high utilization plus queue drops plus application latency is more meaningful than utilization alone. Suppression should account for planned maintenance, dependent failures, and duplicate symptoms downstream from one root cause.
+
+## 15. Event-Driven Telemetry and Closed-Loop Operations
+
+Periodic telemetry answers “what is the value now?” Event-driven telemetry aims to communicate significant state transitions and context. A routing adjacency loss, configuration change, power-supply failure, or threshold crossing can trigger immediate processing without waiting for the next sample. Events and time-series measurements complement one another: the event identifies the transition, while surrounding measurements explain conditions before and after it.
+
+An event pipeline can enrich a BGP-neighbor-down notification with topology, maintenance status, recent configuration changes, route impact, and service ownership. It may then open one incident instead of dozens of interface alerts. If the failure matches a known safe condition, a workflow might gather diagnostics or move traffic. However, remediation should be protected by rate limits, scope limits, approval policy, and a verification step.
+
+```mermaid
+sequenceDiagram
+    participant D as Cisco device
+    participant E as Event/telemetry platform
+    participant S as Source of truth
+    participant A as Automation workflow
+    participant O as Operator
+    D->>E: Adjacency-down event and metrics
+    E->>S: Retrieve topology, service, and maintenance context
+    S-->>E: Enriched dependency information
+    E->>A: Request approved diagnostic workflow
+    A->>D: Collect bounded diagnostics
+    A-->>O: Evidence, impact, and recommended action
+```
+
+## 16. Telemetry Security and Governance
+
+Telemetry is sensitive operational data. Interface descriptions, neighbor identities, addresses, serial numbers, utilization patterns, and client data can expose network structure and business activity. Encrypt transport, authenticate device and collector identities, authorize subscriptions, restrict database queries, and record administrative access. Multi-tenant environments require explicit separation in collection, tags, storage, and dashboards.
+
+Certificate rotation is a frequent operational failure point. A collector with an expired certificate can lose thousands of streams at once. Monitor certificate lifetime, stage trust-chain changes, and support overlapping old and new trust during rotation. Do not disable verification as a recovery shortcut; that converts an availability incident into a security weakness.
+
+Schema and dashboard changes also require governance. A renamed field can invalidate alerts without producing an obvious error. Treat collectors, transformations, retention rules, dashboards, and alert definitions as code. Review and test them together with device software upgrades. A telemetry system is trustworthy only when its own configuration and data quality are controlled.
+
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
 ## Chapter Summary

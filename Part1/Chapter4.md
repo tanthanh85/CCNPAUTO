@@ -835,13 +835,45 @@ A change log generated only from commit subjects may omit user impact. Release o
 
 ## AI-Assisted Development and Git Governance
 
-GenAI coding assistants can explain unfamiliar code, suggest tests, draft release notes, and accelerate refactoring. Vibe coding can help learners explore an idea quickly, but accepting large generated changes without understanding them creates hidden technical and security debt. Keep AI-generated work in the normal Git workflow: review the diff, run tests and scanners, verify licenses and dependencies, and record meaningful intent in commits. Agentic coding tools should receive repository and deployment permissions no broader than their assigned task.
+AI coding assistants can explain unfamiliar code, propose Python functions, generate unit tests, translate API examples, draft documentation, and accelerate repetitive refactoring. In network automation, they can help create parsers, payload models, Ansible tasks, Terraform resources, and test fixtures. Vibe coding is useful for exploring a lab idea quickly, but production code must pass through the same requirements, review, testing, security, and release controls as human-written code.
+
+### Benefits and Risks of AI-Assisted Network Automation
+
+| Area | Potential benefit | Risk and required control |
+|---|---|---|
+| Development speed | Rapid scaffolding and boilerplate generation | Generated code can be plausible but incorrect; review and test every change |
+| Learning | Explanations of APIs, errors, and unfamiliar libraries | Explanations may invent methods or outdated parameters; verify against authoritative documentation |
+| Test creation | More edge cases and fixtures | Tests may merely confirm the generated implementation; derive expected behavior independently |
+| Data privacy | Private code can provide useful context | Prompts may disclose configurations, credentials, customer data, topology, or vulnerabilities; use approved services and data classification |
+| Intellectual property | Reusable patterns reduce effort | Output can resemble licensed code or introduce unclear ownership; follow organizational IP policy, preserve attribution, and scan dependencies/licenses |
+| Security | Assistants can identify unsafe patterns | They can also generate injection flaws, disabled TLS checks, hard-coded secrets, or excessive permissions; run SAST, secret scanning, and peer review |
+| Agentic execution | An agent can edit, test, and open a pull request | Excessive repository, shell, or deployment authority increases blast radius; sandbox tools and require approval |
+
+Before placing code or network data in a prompt, determine whether the provider retains prompts, uses them for training, stores them in another jurisdiction, or permits administrators to review them. Remove secrets and personal data, minimize topology detail, and use an enterprise-approved private deployment where policy requires it. A confidentiality label that forbids sharing with an external service still applies when the recipient is an AI system.
+
+IP ownership depends on jurisdiction, service terms, employment agreements, open-source licenses, and the amount of human authorship. Teams should not assume that generated output is automatically owned, unique, or free of third-party obligations. Record where material came from, avoid requests to reproduce proprietary code, and review surprisingly sophisticated output for recognizable licensed content.
+
+### Code-Validation Workflow
+
+```mermaid
+flowchart LR
+    Prompt["Approved, sanitized context"] --> Generate["AI proposes code"]
+    Generate --> Understand["Engineer explains behavior and assumptions"]
+    Understand --> Review["Peer review and API documentation check"]
+    Review --> Test["Unit, contract, integration, and failure tests"]
+    Test --> Scan["SAST, secrets, dependencies, licenses"]
+    Scan --> Lab["Cisco sandbox or representative lab"]
+    Lab --> PR["Controlled pull request and provenance"]
+```
+
+Validation must include negative paths: timeouts, HTTP 429, malformed data, partial controller tasks, authentication failure, and rollback. Never accept generated code that disables certificate validation, catches every exception without action, retries non-idempotent operations blindly, or embeds an administrator credential. Agentic coding tools should receive repository and deployment permissions no broader than their assigned task.
 
 ## Key Takeaways
 
 - Git provides distributed history, integrity, parallel development, and precise control through the working tree, staging area, repositories, and remotes.
 - Merge, rebase, cherry-pick, revert, stash, bisect, and reflog solve different collaboration and recovery problems.
 - Reliable releases use immutable artifacts, pinned dependencies, provenance, staged promotion, observability, and tested rollback.
+- AI-assisted development must protect private data and IP, validate generated code independently, and keep agent permissions inside normal Git and release controls.
 
 Chapter 5 now applies these disciplined software practices to the network APIs through which automation systems communicate.
 
@@ -850,3 +882,4 @@ Chapter 5 now applies these disciplined software practices to the network APIs t
 - [Pro Git book](https://git-scm.com/book/en/v2) - authoritative Git concepts and workflows.
 - [Semantic Versioning](https://semver.org/) - release-versioning rules.
 - [SLSA framework](https://slsa.dev/) - software supply-chain integrity and provenance.
+- [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) - governance for AI benefits and risks.

@@ -721,3 +721,5 @@ Chapter 4 turns these design practices into controlled teamwork through Git, adv
 - [OpenTelemetry documentation](https://opentelemetry.io/docs/) - vendor-neutral logs, metrics, and traces.
 - [Prometheus documentation](https://prometheus.io/docs/introduction/overview/) - metric collection and alerting concepts.
 - [PostgreSQL documentation](https://www.postgresql.org/docs/) - relational data, transactions, indexing, and performance.
+
+**Next chapter:** [Chapter 4: Git and Release Management](Chapter4.md)

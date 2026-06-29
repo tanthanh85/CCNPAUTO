@@ -359,3 +359,5 @@ Chapter 12 uses the same model-driven foundation to stream operational state thr
 - [RESTCONF - RFC 8040](https://www.rfc-editor.org/rfc/rfc8040) - YANG data over HTTP.
 - [YANG 1.1 - RFC 7950](https://www.rfc-editor.org/rfc/rfc7950) - YANG language definition.
 - [Cisco YANG models](https://github.com/YangModels/yang/tree/main/vendor/cisco) - published Cisco model files.
+
+**Next chapter:** [Chapter 12: Streaming Telemetry and AIOps](Chapter12.md)

@@ -896,3 +896,5 @@ Chapter 7 follows the completed application into CI/CD, packaging, container dep
 - [OAuth 2.0 - RFC 6749](https://www.rfc-editor.org/rfc/rfc6749) - authorization roles and grant flows.
 - [Requests documentation](https://requests.readthedocs.io/en/latest/) - Python HTTP client behavior.
 - [Additional HTTP Status Codes - RFC 6585](https://www.rfc-editor.org/rfc/rfc6585) - includes HTTP 429 rate limiting.
+
+**Next chapter:** [Chapter 7: CI/CD and Application Deployment](../Part3/Chapter7.md)

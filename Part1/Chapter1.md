@@ -576,3 +576,5 @@ With the software-development foundation established, Chapter 2 examines the qua
 
 - [The Twelve-Factor App](https://12factor.net/) - principles for portable service design.
 - [Mermaid sequence diagrams](https://mermaid.js.org/syntax/sequenceDiagram.html) - syntax for documenting API interactions.
+
+**Next chapter:** [Chapter 2: Software Quality and Resilience](Chapter2.md)

@@ -558,3 +558,5 @@ Chapter 9 shifts from application concerns to the infrastructure lifecycle, show
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) - major web-application security risks.
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) - GenAI-specific risks.
 - [TLS 1.3 - RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) - current TLS protocol definition.
+
+**Next chapter:** [Chapter 9: Network Infrastructure Management](../Part4/Chapter9.md)

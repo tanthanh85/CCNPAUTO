@@ -596,3 +596,5 @@ Chapter 3 builds on these quality goals by showing how architecture, performance
 
 - [Google Site Reliability Engineering books](https://sre.google/books/) - availability, reliability, SLO, and incident practices.
 - [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html) - quality trade-offs for cloud systems.
+
+**Next chapter:** [Chapter 3: Performance, Data, and Observability](Chapter3.md)

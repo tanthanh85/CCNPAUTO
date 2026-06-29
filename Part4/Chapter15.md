@@ -258,3 +258,5 @@ Chapter 16 concludes the guide by applying the accumulated design and automation
 - [Cisco IOx documentation](https://developer.cisco.com/docs/iox/) - application packaging and edge deployment.
 - [Docker documentation](https://docs.docker.com/) - container images and runtime concepts.
 - [Cisco application-hosting resources](https://developer.cisco.com/site/iox/) - Cisco edge application development resources.
+
+**Next chapter:** [Chapter 16: Cisco Platform APIs](../Part5/Chapter16.md)

@@ -303,3 +303,5 @@ Chapter 14 broadens this tool-level view into software configuration management 
 - [Ansible network automation documentation](https://docs.ansible.com/ansible/latest/network/getting_started/index.html) - network modules, inventories, and connections.
 - [Terraform documentation](https://developer.hashicorp.com/terraform/docs) - providers, state, modules, and workflows.
 - [Puppet documentation](https://help.puppet.com/core/current/Content/PuppetCore/puppet_index.htm) - declarative convergence and manifests.
+
+**Next chapter:** [Chapter 14: Configuration and Release Control](Chapter14.md)

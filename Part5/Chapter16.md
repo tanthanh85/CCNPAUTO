@@ -907,3 +907,5 @@ This completes the chapter sequence; learners can now use the blueprint as a rev
 - [Cisco Intersight API](https://intersight.com/apidocs/) - Intersight OpenAPI and managed objects.
 - [Cisco Catalyst Center APIs](https://developer.cisco.com/docs/dna-center/) - intent, inventory, automation, and assurance APIs.
 - [Cisco DevNet documentation](https://developer.cisco.com/docs/) - UCS, Secure Firewall, AppDynamics, and other Cisco platform resources.
+
+**Course navigation:** [Return to the course README](../README.md)

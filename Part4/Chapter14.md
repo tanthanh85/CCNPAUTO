@@ -207,3 +207,5 @@ Chapter 15 brings these lifecycle controls to edge computing by deploying and op
 - [NIST Secure Software Development Framework](https://csrc.nist.gov/Projects/ssdf) - secure development and configuration controls.
 - [SLSA framework](https://slsa.dev/) - artifact provenance and supply-chain integrity.
 - [Pro Git book](https://git-scm.com/book/en/v2) - version-control foundations for configuration items.
+
+**Next chapter:** [Chapter 15: Edge Application Hosting](Chapter15.md)

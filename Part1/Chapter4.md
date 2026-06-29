@@ -881,3 +881,5 @@ Chapter 5 now applies these disciplined software practices to the network APIs t
 - [Semantic Versioning](https://semver.org/) - release-versioning rules.
 - [SLSA framework](https://slsa.dev/) - software supply-chain integrity and provenance.
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework) - governance for AI benefits and risks.
+
+**Next chapter:** [Chapter 5: Network API Fundamentals](../Part2/Chapter5.md)

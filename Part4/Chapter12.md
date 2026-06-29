@@ -285,3 +285,5 @@ Chapter 13 applies these automation and observability foundations through open-s
 - [Grafana documentation](https://grafana.com/docs/grafana/latest/) - dashboards and alerting.
 - [InfluxDB documentation](https://docs.influxdata.com/) - time-series ingestion, queries, and retention.
 - [NIST AI RMF Playbook](https://airc.nist.gov/airmf-resources/playbook/) - methods for mapping, measuring, managing, and governing AI risk.
+
+**Next chapter:** [Chapter 13: Infrastructure as Code Tools](Chapter13.md)

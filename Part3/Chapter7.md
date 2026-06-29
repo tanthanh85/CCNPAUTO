@@ -545,3 +545,5 @@ Chapter 8 adds the security controls needed to protect applications, data, ident
 - [Docker documentation](https://docs.docker.com/) - image building and container operations.
 - [Kubernetes documentation](https://kubernetes.io/docs/home/) - workload deployment and orchestration.
 - [Flux documentation](https://fluxcd.io/flux/) - GitOps reconciliation for Kubernetes.
+
+**Next chapter:** [Chapter 8: Secure Application Design](Chapter8.md)

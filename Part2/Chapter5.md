@@ -716,3 +716,5 @@ Chapter 6 moves from understanding API contracts to building resilient clients a
 - [HTTP Semantics - RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) - methods, status codes, and HTTP behavior.
 - [HTTP Caching - RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) - freshness and conditional caching.
 - [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) - machine-readable REST API contracts.
+
+**Next chapter:** [Chapter 6: Resilient API Development](Chapter6.md)

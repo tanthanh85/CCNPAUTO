@@ -456,3 +456,5 @@ Chapter 11 introduces NETCONF, RESTCONF, and YANG as structured mechanisms for a
 - [Python asyncio documentation](https://docs.python.org/3/library/asyncio.html) - bounded asynchronous I/O foundations.
 - [FastMCP quickstart](https://gofastmcp.com/getting-started/quickstart) - Python FastMCP server and client construction.
 - [Model Context Protocol documentation](https://modelcontextprotocol.io/docs/) - MCP architecture, concepts, and development guidance.
+
+**Next chapter:** [Chapter 11: NETCONF, RESTCONF, and YANG](Chapter11.md)

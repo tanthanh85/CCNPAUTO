@@ -1,10 +1,10 @@
-# Cisco DevNet Professional DEVCOR Study Guide
+# Cisco DevNet Professional Study Guide
 
 This course is a practical study guide for the Cisco Certified DevNet Professional core examination, commonly identified as **DEVCOR 350-901**. It connects software engineering with real network operations so that learners can design applications, consume and build APIs, automate Cisco infrastructure, secure delivery pipelines, and integrate major Cisco platforms.
 
 The material is written at a professional level. Rather than treating automation as a collection of isolated scripts, the course follows the complete lifecycle from requirements and architecture through development, testing, deployment, security, observability, infrastructure automation, and production support. Network automation scenarios, Python examples, configuration samples, diagrams, and operational trade-offs are used throughout.
 
-> This is an independent study guide. Always compare exam preparation with the current official Cisco exam blueprint and product documentation.
+> This is an independent study guide. Always compare exam preparation with the current updated official Cisco exam blueprint and product documentation.
 
 ## Learning Outcomes
 
@@ -26,7 +26,7 @@ After completing the course, learners should be able to:
 ### Part 1: Software Development and Design
 
 1. [Software Design Foundations](Part1/Chapter1.md) introduces software architecture, requirements, distributed applications, development models, DevOps, reviews, and testing.
-2. [Software Quality and Resilience](Part1/Chapter2.md) develops measurable quality attributes, modularity, scalability, availability, resilience, and hybrid deployment considerations.
+2. [Software Quality and Resilience](Part1/Chapter2.md) measurable quality attributes, modularity, scalability, availability, resilience, and hybrid deployment considerations.
 3. [Performance, Data, and Observability](Part1/Chapter3.md) connects maintainability, latency, throughput, caching, logs, metrics, traces, failure diagnosis, and database selection.
 4. [Git and Release Management](Part1/Chapter4.md) covers professional Git workflows, advanced history operations, branching, review, release artifacts, dependencies, and AI-assisted development controls.
 
@@ -59,7 +59,7 @@ After completing the course, learners should be able to:
 Learners will benefit from:
 
 - CCNA-level networking knowledge, including IP addressing, routing, switching, VLANs, and security fundamentals.
-- Basic Python skills, including functions, data structures, exceptions, modules, and virtual environments.
+- CCNA Automation/DevNet Associate level with basic Python skills, including functions, data structures, exceptions, modules, and virtual environments.
 - Familiarity with JSON, YAML, XML, HTTP, Linux command-line tools, and Git.
 - Access to Cisco DevNet Sandboxes or equivalent lab platforms for API experimentation.
 

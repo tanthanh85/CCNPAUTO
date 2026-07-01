@@ -8,13 +8,11 @@ As you work through the chapter, follow one central question: **How does an oper
 
 ## 1. From Network Management to Software-Driven Operations
 
-Early enterprise networks were managed one device at a time. An administrator connected to a router or switch, entered commands, checked the result, and repeated the process on the next device. That approach was workable for a small environment, but it became slow and risky as networks grew. Two engineers could perform the same task differently, and even a small typing mistake could create an outage.
+Early enterprise networks were managed one device at a time. An administrator connected to a router or switch, entered commands, checked the result, and repeated the process on the next device. That approach was workable for a small environment, but it became slow and risky as networks grew. Two engineers could perform the same task differently, and even a small typing mistake could create an outage. We see the adoption of the Simple Network Management Protocol (SNMP) introduced a standard relationship between agents on managed devices and central managers. By using SNMP, Network management systems (NMSs) could collect status and performance data across many devices.
 
-The adoption of the Simple Network Management Protocol (SNMP) introduced a standard relationship between agents on managed devices and central managers. Network management systems could collect status and performance data across many devices.
+Virtualization then separated logical functions from dedicated hardware. Servers, routers, firewalls, and load balancers could be represented and controlled through software. Most recently, APIs exposed those functions to automation, while software-defined networking separated control decisions from packet forwarding.
 
-Virtualization then separated logical functions from dedicated hardware. Servers, routers, firewalls, and load balancers could be represented and controlled through software. APIs exposed those functions to automation, while software-defined networking separated control decisions from packet forwarding.
-
-Operations consequently progressed through several stages:
+Typically, operations consequently progressed through several stages:
 
 ```mermaid
 flowchart LR
@@ -25,7 +23,7 @@ flowchart LR
     Orchestrate --> Optimize["Continuously optimize from telemetry"]
 ```
 
-The distinction between automation and orchestration is important. Monitoring can report that an interface is down. Automation can gather diagnostics or apply a known correction. Orchestration coordinates the complete operational process: identify the affected service, confirm the approved policy, make the change, validate the result, update the ticket, and notify the right team.
+Knowing the distinction between automation and orchestration is important. Monitoring can report that an interface is down. Automation can gather diagnostics or apply a known correction. But orchestration can coordinate the complete operational process: identify the affected service, confirm the approved policy, make the change, validate the result, update the ticket, and notify the right team.
 
 The following view connects that operational evolution to a modern automation platform:
 

@@ -504,6 +504,8 @@ A platform stores change approvals in a relational database because transactions
 
 ## 8. Performance and Observability Review Checklist
 
+The checklist in this section is not merely a final inspection form. It is a compact way to test whether a design can be measured, protected, and diagnosed after it leaves the development environment. Each question should therefore lead to evidence. For instance, a team claiming that its API meets a two-second response target should be able to show a load-test profile, percentile measurements, dependency timings, and an alert that detects when the target is at risk.
+
 Before approving the design, use the following questions to confirm that the team has connected performance goals with the evidence needed to operate the application.
 
 - Are latency, throughput, and capacity targets measurable?
@@ -548,6 +550,14 @@ Refactoring improves internal structure without intentionally changing external 
 
 Duplicated device logic may first be moved into one module, then placed behind a driver interface, and only later extracted into a separate service if independent deployment is justified. Architecture evolves through controlled steps.
 
+### 9.4 Operability as a Maintainability Requirement
+
+Code can be clean and still be operationally difficult. If an on-call engineer cannot determine which version is running, reproduce its configuration, drain work safely, or identify the owner of a failing dependency, every incident becomes a source-code investigation. For this reason, a maintainable service exposes build metadata, health and readiness status, configuration provenance, dependency state, and a documented shutdown procedure. Runbooks should explain normal behavior and decision points instead of copying commands without context.
+
+Consider a configuration-rendering service that begins producing invalid interface descriptions after a template release. A maintainable implementation records the template version, input-data revision, application commit, and rendering policy in the job result. The operator can reproduce the exact rendering offline and compare it with the previous version. Without that provenance, the team may know that output changed but not which input or artifact caused it.
+
+Maintenance also depends on ownership boundaries. An API contract should identify which team owns the schema, how consumers learn about deprecation, and how long compatibility is preserved. These operational details prepare the application for disciplined performance testing because a meaningful test requires a known artifact, configuration, workload, and environment.
+
 ## 10. Performance Measurement and Test Design
 
 Performance results are meaningful only when the workload, environment, and measurement method are documented.
@@ -582,6 +592,14 @@ Correlate application and network layers:
 | Low throughput | queue backlog, pool saturation | constrained WAN or retransmission |
 | Intermittent failure | errors on one instance | asymmetric route or failed link member |
 
+### 10.4 Designing a Reproducible Test
+
+A credible performance result states what was tested, how requests arrived, what data was used, and which resources were constrained. Record application and dependency versions, worker counts, timeouts, retry policy, cache state, database size, network delay, device mix, and the proportion of failure cases. Otherwise, a later test may appear faster simply because it used warm caches or fewer unreachable devices.
+
+For a controller inventory collector, the workload might contain 10,000 devices distributed across 50 sites. Eighty-five percent respond in less than 300 ms, 10 percent respond slowly, 3 percent reject authentication, and 2 percent time out. This distribution is more representative than a test in which every simulated device responds immediately. It exercises worker occupancy, retry queues, connection pools, and error logging at the same time.
+
+Open-loop load generation is particularly important when studying overload. In a closed-loop test, each virtual client waits for a response before sending another request; as the service slows, the offered load silently falls. An open-loop generator continues sending according to the intended arrival rate and therefore reveals queue growth and the point at which the system can no longer recover. The result should report p50, p95, p99, maximum latency, throughput, error classes, and saturation together. Once measurements reveal repeated expensive reads, caching becomes a possible optimization—but only after its consistency consequences are understood.
+
 ## 11. Caching and Consistency
 
 Cache placement can occur in the browser, client library, gateway, service, database layer, CDN, or regional edge. Every cache creates a consistency decision.
@@ -597,6 +615,14 @@ Cache-aside is common and simple, but concurrent misses can create a stampede. R
 
 Invalidation can be time-based, event-based, or version-based. Time-to-live is easy but permits staleness. An inventory event can invalidate a device record promptly, but lost events must not leave incorrect data forever. Combining event invalidation with a maximum TTL provides a safety bound.
 
+### 11.2 HTTP Cache Controls
+
+HTTP provides validators that allow a client to avoid downloading an unchanged representation. A server can return an `ETag`, after which the client sends `If-None-Match`. If the resource has not changed, the server responds with `304 Not Modified` and no response body. `Last-Modified` and `If-Modified-Since` provide a time-based alternative, although an entity tag can represent application-specific versions more precisely.
+
+`Cache-Control` defines who may store the response and for how long. `private` permits a user-specific client cache but not a shared intermediary; `public` permits shared caching when other requirements allow it. `max-age` expresses freshness, `no-cache` requires revalidation before reuse, and `no-store` prohibits storage. The last two directives are often confused: `no-cache` does not mean “do not cache.” Authentication responses, secrets, and sensitive configuration generally require `no-store`, whereas a large read-only device catalog may use validators and controlled freshness.
+
+The semantic risk matters more than the mechanism. Caching a telemetry summary for thirty seconds may be acceptable because the dashboard already represents a recent interval. Caching an authorization decision or a pre-change interface state for the same period may permit an unsafe operation. Each cached value should therefore have an owner, freshness bound, invalidation path, and documented behavior when the source is unavailable. Rate limiting complements this protection by controlling how quickly cache misses and uncached operations can reach dependencies.
+
 ## 12. Rate Limiting and Fairness
 
 Rate limiting protects both provider and dependencies. A global limit prevents complete overload, while per-tenant and per-target limits prevent one consumer from exhausting shared capacity.
@@ -604,6 +630,14 @@ Rate limiting protects both provider and dependencies. A global limit prevents c
 A token bucket supports bursts up to bucket capacity and refills at a controlled rate. A leaky bucket shapes output at a steady rate. Fixed windows are simple but allow bursts at time boundaries. Sliding windows provide smoother enforcement at greater tracking cost.
 
 When a controller returns `429`, the client should honor `Retry-After`. When a device management plane permits only a few sessions, the application may enforce its own semaphore without waiting for failure.
+
+### 12.1 Limits at Several Scopes
+
+One global limit is rarely sufficient. A network automation platform may need a service-wide concurrency ceiling, a lower limit for each controller, a per-device session limit, and a per-tenant request budget. The global ceiling protects the application, while the narrower limits isolate failure and create fairness. Without per-target controls, jobs for one slow firewall can occupy every worker and delay unrelated campus switches.
+
+Rejection behavior is part of the API contract. A synchronous API can return `429 Too Many Requests` with `Retry-After`; an asynchronous platform can admit the job to a bounded queue and return `202 Accepted` with a status URI. An unbounded queue is not protection because it converts overload into growing memory use and unacceptable wait time. When the queue reaches its designed capacity, the system should reject new work clearly or shed low-priority work according to policy.
+
+Retries must consume the same capacity budget as first attempts. Otherwise, a dependency failure causes retry amplification: failed requests create more requests precisely when the dependency is least able to serve them. Exponential backoff, jitter, maximum attempts, idempotency checks, and a retry budget prevent synchronized retry storms. These controls become much easier to tune when observability data records attempt number, wait duration, limiter scope, and final outcome.
 
 ## 13. Observability Data Design
 
@@ -634,6 +668,14 @@ An alert should identify impact, evidence, urgency, owner, and first diagnostic 
 
 SLO-based alerts watch user-impact risk over time. A fast-burn alert detects rapid error-budget consumption, while a slow-burn alert detects persistent smaller degradation.
 
+### 13.3 Cardinality, Sampling, and Cost
+
+Telemetry is not free. A metric label such as `device_id` can create hundreds of thousands of time series, while placing a request ID in a metric label creates effectively unbounded cardinality. Metrics should use bounded dimensions such as service, region, platform, operation, and result class. High-cardinality identifiers belong in logs or traces, where an operator can search for a particular job without expanding the metric system indefinitely.
+
+Trace sampling presents a similar design decision. Head-based sampling selects requests near the beginning and has low overhead, but it may discard rare failures before their outcome is known. Tail-based sampling decides after spans arrive and can retain errors or unusually slow traces, although it requires buffering and additional infrastructure. A practical policy keeps all failed deployment traces, samples a proportion of successful collection traces, and temporarily increases sampling during an incident.
+
+Sensitive fields must be handled before export. HTTP authorization headers, device configuration, API payloads, IP addressing, usernames, and command output may contain credentials or regulated data. Redaction at the instrumentation boundary is safer than depending on every downstream store. Retention should also match purpose: high-resolution traces may be kept briefly, aggregated metrics longer, and audit records according to governance requirements. With a reliable telemetry model in place, database architecture can be selected according to access and consistency needs rather than product familiarity.
+
 ## 14. Database Architecture and Consistency
 
 Database design begins with access patterns and transaction boundaries. Normalize relational data when integrity and flexible joins matter. Denormalize when predictable high-volume reads justify duplication.
@@ -643,6 +685,14 @@ Indexes accelerate selected reads but consume storage and slow writes. Composite
 Distributed databases often offer consistency choices. Strong consistency ensures a read observes the required latest write but may reduce availability during partition. Eventual consistency permits temporary differences among replicas. A compliance dashboard can tolerate slightly stale counters; an approval check before configuration cannot safely use stale authorization state.
 
 Backups, replication, migration, retention, and deletion must be part of selection. A fast database without tested restoration does not satisfy durability.
+
+### 14.1 Transactions, Isolation, and Automation Safety
+
+A transaction groups operations into a unit that either commits or rolls back. In an approval workflow, recording the approval and changing the request state should normally occur atomically; otherwise, a crash between the two writes can leave contradictory records. Isolation controls what concurrent transactions can observe. Weak isolation can permit non-repeatable reads or write skew, while stronger isolation reduces those anomalies at the cost of coordination and possible retries.
+
+Optimistic concurrency is often suitable for API-driven systems. A row or document carries a version, and an update succeeds only if the caller's version is still current. Two engineers editing the same intended configuration then receive a conflict instead of silently overwriting one another. HTTP APIs can expose the same idea through `ETag` and `If-Match`, connecting database concurrency with the resource contract.
+
+Distributed transactions across a database, message broker, and controller are difficult and often undesirable. The transactional outbox pattern writes the business change and an event record in one local transaction; a separate publisher later sends the event. Consumers must still be idempotent because delivery can occur more than once. This trade-off leads naturally to the next section, where interfaces and substitution rules determine whether these behaviors remain consistent across device implementations.
 
 ## 15. Applying SOLID to a Network Automation Service
 

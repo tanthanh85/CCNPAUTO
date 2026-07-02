@@ -455,14 +455,17 @@ Mitigation begins by avoiding state changes through `GET`. Cookie-authenticated 
 
 ```mermaid
 sequenceDiagram
-    participant U as User browser
-    participant A as Trusted automation portal
-    participant M as Malicious site
-    U->>A: Authenticate; receive secure session cookie and CSRF token
-    U->>M: Visit malicious page
-    M-->>U: Attempt forged policy-change request
-    U->>A: Cookie included, but token missing or incorrect
-    A-->>U: Reject request with 403
+    autonumber
+    participant U as "User browser"
+    participant M as "Malicious website"
+    participant A as "Trusted automation portal"
+
+    U->>A: Authenticate to the portal
+    A-->>U: Return session cookie and CSRF token
+    U->>M: Visit the malicious website
+    M-->>U: Submit a forged policy-change request
+    U->>A: Send request with cookie but without a valid CSRF token
+    A-->>U: Reject the request with HTTP 403
 ```
 
 Bearer-token APIs used by nonbrowser clients are not normally vulnerable in the same cookie-driven manner, but token theft, XSS, and overly broad scopes remain serious risks.

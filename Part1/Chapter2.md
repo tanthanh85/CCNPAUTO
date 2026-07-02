@@ -69,6 +69,12 @@ A configuration-compliance service may have the following requirements:
 
 The ISO/IEC 25010 quality model groups characteristics into functional suitability, performance efficiency, compatibility, usability, reliability, security, maintainability, and portability. The model is useful as a checklist, but a project should select and quantify only the attributes relevant to its business context.
 
+### 1.3 Quality Attributes as Architectural Drivers
+
+Quality attributes become architectural drivers when failing to satisfy them would change the system structure or threaten the business outcome. For instance, a requirement to complete a nightly audit in eight hours may determine worker concurrency, queue partitioning, controller rate limits, and database write capacity. Likewise, a requirement to preserve every approved change record may require durable transactions, replication, and immutable audit storage rather than ordinary application logging.
+
+Engineers should identify which attributes are architecturally significant instead of treating every desirable quality as equally important. A small internal reporting tool may prioritize maintainability and cost, whereas a production change-control service may prioritize security, auditability, consistency, and recovery. Once these priorities are explicit, the team can write scenarios that turn broad expectations into measurable design targets. That measurement process is the focus of the next section.
+
 ## 2. Defining Measurable Quality Scenarios
 
 A quality scenario can be expressed with six parts:
@@ -114,6 +120,12 @@ Quality attributes influence one another:
 - Strong isolation improves resilience but increases resource usage.
 
 Architecture is therefore a process of prioritization, not maximization. “Maximum security, performance, availability, and flexibility at minimum cost” is not a usable requirement.
+
+### 2.3 From Scenario to Verification Plan
+
+A measurable scenario should lead directly to a verification method. If the target states that 95 percent of inventory queries must complete within 500 milliseconds for 10,000 devices, the plan must define representative records, request distribution, cache state, concurrent users, warm-up behavior, and the percentile calculation. Without those details, two teams can run different tests and both claim compliance.
+
+The same principle applies to failure scenarios. A requirement that queued jobs survive a worker restart should specify when the worker fails, how duplicate delivery is handled, how long recovery may take, and what evidence proves that no approved job was lost. In other words, quality scenarios are executable design contracts. Once the expected responses are known, the application can be divided into components that own those responses cleanly, leading naturally to modularity.
 
 ## 3. Modularity in Application Design
 
@@ -193,6 +205,12 @@ Microservices can improve independent scaling and release frequency, but they ar
 
 A modular monolith is often the better starting point for a small automation team. Service extraction becomes justified when a boundary has different scaling, security, ownership, or release requirements.
 
+### 3.6 Boundary Ownership and Change Isolation
+
+A module boundary is valuable only when ownership is clear. One component should own each authoritative state transition, while other components interact through documented interfaces or events. If the API service, worker, and reporting process all update the same job rows independently, the apparent modularity hides shared-state coupling and makes failures difficult to reason about.
+
+Good boundaries also isolate change. A new IOS XE driver should be added behind a stable device-adapter interface without forcing changes to approval logic, job scheduling, or audit reporting. Contract tests then confirm that every driver honors the same expectations for validation, execution result, and error classification. This structure improves maintainability, but it also makes scale more controllable because independently owned workloads can be measured and expanded according to their own demand.
+
 ## 4. Scalability in Application Design
 
 Scalability is the ability to add resources and maintain acceptable behavior as workload grows. Growth can involve:
@@ -262,6 +280,12 @@ Measure at baseline and peak load:
 - Cost per transaction or managed device
 
 A scalable design should gain useful capacity from added resources without a major architectural rewrite.
+
+### 4.6 Queueing, Saturation, and Scalability Limits
+
+Scalability is not demonstrated merely by adding instances. Every service eventually reaches a constrained resource such as a controller quota, database connection pool, queue partition, network path, or device management plane. As utilization approaches the capacity of that resource, waiting time often rises nonlinearly. This is why a system can appear healthy at 60 percent load and then experience rapidly increasing latency near saturation.
+
+Queues absorb short bursts and decouple request submission from device execution, but they do not create capacity. A steadily growing backlog means arrival rate exceeds sustainable completion rate. The application must expose queue depth, oldest-job age, service time, rejection rate, and per-controller concurrency. It can then apply backpressure, defer low-priority work, or shed nonessential load before all users experience failure. Because scaling mechanisms cannot prevent every disruption, the design must also remain available and recover predictably when components fail.
 
 ## 5. High Availability and Resilience
 
@@ -349,6 +373,12 @@ Preventive practices include:
 - Test capacity, failover, restoration, and rollback.
 - Protect services from resource exhaustion and denial of service.
 
+### 5.6 Availability Mathematics and Service Dependencies
+
+Availability calculations help reveal dependencies that diagrams can hide. Components required in series reduce the total service availability because every required dependency must work for a request to succeed. If an API, identity service, database, and controller are each 99.9 percent available and all are required, their combined theoretical availability is approximately 99.6 percent before network and client dependencies are included.
+
+Redundancy improves the calculation only when replicas do not share the same failure domain. Two application instances using one database, one DNS service, or one cloud region do not protect against those common dependencies. Moreover, failover time contributes directly to downtime, so detection, decision, state synchronization, and traffic redirection must all fit inside the recovery target. These considerations extend beyond application uptime into business continuity, where the organization decides which capabilities must survive a larger site or regional disruption.
+
 ## 6. Business Continuity and Deployment Models
 
 Business continuity planning keeps essential processes operating. Disaster recovery restores services after a major site or regional event.
@@ -396,6 +426,12 @@ Developers contribute to HA by ensuring that applications:
 - Emit actionable telemetry.
 - Can be deployed and rolled back predictably.
 
+### 6.4 Continuity as a Degraded Operating Mode
+
+Business continuity does not always require full functionality. During a cloud disconnection, a regional worker may continue collecting local device state and buffering results while new production changes are temporarily disabled. Similarly, a read-only portal can remain available while the mutation path is isolated for safety. The design should identify which functions continue, which become read-only, how users are informed, and how buffered work is reconciled after recovery.
+
+Recovery exercises should include people and procedures as well as technology. Teams need access to credentials, backups, runbooks, communication channels, and decision authority when normal systems are unavailable. A technically valid recovery plan that depends on an inaccessible identity provider or an absent approver is not operationally complete. The review checklist that follows provides a compact way to challenge these assumptions before implementation.
+
 ## 7. Quality Review Checklist
 
 Before approving an application architecture, verify:
@@ -411,6 +447,12 @@ Before approving an application architecture, verify:
 - RTO, RPO, and availability targets match business value.
 - Security and observability are included in normal operation and failure paths.
 
+### 7.1 Interpreting the Review Result
+
+A checklist is useful only when it changes a decision. Findings should be classified by impact, probability, affected requirement, and proposed treatment. Some findings require redesign before implementation; others can be accepted temporarily with a named owner, monitoring, and a repayment condition. Recording this reasoning prevents the checklist from becoming a ceremonial approval step.
+
+The review should also look for interactions rather than isolated answers. Encryption may increase CPU cost, synchronous replication may increase write latency, and aggressive retries may reduce apparent reliability during an overload. These relationships are easier to see when quality attributes are treated as one connected model.
+
 ## 8. Quality Attributes as a Connected Model
 
 Quality attributes should be assessed as a system rather than independent checkboxes. Performance efficiency includes response time, throughput, resource use, and capacity. Reliability includes maturity, availability, fault tolerance, and recoverability. Maintainability includes modularity, reusability, analyzability, modifiability, and testability.
@@ -422,6 +464,10 @@ Usability includes recognizability, learnability, operability, accessibility, an
 Security qualities include confidentiality, integrity, authenticity, accountability, and nonrepudiation. Configuration data must be visible only to authorized users, protected from unauthorized modification, attributable to an authenticated identity, and recorded so completed actions cannot be plausibly denied.
 
 Portability includes adaptability, installability, and replaceability. Packaging the same service for on-premises and cloud deployment is useful only if external dependencies, data location, network access, and operational tooling are also portable.
+
+Quality attributes form a constraint system. A decision that improves one attribute can weaken another, and the final design must remain acceptable across the priority set. For example, caching improves latency and reduces controller load, but stale authorization or inventory data can weaken correctness and security. Similarly, multi-region deployment improves geographic resilience but introduces replication delay, conflict resolution, and higher operating cost.
+
+The practical technique is to maintain a trade-off record for important decisions. The record identifies the quality scenarios affected, expected benefit, introduced risk, verification method, and signals that would trigger reconsideration. This turns architecture into a set of testable hypotheses rather than permanent assumptions. Scalability is a useful place to apply this method because it exposes relationships among traffic, state, failure, and cost.
 
 ## 9. Scalability Architecture in Depth
 
@@ -462,6 +508,12 @@ Regional automation workers can reduce management-plane latency to branch device
 Load testing should include ramp, steady-state, burst, and endurance phases. A short test may confirm peak throughput while missing memory leaks, connection exhaustion, index growth, or queue accumulation.
 
 Results should report percentiles, saturation, errors, and cost. Doubling resources but gaining only ten percent throughput signals a constrained dependency or coordination overhead.
+
+### 9.5 Modeling Workload and Growth
+
+Capacity planning begins with a workload model: request types, arrival rates, payload sizes, service times, concurrency, burst patterns, and growth. A device inventory read and a configuration deployment consume very different resources, so one global requests-per-second figure is rarely sufficient. Segment measurements by operation, tenant, controller, platform, and site whenever those dimensions change cost or behavior.
+
+Load tests should increase demand until the system reaches a clear limit, then hold the load long enough to reveal queue growth, memory pressure, connection exhaustion, and recovery behavior. The goal is not merely to find a maximum number; it is to identify the first bottleneck and determine whether overload remains controlled. Once the sustainable operating envelope is known, availability engineering can ensure that failures and maintenance do not reduce capacity below the required workload.
 
 ## 10. Availability Engineering in Depth
 
@@ -506,6 +558,12 @@ Rolling upgrades replace capacity gradually. Blue-green deployment maintains two
 
 Backward-compatible APIs and data formats are prerequisites. If the new release writes events the old release cannot read, rollback may fail even when the old binary remains available.
 
+### 10.6 Failover State and Recovery Integrity
+
+Failover is safe only when the replacement instance has the state required to continue. Stateless API processes can usually restart behind a load balancer, but schedulers, queues, databases, and controller tasks carry ownership information. The design must prevent two workers from executing the same non-idempotent change after a lease or heartbeat failure. Fencing tokens, durable task state, idempotency keys, and reconciliation reads are common protections.
+
+Recovery also needs integrity checks. A database restored from backup may be available while missing recent approval records. A controller may reconnect while its inventory remains stale. Therefore, recovery procedures should verify state completeness, freshness, referential consistency, and external-system alignment before reopening mutation traffic. Resilience verification deliberately tests these difficult conditions.
+
 ## 11. Resilience Verification
 
 Resilience should be demonstrated through controlled failure:
@@ -521,6 +579,10 @@ Resilience should be demonstrated through controlled failure:
 The test must observe user impact, duplicate actions, data integrity, alert quality, and recovery time. A system that automatically restarts but loses jobs is not resilient.
 
 Failure exercises also evaluate people and procedures. Operators need clear ownership, decision authority, communication channels, and runbooks. Technical redundancy cannot compensate for an unknown recovery process.
+
+Resilience tests should begin with an explicit hypothesis: if one worker fails after sending a controller request, another worker will discover the existing task and continue without duplicate execution. The test then injects the fault at the precise point, observes state transitions, measures recovery time, and checks user-visible behavior. Random chaos can be useful later, but controlled experiments make initial findings easier to interpret.
+
+Failure injection should cover process termination, unavailable dependencies, slow responses, dropped connections, expired credentials, full queues, exhausted pools, and malformed external data. Run experiments first in a representative nonproduction environment, then use carefully bounded production exercises where risk permits. The result should update architecture, alerts, capacity policy, and runbooks. Resilience is demonstrated by evidence from these experiments, not by the presence of redundant components alone.
 
 ## 12. Security, Usability, and Interoperability Scenarios
 
@@ -538,6 +600,10 @@ Usability affects safety. If operators cannot distinguish a preview from a commi
 User-error protection can require an additional confirmation for large scope, but repeated confirmation dialogs become ineffective. Risk-based interaction is stronger: routine low-risk read operations remain efficient, while destructive or broad changes require stronger evidence and authorization.
 
 Interoperability requires syntactic and semantic agreement. Two systems may both use JSON while interpreting `status: down` differently. Contracts should define identifiers, units, timezones, enum meaning, null behavior, and lifecycle. Schema validation proves shape; integration tests prove shared meaning.
+
+These qualities often conflict in subtle ways. Strong authentication protects the service, but a poorly designed login or approval flow can encourage users to share accounts or seek bypasses. A standards-based interface improves interoperability, yet optional vendor extensions can create inconsistent behavior. Security and usability should therefore be tested together through realistic operator tasks rather than reviewed only as separate requirement lists.
+
+Interoperability testing should include supported versions, optional fields, unknown fields, encoding differences, pagination, error bodies, and capability discovery. A client should degrade clearly when a device lacks a feature instead of sending a best-effort command with uncertain results. Clear diagnostics and support evidence lead directly to testability and serviceability.
 
 ## 13. Testability and Serviceability
 
@@ -558,6 +624,10 @@ Serviceability helps operators diagnose and repair the deployed system. It inclu
 
 An error message should state what failed, the affected object, the relevant identifier, and what evidence is available. It should not expose a password or raw token.
 
+Testability is created by architecture. Deterministic business logic, dependency interfaces, controlled clocks, injectable faults, stable identifiers, and representative fixtures allow a team to reproduce behavior without connecting to production. Serviceability extends that principle into operation through health endpoints, structured logs, trace correlation, diagnostic bundles, version reporting, and safe administrative procedures.
+
+A system that is easy to test but difficult to diagnose remains expensive to operate. For example, a job failure message that says only “controller error” forces an engineer to search multiple platforms manually. A serviceable design records the controller task ID, target, operation, sanitized error category, retry decision, and correlation ID. Better evidence reduces recovery time, but collecting and retaining it also has a cost that must be planned.
+
 ## 14. Cost as an Architectural Constraint
 
 Quality has a resource cost. Five-nines availability requires redundant capacity, operational coverage, tested failover, and compatible dependencies. Storing detailed telemetry indefinitely increases database and governance cost. Multi-region active-active design increases network, data, and testing complexity.
@@ -565,6 +635,10 @@ Quality has a resource cost. Five-nines availability requires redundant capacity
 Cost should be evaluated per useful unit, such as API request, telemetry sample, managed device, or completed change. A design that scales technically but whose cost grows faster than customer value is not sustainable.
 
 Reserved baseline capacity can handle normal demand, while elastic workers handle periodic compliance scans. Storage policies can keep detailed telemetry for short-term diagnosis and retain lower-resolution aggregates for trends. Quality targets should direct investment toward business-critical paths.
+
+Cost analysis should include both infrastructure and engineering effort. A microservice architecture may reduce independent scaling cost for one workload while increasing platform, observability, security, and on-call costs. Similarly, keeping one year of high-resolution telemetry may appear useful until storage, indexing, backup, and query costs are calculated. Cost per managed device, completed job, telemetry sample, or API request provides a more meaningful comparison than the total monthly bill alone.
+
+Architectural cost models should include normal demand, peak demand, failure reserve, data transfer, licensing, support, and recovery exercises. The cheapest normal-state design may be unable to meet the recovery objective after one zone fails. Consequently, cost and availability planning must be evaluated together across the actual deployment environments.
 
 ## 15. Availability Planning Across Environments
 
@@ -583,6 +657,12 @@ flowchart LR
 Recovery planning identifies which side is authoritative, how conflict is resolved, how backlog is limited, and which capabilities remain available during partition. Hybrid availability is not achieved merely by deploying components in two places.
 
 > **Study guide takeaway:** Quality attributes become architecture only after they are measurable. Replace “highly available” with a failure scenario and recovery target; replace “scalable” with a workload and capacity target; replace “secure” with a protected asset, threat, and verifiable control.
+
+### 15.1 Comparing On-Premises, Cloud, and Hybrid Recovery
+
+On-premises environments offer direct control over hardware, network paths, and data location, but capacity expansion and hardware replacement can be slow. Cloud environments provide programmable infrastructure and regional services, yet quotas, provider dependencies, identity design, and data-transfer cost become part of availability. Hybrid systems inherit both sets of concerns and add the WAN and synchronization behavior between them.
+
+A practical design states which environment is authoritative for each data set and function. During a partition, an on-premises worker may continue safe read-only collection while cloud-based approvals pause. After reconnection, the systems need bounded backlog processing, duplicate protection, ordering rules, and visible data freshness. By connecting deployment choices back to measurable quality scenarios, the team can determine whether the design truly meets business needs rather than merely distributing components across locations.
 
 ## Key Takeaways
 

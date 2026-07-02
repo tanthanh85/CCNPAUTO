@@ -1,0 +1,17 @@
+# Lab 1 Python environment for Ubuntu 22.04 / Python 3.10
+# Versions are bounded where the current upstream release may no longer support Python 3.10.
+ansible-core>=2.16,<2.18
+ansible-lint>=24,<26
+black>=24,<26
+genie>=24,<26
+jmespath>=1,<2
+ncclient>=0.6.15,<1
+netmiko>=4.4,<5
+paramiko>=3.4,<4
+pyats[full]>=24,<26
+pytest>=8,<9
+PyYAML>=6,<7
+requests>=2.31,<3
+ruff>=0.8,<1
+scrapli[full]>=2024.7,<2026
+xmltodict>=0.13,<1

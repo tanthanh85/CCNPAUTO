@@ -6,7 +6,6 @@ Every later lab depends on a predictable development environment. In this lab, y
 
 This is deliberately an **all-in-one learning environment**. It makes the course portable because every learner has the same tools, but it is not a recommended production architecture. GitLab Runner should normally be isolated from the GitLab server; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
-> **Version assumption:** Ubuntu does not have a 22.02 release. This lab assumes **Ubuntu 22.04 LTS (Jammy Jellyfish)**. Run `lsb_release -a` before proceeding and ask the instructor if the result differs.
 
 ## Learning Objectives
 
@@ -76,32 +75,6 @@ flowchart TB
 
 The TIG services bind to `127.0.0.1` so they are not exposed automatically to the surrounding network. If the learner accesses the workstation remotely, use SSH port forwarding or deliberately configure a firewall and trusted interface instead of changing every service to `0.0.0.0` without review.
 
-## Before You Begin
-
-Create a VM snapshot or hypervisor checkpoint. Installation changes package repositories, system services, groups, and network rules. A snapshot provides a clean recovery point if a package installation is interrupted.
-
-Open a terminal and collect the baseline:
-
-```bash
-hostnamectl
-lsb_release -a
-uname -m
-nproc
-free -h
-df -h /
-ip -brief address
-timedatectl status
-```
-
-Confirm that the release is Ubuntu 22.04 and the architecture is `x86_64`/`amd64` or `aarch64`/`arm64`. The download commands in this lab detect the Debian architecture where practical.
-
-Keep the supplied lab files together. In the commands below, replace `<COURSE_ROOT>` with the directory containing `CCNPAUTO`:
-
-```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-pwd
-ls -la
-```
 
 ## Task 1: Update Ubuntu and Install Foundation Packages
 

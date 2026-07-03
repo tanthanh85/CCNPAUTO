@@ -1,76 +1,69 @@
 #!/usr/bin/env python3
-"""Add bounded retries, status-aware flow control, and metrics."""
-
-from __future__ import annotations
 
 import argparse
-import logging
-import sys
+from urllib.parse import quote
 
-from src.errors import (
-    AuthenticationError,
-    AuthorizationError,
-    RESTCONFError,
-    ResourceNotFoundError,
+from src.common import (
+    INTERFACES_PATH,
+    INTERFACE_PATH,
+    load_settings,
+    make_pages,
+    make_session,
+    normalize_interfaces,
+    print_interfaces,
+    select_lab_loopbacks,
+    wait_for_rate_limit,
 )
-from src.interfaces import INTERFACES_PATH, normalize_interfaces, select_lab_loopbacks
-from src.pagination import paginate
-from src.reporting import print_interfaces
-from src.restconf import ResilientRESTCONFClient
-from src.settings import Settings
+from src.simple_retry import get_json_with_retry
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--demo-not-found", action="store_true")
-    args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+parser = argparse.ArgumentParser()
+parser.add_argument("--demo-not-found", action="store_true")
+args = parser.parse_args()
 
-    settings = Settings.from_env()
-    client = ResilientRESTCONFClient(settings)
-    try:
-        if args.demo_not_found:
-            try:
-                client.get_interface("Loopback999999")
-            except ResourceNotFoundError as exc:
-                print(f"Controlled 404: {exc}")
-                print("Policy: do not retry this missing resource; continue collection.\n")
+settings = load_settings()
+session = make_session(settings)
+statistics = {"attempts": 0, "retries": 0, "status_codes": {}}
+last_request = 0
+total_wait = 0
 
-        index_payload = client.get_json(INTERFACES_PATH)
-        index = select_lab_loopbacks(normalize_interfaces(index_payload))
-        collected = []
+if args.demo_not_found:
+    path = INTERFACE_PATH.format("Loopback999999")
+    payload, result = get_json_with_retry(session, settings, path, statistics)
+    print(f"404 demonstration result: {result}\n")
 
-        for page in paginate(index, 20):
-            page_records = []
-            for summary in page.items:
-                try:
-                    payload = client.get_interface(summary["interface"])
-                except ResourceNotFoundError as exc:
-                    logging.warning("Interface disappeared during collection: %s", exc)
-                    continue
-                page_records.extend(normalize_interfaces(payload))
-            collected.extend(page_records)
-            print_interfaces(
-                page_records,
-                f"Resilient page {page.number}/{page.total_pages}",
-            )
+payload, result = get_json_with_retry(session, settings, INTERFACES_PATH, statistics)
+if result != "ok":
+    raise SystemExit("Could not retrieve the interface collection")
 
-    except (AuthenticationError, AuthorizationError) as exc:
-        print(f"UNRECOVERABLE AUTHORIZATION FAILURE: {exc}", file=sys.stderr)
-        print("Collection stopped; correct identity or permissions.", file=sys.stderr)
-        return 2
-    except RESTCONFError as exc:
-        print(f"COLLECTION FAILED AFTER CONTROLLED HANDLING: {exc}", file=sys.stderr)
-        return 1
+loopbacks = select_lab_loopbacks(normalize_interfaces(payload))
+collected = []
 
-    print(f"\nCollected {len(collected)} loopbacks")
-    print(f"HTTP attempts: {client.metrics.attempts}")
-    print(f"Retries: {client.metrics.retries}")
-    print(f"Responses by status: {client.metrics.responses_by_status}")
-    if client.pacer:
-        print(f"Client pacing wait: {client.pacer.total_wait_seconds:.2f} seconds")
-    return 0
+for page_number, page in enumerate(make_pages(loopbacks, 20), start=1):
+    page_details = []
 
+    for loopback in page:
+        last_request, wait_time = wait_for_rate_limit(last_request, settings["rate"])
+        total_wait += wait_time
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+        name = quote(loopback["interface"], safe="")
+        path = INTERFACE_PATH.format(name)
+        detail, result = get_json_with_retry(session, settings, path, statistics)
+
+        if result == "ok":
+            page_details.extend(normalize_interfaces(detail))
+        elif result == "not_found":
+            print(f"Skipping {loopback['interface']} because it disappeared")
+        elif result == "fatal":
+            raise SystemExit("Stopping because credentials or permissions are invalid")
+        else:
+            raise SystemExit(f"Stopping after repeated failure on {loopback['interface']}")
+
+    collected.extend(page_details)
+    print_interfaces(page_details, f"Resilient page {page_number}")
+
+print(f"\nCollected: {len(collected)}")
+print(f"HTTP attempts: {statistics['attempts']}")
+print(f"Retries: {statistics['retries']}")
+print(f"Status codes: {statistics['status_codes']}")
+print(f"Rate-limit waiting: {total_wait:.2f} seconds")

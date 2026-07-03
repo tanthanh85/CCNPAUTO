@@ -74,14 +74,8 @@ lab3-restconf-resilience/
 │   ├── rate_limited_details.py
 │   └── resilient_loopbacks.py
 └── src/
-    ├── cache.py
-    ├── errors.py
-    ├── interfaces.py
-    ├── pagination.py
-    ├── rate_limit.py
-    ├── reporting.py
-    ├── restconf.py
-    └── settings.py
+    ├── common.py
+    └── simple_retry.py
 ```
 
 ## Task 1: Reconnect to the Reserved Sandbox
@@ -131,7 +125,7 @@ python "$LAB3_FILES/scripts/generate_lab2_loopbacks.py" \
   --network 198.18.0.0/24
 ```
 
-The generator writes atomically: it prepares a temporary file in the destination directory and replaces the source of truth only after serialization succeeds. Validate the result with the Lab 2 validator:
+The generator uses a straightforward `for` loop to build 100 dictionaries and writes them as YAML. Validate the result with the Lab 2 validator:
 
 ```bash
 python -m scripts.validate_source_of_truth
@@ -315,7 +309,7 @@ Rate limiting controls how quickly a consumer may call a provider. It protects C
 
 When a provider rejects excess traffic, HTTP `429 Too Many Requests` communicates the condition. The optional `Retry-After` response header tells the client how long to wait, expressed either as seconds or an HTTP date. A well-behaved client combines reactive handling of `429` with proactive request pacing so it does not create the overload in the first place.
 
-The lab's `RequestPacer` spaces requests evenly. At five requests per second, each request begins at least 0.2 seconds after the previous request. This is deliberately smoother than sending a burst of five at the start of every second.
+The function `wait_for_rate_limit()` calculates the minimum gap between requests. At five requests per second, each request begins at least 0.2 seconds after the previous request. The function uses only `time.monotonic()`, subtraction, and `time.sleep()`.
 
 `rate_limited_details.py` first obtains the interface index. It then requests each list entry individually and prints a page after every 20 details. Run it:
 
@@ -345,7 +339,7 @@ Pagination bounds how many records the application presents or requests in one l
 
 ## Task 7: Add Error Handling and Controlled Flow
 
-The basic client calls `raise_for_status()`, which is useful but leaves important policy decisions to the caller. The resilient client classifies failures and decides whether another attempt has a reasonable chance of succeeding.
+The first scripts call `raise_for_status()`, which stops on an HTTP error but does not explain what the application should do next. The final script calls the short `get_json_with_retry()` function in `src/simple_retry.py`. A visible `for` loop checks each response and decides whether to retry, continue, or stop.
 
 | Condition | Retry the same request? | Application action |
 |---|---|---|
@@ -369,7 +363,7 @@ delay = min(8 seconds, 0.5 × 2^(attempt-1)) + random jitter
 
 Jitter prevents many clients from retrying at exactly the same moment. `IOSXE_MAX_RETRIES=3` means at most four attempts: the original request plus three retries. The client retries only idempotent GET operations in this lab. Blindly retrying a POST or another non-idempotent operation could create duplicate state.
 
-For `429`, a valid `Retry-After` takes precedence over calculated backoff. The training client refuses to sleep for more than 60 seconds; an unexpectedly long provider delay stops collection and returns a controlled `RateLimitError` instead of appearing to hang.
+For `429`, a numeric `Retry-After` takes precedence over calculated backoff and is capped at 60 seconds in this training script. After the configured attempts are exhausted, the helper returns `failed` and the main script stops.
 
 ### Run the Resilient Collector
 
@@ -385,9 +379,9 @@ Generate one safe, real `404` without changing the router:
 python -m scripts.resilient_loopbacks --demo-not-found
 ```
 
-The script requests a deliberately nonexistent `Loopback999999`, catches `ResourceNotFoundError`, records the policy decision, and continues with the real collection. This demonstrates that “unrecoverable for one request” does not always mean “terminate the entire job.” Context determines the flow.
+The script requests a deliberately nonexistent `Loopback999999`. The helper returns `not_found`, prints the decision, and continues with the real collection. This demonstrates that “unrecoverable for one request” does not always mean “terminate the entire job.”
 
-Authentication and authorization are different. If the collection receives `401` or `403`, the outer workflow stops immediately and exits with a distinct nonzero code. Repeating invalid credentials can lock accounts, create audit noise, and never correct the cause.
+Authentication and authorization are different. If the collection receives `401` or `403`, the workflow stops immediately. Repeating invalid credentials can lock accounts, create audit noise, and never correct the cause.
 
 ### Optional Timeout Observation
 
@@ -398,7 +392,7 @@ IOSXE_READ_TIMEOUT=0.001
 IOSXE_MAX_RETRIES=2
 ```
 
-Run the resilient collector once. Depending on local latency, it should log retries and eventually return `TransportError`. Restore the normal values immediately:
+Run the resilient collector once. Depending on local latency, it should print each retry and eventually return `failed`. Restore the normal values immediately:
 
 ```dotenv
 IOSXE_READ_TIMEOUT=45
@@ -421,12 +415,13 @@ Run:
 
 ```bash
 python -m scripts.cache_demo
+python -m scripts.cache_demo
 ```
 
 Interpret the result:
 
-- If IOS XE returns `ETag` or `Last-Modified`, the script stores the payload and validator under `.cache`, then makes an immediate conditional request.
-- If the resource is unchanged and the server supports the condition, the second response may be `304`.
+- If IOS XE returns `ETag` or `Last-Modified`, the first run stores the payload and validator under `.cache`.
+- The second run sends the saved validator. If the resource is unchanged and the server supports the condition, it may return `304`.
 - If the server returns `Cache-Control: no-store`, the script does not retain the payload.
 - If no validator is present, the script reports that conditional caching is unavailable and does not invent one.
 - If this IOS XE image does not expose the native configuration resource at that path, treat the resulting controlled error as “feature unavailable” and skip the optional task.
@@ -522,11 +517,11 @@ The configured rate is a maximum, not a performance guarantee. TLS processing, d
 
 ### HTTP 429 continues after retries
 
-Do not raise the request rate. Reduce `REQUESTS_PER_SECOND`, wait for the provider window to recover, and honor `Retry-After`. A final `RateLimitError` means the bounded retry policy stopped as designed.
+Do not raise the request rate. Reduce `REQUESTS_PER_SECOND`, wait for the provider window to recover, and honor `Retry-After`. A final `failed` result means the bounded retry loop stopped as designed.
 
 ### HTTP 401 or 403 stops the program
 
-This is intentional. Correct the credentials or sandbox privileges. Do not wrap these exceptions in a loop that repeats the same rejected identity.
+This is intentional. Correct the credentials or sandbox privileges. Do not add a loop that repeats the same rejected identity.
 
 ### Very small timeout does not fail
 

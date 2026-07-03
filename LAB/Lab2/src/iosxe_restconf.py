@@ -1,93 +1,68 @@
-"""RESTCONF client and response normalizer for IOS XE interface data."""
-
-from __future__ import annotations
-
-from typing import Any
+"""Simple RESTCONF functions for IOS XE interface data."""
 
 import requests
 import urllib3
 
-from src.settings import Settings
+
+CISCO_PATH = "/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces"
+IETF_PATH = "/restconf/data/ietf-interfaces:interfaces-state"
 
 
-class IOSXERESTCONFClient:
-    INTERFACES_PATH = "/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces"
-    IETF_INTERFACES_PATH = "/restconf/data/ietf-interfaces:interfaces-state"
+def get_interface_data(settings):
+    base_url = f"https://{settings['host']}:{settings['https_port']}"
+    headers = {"Accept": "application/yang-data+json"}
+    authentication = (settings["username"], settings["password"])
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-        self.base_url = f"https://{settings.host}:{settings.https_port}"
-        self.session = requests.Session()
-        self.session.auth = (settings.username, settings.password)
-        self.session.headers.update(
-            {
-                "Accept": "application/yang-data+json",
-                "Content-Type": "application/yang-data+json",
-            }
+    if not settings["verify_tls"]:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    response = requests.get(
+        base_url + CISCO_PATH,
+        headers=headers,
+        auth=authentication,
+        verify=settings["verify_tls"],
+        timeout=30,
+    )
+
+    if response.status_code == 404:
+        response = requests.get(
+            base_url + IETF_PATH,
+            headers=headers,
+            auth=authentication,
+            verify=settings["verify_tls"],
+            timeout=30,
         )
-        self.session.verify = settings.verify_tls
-        if not settings.verify_tls:
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    def get(self, path: str) -> dict[str, Any]:
-        response = self.session.get(f"{self.base_url}{path}", timeout=(10, 45))
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            detail = response.text[:500]
-            raise RuntimeError(
-                f"RESTCONF GET {path} failed with HTTP {response.status_code}: {detail}"
-            ) from exc
-        return response.json()
-
-    def get_interfaces_payload(self) -> dict[str, Any]:
-        response = self.session.get(
-            f"{self.base_url}{self.INTERFACES_PATH}", timeout=(10, 45)
-        )
-        if response.status_code == 404:
-            return self.get(self.IETF_INTERFACES_PATH)
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise RuntimeError(
-                f"RESTCONF GET {self.INTERFACES_PATH} failed with HTTP "
-                f"{response.status_code}: {response.text[:500]}"
-            ) from exc
-        return response.json()
+    response.raise_for_status()
+    return response.json()
 
 
-def _status(value: Any, prefixes: tuple[str, ...]) -> str:
-    text = str(value or "unknown")
-    for prefix in prefixes:
-        text = text.removeprefix(prefix)
-    text = text.replace("-state", "").replace("-oper", "")
-    return "up" if text == "ready" else text
-
-
-def normalize_interfaces(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def normalize_interfaces(payload):
     root = payload.get("Cisco-IOS-XE-interfaces-oper:interfaces")
     if root is None:
         root = payload.get("ietf-interfaces:interfaces-state", {})
-    entries = root.get("interface", [])
-    if not isinstance(entries, list):
-        raise ValueError("Unexpected RESTCONF response: interface is not a list")
 
-    records: list[dict[str, Any]] = []
-    for entry in entries:
-        ipv4 = entry.get("ipv4", entry.get("ietf-ip:ipv4", "unassigned"))
+    normalized = []
+    for item in root.get("interface", []):
+        ipv4 = item.get("ipv4", item.get("ietf-ip:ipv4", "unassigned"))
         if isinstance(ipv4, dict):
             addresses = ipv4.get("address", [])
             ipv4 = addresses[0].get("ip", "unassigned") if addresses else "unassigned"
 
-        records.append(
+        admin = str(item.get("admin-status", "unknown")).replace("if-state-", "")
+        protocol = str(item.get("oper-status", "unknown")).replace(
+            "if-oper-state-", ""
+        )
+        if protocol == "ready":
+            protocol = "up"
+
+        normalized.append(
             {
-                "interface": entry.get("name", "-"),
+                "interface": item.get("name", "-"),
                 "ip_address": ipv4 or "unassigned",
-                "status": _status(entry.get("admin-status"), ("if-state-",)),
-                "protocol": _status(
-                    entry.get("oper-status"),
-                    ("if-oper-state-", "if-oper-"),
-                ),
+                "status": admin,
+                "protocol": protocol,
             }
         )
-    return records
+
+    return normalized

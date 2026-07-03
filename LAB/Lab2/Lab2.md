@@ -23,7 +23,7 @@ After completing this lab, you will be able to:
 - Print network information in readable tables.
 - Use YAML as a limited source of truth for managed loopback interfaces.
 - Define one or many loopback interfaces with one consistent data contract.
-- Validate YAML syntax, JSON Schema rules, and cross-record uniqueness before deployment.
+- Validate YAML fields, datatypes, addresses, and duplicate values before deployment.
 - Render IOS XE configuration from a Jinja2 template.
 - Apply and verify a loopback configuration only in a reserved sandbox.
 - Create a Git feature branch, push it to GitLab, review it, and merge it into `main`.
@@ -57,7 +57,7 @@ flowchart LR
     CLI --> TextFSM["TextFSM / ntc-templates"]
     TextFSM --> Table["Normalized table"]
 
-    YAML["loopbacks.yaml<br/>desired state"] --> Validate["Schema and IP validation"]
+    YAML["loopbacks.yaml<br/>desired state"] --> Validate["Simple field and IP checks"]
     Validate --> Jinja["Jinja2 template"]
     Jinja --> CLI
     CLI --> Router["Reserved IOS XE sandbox"]
@@ -86,8 +86,6 @@ lab2-iosxe-warmup/
 │   ├── collect_restconf.py
 │   ├── compare_cli_restconf.py
 │   └── validate_source_of_truth.py
-├── schemas/
-│   └── loopbacks.schema.json
 ├── src/
 │   ├── iosxe_cli.py
 │   ├── iosxe_restconf.py
@@ -174,7 +172,7 @@ LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
 cp "$LAB2_FILES/requirements.txt" "$LAB2_FILES/.env.example" \
   "$LAB2_FILES/.gitignore" .
 cp -R "$LAB2_FILES/data" "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" \
-  "$LAB2_FILES/schemas" "$LAB2_FILES/src" "$LAB2_FILES/templates" .
+  "$LAB2_FILES/src" "$LAB2_FILES/templates" .
 tree -a -I '.git'
 ```
 
@@ -222,7 +220,6 @@ The project adds several libraries to the Lab 1 environment:
 | `tabulate` | Table rendering |
 | `PyYAML` | Safe YAML parsing through the `yaml` import |
 | `Jinja2` | Configuration template rendering |
-| `jsonschema` | Structural and datatype enforcement for loopback intent |
 | `python-dotenv` | Loading untracked connection settings from `.env` |
 | `requests` | RESTCONF HTTPS client |
 
@@ -279,28 +276,31 @@ git status --short
 
 ### Understand the CLI Client
 
-Open `src/iosxe_cli.py`. `IOSXECLIClient` is a context manager. Its `__enter__` method opens the Netmiko connection, and `__exit__` disconnects even when collection raises an exception. That lifecycle prevents abandoned SSH sessions on the sandbox.
+Open `src/iosxe_cli.py`. It contains four small functions: `connect()`, `send_and_parse()`, `get_version()`, and `get_interfaces()`. The functions use ordinary dictionaries and lists so that each step remains visible.
 
-The private `_send_structured()` method uses:
+The `send_and_parse()` function uses:
 
 ```python
-result = self.connection.send_command(command, use_textfsm=True)
+result = connection.send_command(command, use_textfsm=True)
 ```
 
 Netmiko identifies a TextFSM template from the platform and command. When parsing succeeds, the result is a list of dictionaries. When no template matches or parsing fails, Netmiko may return the original string. The wrapper treats a string as an error instead of accidentally iterating through it one character at a time.
 
-The collection script reuses two methods and two presentation functions:
+The collection script opens the connection, collects both commands, and always disconnects in `finally`:
 
 ```python
-with IOSXECLIClient(settings) as device:
-    version_records = device.collect_version()
-    interface_records = device.collect_interfaces()
+connection = connect(settings)
+try:
+    version_records = get_version(connection)
+    interface_records = get_interfaces(connection)
+finally:
+    connection.disconnect()
 
 print_version(version_records)
 print_interfaces(interface_records, "IOS XE Interfaces from CLI and TextFSM")
 ```
 
-`collect_interfaces()` loops over the TextFSM records and normalizes template field names into four stable keys: `interface`, `ip_address`, `status`, and `protocol`. The reporting module loops through those dictionaries again to construct rows for `tabulate`.
+`get_interfaces()` uses a normal `for` loop to copy the TextFSM fields into four consistent keys: `interface`, `ip_address`, `status`, and `protocol`.
 
 ### Run the CLI Collector
 
@@ -333,12 +333,15 @@ Examine the raw parsed data in an interactive Python session if the normalizatio
 python - <<'PY'
 from pprint import pprint
 
-from src.iosxe_cli import IOSXECLIClient
-from src.settings import Settings
+from src.iosxe_cli import connect, get_interfaces, get_version
+from src.settings import load_settings
 
-with IOSXECLIClient(Settings.from_env()) as device:
-    pprint(device.collect_version())
-    pprint(device.collect_interfaces())
+connection = connect(load_settings())
+try:
+    pprint(get_version(connection))
+    pprint(get_interfaces(connection))
+finally:
+    connection.disconnect()
 PY
 ```
 
@@ -393,36 +396,36 @@ loopbacks:
     enabled: false
 ```
 
-Choose either the single-interface or multiple-interface form. Every entry uses the same five keys; inventing alternatives such as `interface_number`, `ip`, `mask`, or `state` is rejected by the schema. Interface IDs and addresses must also be unique across the complete list.
+Choose either form. Every entry uses the same five keys; alternatives such as `interface_number`, `ip`, `mask`, or `state` are rejected by the validator. Interface IDs and addresses must also be unique.
 
 The address comes from the documentation prefix `192.0.2.0/24` and is suitable for an isolated loopback exercise. If the reservation instructions allocate a different range or Loopback101 already exists, choose an instructor-approved ID and address. Never overwrite an existing interface that the lab does not own.
 
 ### Understand the Source-of-Truth Contract
 
-The file `schemas/loopbacks.schema.json` defines the accepted document shape. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
+The function in `src/loopback_source.py` performs a few direct checks. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
 
 | Field | Required type and rule | Purpose |
 |---|---|---|
-| `id` | Integer from 0 through 2147483647 | IOS XE Loopback interface number |
-| `description` | Nonempty single-line string, maximum 120 characters | Ownership and operational context |
+| `id` | Integer | IOS XE Loopback interface number |
+| `description` | Nonempty string | Ownership and operational context |
 | `ipv4` | Valid IPv4 address string | Interface address |
 | `prefix_length` | Integer from 0 through 32 | Converted to an IOS dotted-decimal mask |
 | `enabled` | YAML Boolean `true` or `false` | Renders `no shutdown` or `shutdown` |
 
-`additionalProperties: false` prevents silent format drift. For example, adding `subnet_mask: 255.255.255.255` fails rather than being ignored. JSON Schema validates each record independently, while Python semantic checks detect relationships across records, including duplicate Loopback IDs and duplicate IPv4 addresses.
+The function compares the supplied keys with the required field names. Therefore, adding `subnet_mask: 255.255.255.255` fails rather than being ignored. Two Python sets track IDs and addresses so duplicates are rejected.
 
 The resulting test sequence has three layers:
 
 ```mermaid
 flowchart LR
     File["data/loopbacks.yaml"] --> YAML["1. Parse YAML syntax"]
-    YAML --> Schema["2. Validate names, types, ranges, and IPv4 format"]
-    Schema --> Semantic["3. Check duplicate IDs and addresses"]
+    YAML --> Fields["2. Check names and datatypes"]
+    Fields --> Semantic["3. Check IP format and duplicates"]
     Semantic --> Render["Render one command set per list item"]
     Render --> Deploy["Deploy only after validation passes"]
 ```
 
-Malformed indentation, punctuation, or duplicate YAML keys fail at the YAML layer. A quoted ID such as `id: "101"`, a string such as `enabled: "yes"`, an unknown key, or prefix length 33 fails schema validation. Reusing ID 101 or `192.0.2.101` in another item fails semantic validation.
+Malformed indentation or punctuation fails while PyYAML reads the file. A quoted ID such as `id: "101"`, a string such as `enabled: "yes"`, or an unknown key fails the field checks. Invalid and duplicate addresses are rejected before rendering.
 
 ### Run the Source-of-Truth Validation
 
@@ -469,7 +472,7 @@ interface Loopback101
  no shutdown
 ```
 
-When multiple entries exist, the loop renders one independent command set for each item. A record with `enabled: false` renders `shutdown`. Jinja2 uses `StrictUndefined`, so a misspelled template variable fails instead of silently producing an incomplete command.
+When multiple entries exist, the loop renders one command set for each item. A record with `enabled: false` renders `shutdown`.
 
 Review the branch diff:
 
@@ -519,7 +522,7 @@ sequenceDiagram
     P->>P: Verify interface, IPv4 address, and up/up state
 ```
 
-The workflow reuses `IOSXECLIClient.collect_interfaces()` before and after the change. It therefore verifies every YAML interface with the same collection path established in Task 4 rather than introducing a second ad hoc parser. Enabled loopbacks must have the intended address and report up/up. Disabled loopbacks must exist with the intended address but are not expected to report up/up.
+The workflow reuses `get_interfaces()` before and after the change. Enabled loopbacks must have the intended address and report up/up. Disabled loopbacks must exist with the intended address but are not expected to report up/up.
 
 Run the script a second time:
 
@@ -621,13 +624,13 @@ First, display the connection values without printing the password:
 
 ```bash
 python - <<'PY'
-from src.settings import Settings
+from src.settings import load_settings
 
-s = Settings.from_env()
-print("Host:", s.host)
-print("HTTPS port:", s.https_port)
-print("Username:", s.username)
-print("TLS verification:", s.verify_tls)
+s = load_settings()
+print("Host:", s["host"])
+print("HTTPS port:", s["https_port"])
+print("Username:", s["username"])
+print("TLS verification:", s["verify_tls"])
 PY
 ```
 
@@ -782,7 +785,7 @@ python -m pip show netmiko ntc-templates
 python -c 'import ntc_templates; print(ntc_templates.__file__)'
 ```
 
-The wrapper raises an error when Netmiko returns a string. Capture the first part of the raw output shown in the exception and compare it with the installed template rather than adding fragile string splits to the production path.
+The helper raises a clear error when Netmiko returns unparsed text. Confirm the platform and command match an installed template rather than adding fragile string splits.
 
 ### The configuration script refuses to run
 
@@ -808,7 +811,7 @@ If the lab does not own the existing interface, stop and choose an instructor-ap
 
 ### Source-of-truth validation fails
 
-Read the complete path in the error. A message such as `loopbacks.1.enabled: 'yes' is not of type 'boolean'` identifies the second list item and rejected field. Use YAML `true` or `false` without quotation marks. An “additional properties” error means the learner introduced a key outside the contract. Duplicate ID and address errors come from cross-record validation after every item passes the schema.
+Read the item number and field in the error. Use YAML `true` or `false` without quotation marks, keep IDs and prefix lengths as integers, and use only the five documented keys. Duplicate IDs and addresses are also rejected.
 
 Run the validator again after correcting the reported field:
 
@@ -854,7 +857,7 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 - Netmiko simplifies CLI transport, and TextFSM can turn supported commands into dictionaries, but parser success must be checked explicitly.
 - Reusable modules keep connection, collection, presentation, and validation logic consistent across scripts.
 - YAML and Jinja2 separate intent from device syntax, although this introductory workflow manages only a bounded subset of loopback state.
-- JSON Schema and semantic validation prevent inconsistent keys, invalid types, malformed addresses, and duplicate loopback identity.
+- Simple validation prevents inconsistent keys, invalid types, malformed addresses, and duplicate loopback identity.
 - The same loop processes one or many loopback records without duplicating deployment logic.
 - A feature branch and merge request make the source-of-truth change reviewable and traceable.
 - JSON and XML preserve structure, while YANG supplies the model, types, constraints, and namespace semantics.

@@ -1,68 +1,33 @@
-"""Load and validate connection settings without storing secrets in Git."""
-
-from __future__ import annotations
+"""Read connection values from the untracked .env file."""
 
 import os
-from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
 
-def _required(name: str) -> str:
-    value = os.getenv(name, "").strip()
-    if not value or value.startswith("REPLACE_WITH_"):
-        raise ValueError(f"Set {name} in the untracked .env file")
-    return value
+def load_settings():
+    load_dotenv()
+
+    for name in ["IOSXE_HOST", "IOSXE_USERNAME", "IOSXE_PASSWORD"]:
+        value = os.getenv(name, "")
+        if not value or value.startswith("REPLACE_WITH_"):
+            raise ValueError(f"Set {name} in the .env file")
+
+    return {
+        "host": os.getenv("IOSXE_HOST"),
+        "ssh_port": int(os.getenv("IOSXE_SSH_PORT", "22")),
+        "https_port": int(os.getenv("IOSXE_HTTPS_PORT", "443")),
+        "username": os.getenv("IOSXE_USERNAME"),
+        "password": os.getenv("IOSXE_PASSWORD"),
+        "sandbox_mode": os.getenv("SANDBOX_MODE", ""),
+        "allow_changes": os.getenv("ALLOW_CONFIG_CHANGES", "false").lower()
+        == "true",
+        "verify_tls": os.getenv("VERIFY_TLS", "false").lower() == "true",
+    }
 
 
-def _as_bool(name: str, default: bool = False) -> bool:
-    value = os.getenv(name, str(default)).strip().lower()
-    if value in {"1", "true", "yes", "on"}:
-        return True
-    if value in {"0", "false", "no", "off"}:
-        return False
-    raise ValueError(f"{name} must be true or false, not {value!r}")
-
-
-@dataclass(frozen=True)
-class Settings:
-    host: str
-    ssh_port: int
-    https_port: int
-    username: str
-    password: str
-    sandbox_mode: str
-    allow_config_changes: bool
-    verify_tls: bool
-
-    @classmethod
-    def from_env(cls) -> "Settings":
-        load_dotenv()
-        mode = os.getenv("SANDBOX_MODE", "").strip().lower()
-        if mode != "reserved":
-            raise ValueError(
-                "Lab 2 requires SANDBOX_MODE=reserved and an active reservation"
-            )
-
-        return cls(
-            host=_required("IOSXE_HOST"),
-            ssh_port=int(os.getenv("IOSXE_SSH_PORT", "22")),
-            https_port=int(os.getenv("IOSXE_HTTPS_PORT", "443")),
-            username=_required("IOSXE_USERNAME"),
-            password=_required("IOSXE_PASSWORD"),
-            sandbox_mode=mode,
-            allow_config_changes=_as_bool("ALLOW_CONFIG_CHANGES"),
-            verify_tls=_as_bool("VERIFY_TLS"),
-        )
-
-    def require_reserved_write_access(self) -> None:
-        if self.sandbox_mode != "reserved":
-            raise PermissionError(
-                "Configuration is blocked: reserve an IOS XE sandbox and set "
-                "SANDBOX_MODE=reserved"
-            )
-        if not self.allow_config_changes:
-            raise PermissionError(
-                "Configuration is blocked: set ALLOW_CONFIG_CHANGES=true only "
-                "after confirming that the reservation belongs to you"
-            )
+def confirm_write_access(settings):
+    if settings["sandbox_mode"] != "reserved":
+        raise PermissionError("SANDBOX_MODE must be reserved")
+    if not settings["allow_changes"]:
+        raise PermissionError("Set ALLOW_CONFIG_CHANGES=true before configuration")

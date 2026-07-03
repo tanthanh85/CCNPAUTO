@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
-import tempfile
 from pathlib import Path
 
 import yaml
@@ -40,12 +39,8 @@ def main() -> None:
         for index in range(args.count)
     ]
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        "w", dir=args.output.parent, delete=False, encoding="utf-8"
-    ) as temporary:
-        yaml.safe_dump({"loopbacks": loopbacks}, temporary, sort_keys=False)
-        temporary_path = Path(temporary.name)
-    temporary_path.replace(args.output)
+    yaml_text = yaml.safe_dump({"loopbacks": loopbacks}, sort_keys=False)
+    args.output.write_text(yaml_text)
     print(
         f"Wrote {len(loopbacks)} loopbacks ({args.start_id}-"
         f"{args.start_id + args.count - 1}) to {args.output}"

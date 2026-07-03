@@ -1,72 +1,60 @@
 #!/usr/bin/env python3
-"""Apply loopback source-of-truth data through a Jinja2 CLI template."""
 
 from pathlib import Path
 
-from src.iosxe_cli import IOSXECLIClient
+from src.iosxe_cli import connect, get_interfaces
 from src.loopback_source import load_loopbacks, render_commands
 from src.reporting import print_interfaces
-from src.settings import Settings
+from src.settings import confirm_write_access, load_settings
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 BATCH_SIZE = 20
 
+settings = load_settings()
+confirm_write_access(settings)
+loopbacks = load_loopbacks(ROOT / "data" / "loopbacks.yaml")
 
-def main() -> None:
-    settings = Settings.from_env()
-    settings.require_reserved_write_access()
-    loopbacks = load_loopbacks(PROJECT_ROOT / "data" / "loopbacks.yaml")
+connection = connect(settings)
 
-    with IOSXECLIClient(settings) as device:
-        before = device.collect_interfaces()
-        print_interfaces(before, "Interfaces Before the Source-of-Truth Change")
+try:
+    before = get_interfaces(connection)
+    print_interfaces(before, "Interfaces Before the Change")
 
-        for start in range(0, len(loopbacks), BATCH_SIZE):
-            batch = loopbacks[start : start + BATCH_SIZE]
-            commands: list[str] = []
-            for loopback in batch:
-                commands.extend(
-                    render_commands(loopback, PROJECT_ROOT / "templates")
-                )
+    # Configure no more than 20 loopbacks in each batch.
+    for start in range(0, len(loopbacks), BATCH_SIZE):
+        batch = loopbacks[start : start + BATCH_SIZE]
+        commands = []
 
-            first = start + 1
-            last = start + len(batch)
-            print(
-                f"\nApplying source-of-truth batch {first}-{last} "
-                f"of {len(loopbacks)}:"
-            )
-            for command in commands:
-                print(f"  {command}")
-            print(device.send_config(commands))
+        for loopback in batch:
+            commands.extend(render_commands(loopback, ROOT / "templates"))
 
-        after = device.collect_interfaces()
+        print(f"Applying loopbacks {start + 1}-{start + len(batch)}")
+        print(connection.send_config_set(commands))
 
-    print_interfaces(after, "Interfaces After the Source-of-Truth Change")
+    after = get_interfaces(connection)
+finally:
+    connection.disconnect()
 
-    observed = {row["interface"]: row for row in after}
-    failures: list[str] = []
-    for item in loopbacks:
-        name = f"Loopback{item['id']}"
-        actual = observed.get(name)
-        if actual is None:
-            failures.append(f"{name} is missing")
-            continue
-        if actual["ip_address"] != item["ipv4"]:
-            failures.append(
-                f"{name} has {actual['ip_address']} instead of {item['ipv4']}"
-            )
-        if item["enabled"] and (
-            actual["status"] != "up" or actual["protocol"] != "up"
-        ):
-            failures.append(
-                f"{name} expected up/up but is "
-                f"{actual['status']}/{actual['protocol']}"
-            )
-    if failures:
-        raise RuntimeError("Verification failed: " + "; ".join(failures))
-    print("\nVerification passed: YAML intent matches the CLI interface state.")
+print_interfaces(after, "Interfaces After the Change")
 
+# Verify every interface and address from the YAML file.
+observed = {item["interface"]: item for item in after}
+errors = []
 
-if __name__ == "__main__":
-    main()
+for loopback in loopbacks:
+    name = f"Loopback{loopback['id']}"
+    actual = observed.get(name)
+    if actual is None:
+        errors.append(f"{name} is missing")
+    elif actual["ip_address"] != loopback["ipv4"]:
+        errors.append(f"{name} has the wrong IP address")
+    elif loopback["enabled"] and (
+        actual["status"] != "up" or actual["protocol"] != "up"
+    ):
+        errors.append(f"{name} is not up/up")
+
+if errors:
+    raise RuntimeError("; ".join(errors))
+
+print("Verification passed.")

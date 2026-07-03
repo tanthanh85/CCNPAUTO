@@ -1,65 +1,44 @@
-"""Reusable Netmiko client for IOS XE CLI collection and configuration."""
-
-from __future__ import annotations
-
-from typing import Any
+"""Small Netmiko helper functions for IOS XE."""
 
 from netmiko import ConnectHandler
 
-from src.settings import Settings
+
+def connect(settings):
+    return ConnectHandler(
+        device_type="cisco_ios",
+        host=settings["host"],
+        port=settings["ssh_port"],
+        username=settings["username"],
+        password=settings["password"],
+        conn_timeout=20,
+        banner_timeout=30,
+        fast_cli=False,
+    )
 
 
-class IOSXECLIClient:
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-        self.connection: Any | None = None
+def send_and_parse(connection, command):
+    result = connection.send_command(command, use_textfsm=True)
+    if isinstance(result, str):
+        raise RuntimeError(f"TextFSM could not parse: {command}")
+    return result
 
-    def __enter__(self) -> "IOSXECLIClient":
-        self.connection = ConnectHandler(
-            device_type="cisco_ios",
-            host=self.settings.host,
-            port=self.settings.ssh_port,
-            username=self.settings.username,
-            password=self.settings.password,
-            conn_timeout=20,
-            auth_timeout=20,
-            banner_timeout=30,
-            fast_cli=False,
-        )
-        return self
 
-    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
-        if self.connection is not None:
-            self.connection.disconnect()
+def get_version(connection):
+    return send_and_parse(connection, "show version")
 
-    def _send_structured(self, command: str) -> list[dict[str, Any]]:
-        if self.connection is None:
-            raise RuntimeError("Use IOSXECLIClient as a context manager")
-        result = self.connection.send_command(command, use_textfsm=True)
-        if isinstance(result, str):
-            raise RuntimeError(
-                f"TextFSM did not parse {command!r}. The raw output began with: "
-                f"{result[:160]!r}"
-            )
-        return result
 
-    def collect_version(self) -> list[dict[str, Any]]:
-        return self._send_structured("show version")
+def get_interfaces(connection):
+    parsed_output = send_and_parse(connection, "show ip interface brief")
+    interfaces = []
 
-    def collect_interfaces(self) -> list[dict[str, Any]]:
-        records = self._send_structured("show ip interface brief")
-        return [
+    for item in parsed_output:
+        interfaces.append(
             {
-                "interface": row.get("interface", "-"),
-                "ip_address": row.get("ip_address", "unassigned"),
-                "status": row.get("status", "unknown"),
-                "protocol": row.get("proto", row.get("protocol", "unknown")),
+                "interface": item.get("interface", "-"),
+                "ip_address": item.get("ip_address", "unassigned"),
+                "status": item.get("status", "unknown"),
+                "protocol": item.get("proto", "unknown"),
             }
-            for row in records
-        ]
+        )
 
-    def send_config(self, commands: list[str]) -> str:
-        self.settings.require_reserved_write_access()
-        if self.connection is None:
-            raise RuntimeError("Use IOSXECLIClient as a context manager")
-        return self.connection.send_config_set(commands)
+    return interfaces

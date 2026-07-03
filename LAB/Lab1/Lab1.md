@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Cisco pyATS, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
 
 This is deliberately an **all-in-one learning environment**. It makes the course portable because every learner has the same tools, but it is not a recommended production architecture. GitLab Runner should normally be isolated from the GitLab server; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
@@ -45,7 +45,7 @@ GitLab, Minikube, YANG Suite, and the TIG stack do not need to run simultaneousl
 ```mermaid
 flowchart TB
     Learner["Learner"] --> VSCode["VS Code and Git"]
-    VSCode --> Python["Python virtual environment<br/>Netmiko, Scrapli, ncclient, pyATS"]
+    VSCode --> Python["Python virtual environment<br/>Netmiko, Scrapli, ncclient"]
     VSCode --> Ansible["Ansible and Cisco collections"]
     VSCode --> IaC["Terraform"]
     VSCode --> GitLab["GitLab CE :8088"]
@@ -178,28 +178,6 @@ The package names deserve careful attention:
 - **PyYAML** supplies the import name `yaml`.
 - **requests** is a widely used synchronous HTTP client.
 - **json** belongs to the Python standard library and must not be installed from PyPI.
-- **pyATS** and **Genie** provide Cisco test automation, topology, parsers, and validation capabilities.
-
-Validate the imports:
-
-```bash
-python - <<'PY'
-import json
-import ncclient
-import netmiko
-import requests
-import scrapli
-import xmltodict
-import yaml
-from genie.conf import Genie
-from pyats import aetest
-
-print("All required Python imports succeeded")
-print("requests:", requests.__version__)
-print("netmiko:", netmiko.__version__)
-print("scrapli:", scrapli.__version__)
-PY
-```
 
 To activate this environment in later labs, run:
 
@@ -316,7 +294,8 @@ sudo apt install -y \
   docker-ce-cli \
   containerd.io \
   docker-buildx-plugin \
-  docker-compose-plugin
+  docker-compose-plugin \
+  util-linux-extra
 ```
 
 Enable the service and test it with administrative access:
@@ -720,38 +699,8 @@ git push
 
 Open **Build > Pipelines** and confirm that the job passes. The test proves that GitLab can schedule a job, the Runner can receive it, Docker can start the requested image, and the job log returns to GitLab.
 
-## Task 12: Validate Cisco pyATS
 
-pyATS was installed with the Python requirements, but a version check alone does not prove that its AEtest engine runs. Activate the environment and create a minimal test:
-
-```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
-mkdir -p "$HOME/ccnpauto-workspace/pyats-smoke"
-cd "$HOME/ccnpauto-workspace/pyats-smoke"
-
-cat > smoke_test.py <<'PY'
-from pyats import aetest
-
-
-class WorkstationValidation(aetest.Testcase):
-    @aetest.test
-    def python_runtime_is_available(self):
-        import sys
-
-        assert sys.version_info >= (3, 10)
-
-
-if __name__ == "__main__":
-    aetest.main()
-PY
-
-python smoke_test.py
-pyats version check
-```
-
-The AEtest output should mark the test case and common cleanup as passed. Device parsing and topology testbeds are introduced in later labs.
-
-## Task 13: Run the Final Workstation Validation
+## Task 12: Run the Final Workstation Validation
 
 The supplied script checks commands and Python imports. It expects the course virtual environment to be active:
 
@@ -780,7 +729,7 @@ curl --silent http://gitlab.lab.local:8088/-/readiness | jq
 Record the following without exposing tokens, passwords, private keys, or full environment files:
 
 - Ubuntu release and architecture
-- Python, pip, Ansible, pyATS, Terraform, Vault, Docker, `kubectl`, Minikube, Git, VS Code, and Runner versions
+- Python, pip, Ansible, Terraform, Vault, Docker, `kubectl`, Minikube, Git, VS Code, and Runner versions
 - Successful Python import validation
 - Successful `ansible.builtin.ping` result
 - Docker `hello-world` result
@@ -968,7 +917,6 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 
 - [Python virtual environments](https://docs.python.org/3/library/venv.html)
 - [Ansible installation guide](https://docs.ansible.com/projects/ansible/latest/installation_guide/intro_installation.html)
-- [Cisco pyATS documentation](https://developer.cisco.com/docs/pyats/)
 - [Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
 - [Docker post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)

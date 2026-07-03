@@ -1,4 +1,4 @@
-# Lab 2: Network Automation Warm-Up Lab
+# Lab 2: The Network Automation Warm-Up Lab
 
 ## Lab Introduction
 

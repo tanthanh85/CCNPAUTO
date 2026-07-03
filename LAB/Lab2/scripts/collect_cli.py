@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 
-from src.iosxe_cli import connect, get_interfaces, get_version
+from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+
+from src.iosxe_cli import IOSXEDevice
 from src.reporting import print_interfaces, print_version
-from src.settings import load_settings
+from src.settings import Settings
 
 
-settings = load_settings()
-connection = connect(settings)
+device = None
 
 try:
-    version = get_version(connection)
-    interfaces = get_interfaces(connection)
-finally:
-    connection.disconnect()
+    settings = Settings()
+    device = IOSXEDevice(settings)
+    device.connect()
 
-print_version(version)
-print_interfaces(interfaces, "IOS XE Interfaces from CLI and TextFSM")
+    print_version(device.get_version())
+    print_interfaces(device.get_interfaces(), "IOS XE Interfaces from CLI and TextFSM")
+
+except NetmikoAuthenticationException:
+    print("Authentication failed. Check the sandbox username and password.")
+except NetmikoTimeoutException:
+    print("Connection timed out. Check the VPN, host, and SSH port.")
+except (ValueError, RuntimeError) as error:
+    print(f"Collection failed: {error}")
+finally:
+    if device:
+        device.disconnect()

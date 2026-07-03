@@ -1,33 +1,45 @@
-"""Read connection values from the untracked .env file."""
+"""Application settings loaded from the untracked .env file."""
 
 import os
 
 from dotenv import load_dotenv
 
 
-def load_settings():
-    load_dotenv()
+class Settings:
+    def __init__(self):
+        load_dotenv()
 
-    for name in ["IOSXE_HOST", "IOSXE_USERNAME", "IOSXE_PASSWORD"]:
-        value = os.getenv(name, "")
+        self.host = self._required("IOSXE_HOST")
+        self.username = self._required("IOSXE_USERNAME")
+        self.password = self._required("IOSXE_PASSWORD")
+        self.ssh_port = int(os.getenv("IOSXE_SSH_PORT", "22"))
+        self.https_port = int(os.getenv("IOSXE_HTTPS_PORT", "443"))
+        self.sandbox_mode = os.getenv("SANDBOX_MODE", "")
+        self.allow_changes = self._boolean("ALLOW_CONFIG_CHANGES", False)
+        self.verify_tls = self._boolean("VERIFY_TLS", False)
+
+    @staticmethod
+    def _required(name):
+        value = os.getenv(name, "").strip()
         if not value or value.startswith("REPLACE_WITH_"):
             raise ValueError(f"Set {name} in the .env file")
+        return value
 
-    return {
-        "host": os.getenv("IOSXE_HOST"),
-        "ssh_port": int(os.getenv("IOSXE_SSH_PORT", "22")),
-        "https_port": int(os.getenv("IOSXE_HTTPS_PORT", "443")),
-        "username": os.getenv("IOSXE_USERNAME"),
-        "password": os.getenv("IOSXE_PASSWORD"),
-        "sandbox_mode": os.getenv("SANDBOX_MODE", ""),
-        "allow_changes": os.getenv("ALLOW_CONFIG_CHANGES", "false").lower()
-        == "true",
-        "verify_tls": os.getenv("VERIFY_TLS", "false").lower() == "true",
-    }
+    @staticmethod
+    def _boolean(name, default):
+        value = os.getenv(name, str(default)).lower()
+        if value in ["true", "yes", "1"]:
+            return True
+        if value in ["false", "no", "0"]:
+            return False
+        raise ValueError(f"{name} must be true or false")
 
+    def confirm_write_access(self):
+        if self.sandbox_mode != "reserved":
+            raise PermissionError("SANDBOX_MODE must be reserved")
+        if not self.allow_changes:
+            raise PermissionError("Set ALLOW_CONFIG_CHANGES=true before configuration")
 
-def confirm_write_access(settings):
-    if settings["sandbox_mode"] != "reserved":
-        raise PermissionError("SANDBOX_MODE must be reserved")
-    if not settings["allow_changes"]:
-        raise PermissionError("Set ALLOW_CONFIG_CHANGES=true before configuration")
+    @property
+    def base_url(self):
+        return f"https://{self.host}:{self.https_port}"

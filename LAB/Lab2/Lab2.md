@@ -98,6 +98,8 @@ lab2-iosxe-warmup/
 
 The scripts are intentionally thin. Reusable behavior belongs in `src`, so collecting interface state does not need to be rewritten for configuration verification or protocol comparison.
 
+The object model is deliberately small. `Settings` owns environment values, `IOSXEDevice` owns one Netmiko connection, `LoopbackManager` owns YAML validation and rendering, and `RESTCONFClient` owns one HTTP session. The scripts create these objects and use `try/except/finally` to decide how authentication, timeout, validation, and cleanup should behave.
+
 ## Task 1: Select and Access the IOS XE Sandbox
 
 Sign in to the [Cisco DevNet Sandbox](https://devnetsandbox.cisco.com/) with the learner's Cisco account and search for IOS XE. Although the catalog also contains shared Always-On environments, select a **reservable IOS XE sandbox**, such as an available Catalyst 8000V/8kv environment, because this lab changes interface configuration.
@@ -276,31 +278,34 @@ git status --short
 
 ### Understand the CLI Client
 
-Open `src/iosxe_cli.py`. It contains four small functions: `connect()`, `send_and_parse()`, `get_version()`, and `get_interfaces()`. The functions use ordinary dictionaries and lists so that each step remains visible.
+Open `src/iosxe_cli.py`. The `IOSXEDevice` class represents one router connection. Its methods—`connect()`, `disconnect()`, `get_version()`, `get_interfaces()`, and `configure()`—use names familiar to a network engineer. The class keeps the connection and credentials together without hiding the individual operations.
 
 The `send_and_parse()` function uses:
 
 ```python
-result = connection.send_command(command, use_textfsm=True)
+result = self.connection.send_command(command, use_textfsm=True)
 ```
 
 Netmiko identifies a TextFSM template from the platform and command. When parsing succeeds, the result is a list of dictionaries. When no template matches or parsing fails, Netmiko may return the original string. The wrapper treats a string as an error instead of accidentally iterating through it one character at a time.
 
-The collection script opens the connection, collects both commands, and always disconnects in `finally`:
+The collection script creates an object and uses `try/except/finally`. Expected authentication and timeout failures receive specific messages, and `finally` disconnects regardless of success or failure:
 
 ```python
-connection = connect(settings)
+device = IOSXEDevice(settings)
 try:
-    version_records = get_version(connection)
-    interface_records = get_interfaces(connection)
+    device.connect()
+    version_records = device.get_version()
+    interface_records = device.get_interfaces()
+except NetmikoTimeoutException:
+    print("Connection timed out")
 finally:
-    connection.disconnect()
+    device.disconnect()
 
 print_version(version_records)
 print_interfaces(interface_records, "IOS XE Interfaces from CLI and TextFSM")
 ```
 
-`get_interfaces()` uses a normal `for` loop to copy the TextFSM fields into four consistent keys: `interface`, `ip_address`, `status`, and `protocol`.
+Inside `get_interfaces()`, a normal `for` loop copies the TextFSM fields into four consistent keys: `interface`, `ip_address`, `status`, and `protocol`.
 
 ### Run the CLI Collector
 
@@ -333,15 +338,16 @@ Examine the raw parsed data in an interactive Python session if the normalizatio
 python - <<'PY'
 from pprint import pprint
 
-from src.iosxe_cli import connect, get_interfaces, get_version
-from src.settings import load_settings
+from src.iosxe_cli import IOSXEDevice
+from src.settings import Settings
 
-connection = connect(load_settings())
+device = IOSXEDevice(Settings())
 try:
-    pprint(get_version(connection))
-    pprint(get_interfaces(connection))
+    device.connect()
+    pprint(device.get_version())
+    pprint(device.get_interfaces())
 finally:
-    connection.disconnect()
+    device.disconnect()
 PY
 ```
 
@@ -402,7 +408,7 @@ The address comes from the documentation prefix `192.0.2.0/24` and is suitable f
 
 ### Understand the Source-of-Truth Contract
 
-The function in `src/loopback_source.py` performs a few direct checks. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
+The `LoopbackManager` class in `src/loopback_source.py` has two main jobs: `load()` validates YAML data, and `render()` turns one loopback dictionary into IOS XE commands. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
 
 | Field | Required type and rule | Purpose |
 |---|---|---|
@@ -438,7 +444,7 @@ python -m scripts.validate_source_of_truth
 For three entries, the first command should report:
 
 ```text
-PASS: data/loopbacks.yaml is valid and contains 3 managed loopback interface(s).
+PASS: data/loopbacks.yaml contains 3 valid loopback(s).
 ```
 
 The validator accepts one or multiple correctly formatted entries and rejects invalid addresses, incorrect types, unknown fields, duplicate IDs, and duplicate IP addresses. A successful result does not prove that the intended network design is correct; it proves only that the data satisfies the agreed machine-readable contract.
@@ -453,12 +459,17 @@ Validate and render without connecting to the router:
 python - <<'PY'
 from pathlib import Path
 
-from src.loopback_source import load_loopbacks, render_commands
+from src.loopback_source import LoopbackManager
 
 root = Path.cwd()
-for loopback in load_loopbacks(root / "data" / "loopbacks.yaml"):
+manager = LoopbackManager(
+    root / "data" / "loopbacks.yaml",
+    root / "templates" / "loopback.j2",
+)
+
+for loopback in manager.load():
     print(f"Loopback{loopback['id']}")
-    for command in render_commands(loopback, root / "templates"):
+    for command in manager.render(loopback):
         print(f"  {command}")
 PY
 ```
@@ -522,7 +533,7 @@ sequenceDiagram
     P->>P: Verify interface, IPv4 address, and up/up state
 ```
 
-The workflow reuses `get_interfaces()` before and after the change. Enabled loopbacks must have the intended address and report up/up. Disabled loopbacks must exist with the intended address but are not expected to report up/up.
+The workflow reuses `device.get_interfaces()` before and after the change. Enabled loopbacks must have the intended address and report up/up. Disabled loopbacks must exist with the intended address but are not expected to report up/up.
 
 Run the script a second time:
 
@@ -624,13 +635,13 @@ First, display the connection values without printing the password:
 
 ```bash
 python - <<'PY'
-from src.settings import load_settings
+from src.settings import Settings
 
-s = load_settings()
-print("Host:", s["host"])
-print("HTTPS port:", s["https_port"])
-print("Username:", s["username"])
-print("TLS verification:", s["verify_tls"])
+s = Settings()
+print("Host:", s.host)
+print("HTTPS port:", s.https_port)
+print("Username:", s.username)
+print("TLS verification:", s.verify_tls)
 PY
 ```
 
@@ -666,7 +677,7 @@ The data meaning comes from the YANG model; the `Accept` header selects the repr
 
 ## Task 9: Collect RESTCONF JSON with Python
 
-Open `src/iosxe_restconf.py`. `requests.Session` stores authentication, media headers, and TLS behavior for reuse. Timeouts are a tuple: the client allows up to 10 seconds to establish the connection and up to 45 seconds to read the response. It calls `raise_for_status()` so an authentication failure or missing resource is not mistaken for interface data.
+Open `src/iosxe_restconf.py`. `RESTCONFClient` keeps authentication, media headers, and TLS behavior in one `requests.Session`. Each request has a 30-second timeout, and `raise_for_status()` prevents an authentication failure or missing resource from being mistaken for interface data.
 
 The preferred resource is:
 

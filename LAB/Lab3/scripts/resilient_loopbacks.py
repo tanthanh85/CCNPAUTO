@@ -1,69 +1,68 @@
 #!/usr/bin/env python3
 
 import argparse
-from urllib.parse import quote
 
-from src.common import (
+from src.interface_utils import normalize_interfaces, print_interfaces, select_lab_loopbacks
+from src.pagination import Paginator
+from src.rate_limiter import RateLimiter
+from src.restconf_client import (
+    APIError,
+    AuthenticationError,
+    AuthorizationError,
     INTERFACES_PATH,
-    INTERFACE_PATH,
-    load_settings,
-    make_pages,
-    make_session,
-    normalize_interfaces,
-    print_interfaces,
-    select_lab_loopbacks,
-    wait_for_rate_limit,
+    NotFoundError,
+    ResilientRESTCONFClient,
 )
-from src.simple_retry import get_json_with_retry
+from src.settings import Settings
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--demo-not-found", action="store_true")
 args = parser.parse_args()
 
-settings = load_settings()
-session = make_session(settings)
-statistics = {"attempts": 0, "retries": 0, "status_codes": {}}
-last_request = 0
-total_wait = 0
+try:
+    settings = Settings()
+    client = ResilientRESTCONFClient(settings)
+    limiter = RateLimiter(settings.requests_per_second)
 
-if args.demo_not_found:
-    path = INTERFACE_PATH.format("Loopback999999")
-    payload, result = get_json_with_retry(session, settings, path, statistics)
-    print(f"404 demonstration result: {result}\n")
+    if args.demo_not_found:
+        try:
+            client.get_interface("Loopback999999")
+        except NotFoundError as error:
+            print(f"Controlled 404: {error}")
+            print("This item will not be retried. Collection will continue.\n")
 
-payload, result = get_json_with_retry(session, settings, INTERFACES_PATH, statistics)
-if result != "ok":
-    raise SystemExit("Could not retrieve the interface collection")
+    index = client.get_json(INTERFACES_PATH)
+    loopbacks = select_lab_loopbacks(normalize_interfaces(index))
+    pages = Paginator(loopbacks, 20).pages()
+    collected = []
 
-loopbacks = select_lab_loopbacks(normalize_interfaces(payload))
-collected = []
+    for page_number, page in enumerate(pages, start=1):
+        page_details = []
 
-for page_number, page in enumerate(make_pages(loopbacks, 20), start=1):
-    page_details = []
+        for loopback in page:
+            limiter.wait()
 
-    for loopback in page:
-        last_request, wait_time = wait_for_rate_limit(last_request, settings["rate"])
-        total_wait += wait_time
+            try:
+                detail = client.get_interface(loopback["interface"])
+                page_details.extend(normalize_interfaces(detail))
+            except NotFoundError:
+                print(f"Skipping {loopback['interface']}; it no longer exists")
 
-        name = quote(loopback["interface"], safe="")
-        path = INTERFACE_PATH.format(name)
-        detail, result = get_json_with_retry(session, settings, path, statistics)
+        collected.extend(page_details)
+        print_interfaces(page_details, f"Resilient page {page_number}")
 
-        if result == "ok":
-            page_details.extend(normalize_interfaces(detail))
-        elif result == "not_found":
-            print(f"Skipping {loopback['interface']} because it disappeared")
-        elif result == "fatal":
-            raise SystemExit("Stopping because credentials or permissions are invalid")
-        else:
-            raise SystemExit(f"Stopping after repeated failure on {loopback['interface']}")
+    print(f"\nCollected: {len(collected)}")
+    print(f"HTTP attempts: {client.attempts}")
+    print(f"Retries: {client.retries}")
+    print(f"Status codes: {client.status_codes}")
+    print(f"Rate-limit waiting: {limiter.total_wait:.2f} seconds")
 
-    collected.extend(page_details)
-    print_interfaces(page_details, f"Resilient page {page_number}")
-
-print(f"\nCollected: {len(collected)}")
-print(f"HTTP attempts: {statistics['attempts']}")
-print(f"Retries: {statistics['retries']}")
-print(f"Status codes: {statistics['status_codes']}")
-print(f"Rate-limit waiting: {total_wait:.2f} seconds")
+except AuthenticationError:
+    print("Authentication failed. Correct the credentials; do not retry them.")
+except AuthorizationError:
+    print("The account is not authorized for this RESTCONF resource.")
+except APIError as error:
+    print(f"Collection stopped after controlled error handling: {error}")
+except ValueError as error:
+    print(f"Configuration error: {error}")

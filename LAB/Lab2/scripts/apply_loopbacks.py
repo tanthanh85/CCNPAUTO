@@ -2,59 +2,78 @@
 
 from pathlib import Path
 
-from src.iosxe_cli import connect, get_interfaces
-from src.loopback_source import load_loopbacks, render_commands
+import yaml
+from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+
+from src.iosxe_cli import IOSXEDevice
+from src.loopback_source import LoopbackManager
 from src.reporting import print_interfaces
-from src.settings import confirm_write_access, load_settings
+from src.settings import Settings
 
 
 ROOT = Path(__file__).resolve().parents[1]
 BATCH_SIZE = 20
-
-settings = load_settings()
-confirm_write_access(settings)
-loopbacks = load_loopbacks(ROOT / "data" / "loopbacks.yaml")
-
-connection = connect(settings)
+device = None
 
 try:
-    before = get_interfaces(connection)
-    print_interfaces(before, "Interfaces Before the Change")
+    settings = Settings()
+    settings.confirm_write_access()
 
-    # Configure no more than 20 loopbacks in each batch.
+    manager = LoopbackManager(
+        ROOT / "data" / "loopbacks.yaml",
+        ROOT / "templates" / "loopback.j2",
+    )
+    loopbacks = manager.load()
+
+    device = IOSXEDevice(settings)
+    device.connect()
+
+    print_interfaces(device.get_interfaces(), "Interfaces Before the Change")
+
     for start in range(0, len(loopbacks), BATCH_SIZE):
         batch = loopbacks[start : start + BATCH_SIZE]
         commands = []
 
         for loopback in batch:
-            commands.extend(render_commands(loopback, ROOT / "templates"))
+            commands.extend(manager.render(loopback))
 
         print(f"Applying loopbacks {start + 1}-{start + len(batch)}")
-        print(connection.send_config_set(commands))
+        print(device.configure(commands))
 
-    after = get_interfaces(connection)
+    after = device.get_interfaces()
+    print_interfaces(after, "Interfaces After the Change")
+
+    observed = {item["interface"]: item for item in after}
+    errors = []
+
+    for loopback in loopbacks:
+        name = f"Loopback{loopback['id']}"
+        actual = observed.get(name)
+
+        if actual is None:
+            errors.append(f"{name} is missing")
+        elif actual["ip_address"] != loopback["ipv4"]:
+            errors.append(f"{name} has the wrong IP address")
+        elif loopback["enabled"] and (
+            actual["status"] != "up" or actual["protocol"] != "up"
+        ):
+            errors.append(f"{name} is not up/up")
+
+    if errors:
+        raise RuntimeError("; ".join(errors))
+
+    print("Verification passed.")
+
+except PermissionError as error:
+    print(f"Safety check stopped the change: {error}")
+except yaml.YAMLError as error:
+    print(f"The YAML file is not valid: {error}")
+except NetmikoAuthenticationException:
+    print("Authentication failed. No configuration was sent.")
+except NetmikoTimeoutException:
+    print("Connection timed out. Check the VPN and reservation details.")
+except (ValueError, RuntimeError) as error:
+    print(f"The change failed: {error}")
 finally:
-    connection.disconnect()
-
-print_interfaces(after, "Interfaces After the Change")
-
-# Verify every interface and address from the YAML file.
-observed = {item["interface"]: item for item in after}
-errors = []
-
-for loopback in loopbacks:
-    name = f"Loopback{loopback['id']}"
-    actual = observed.get(name)
-    if actual is None:
-        errors.append(f"{name} is missing")
-    elif actual["ip_address"] != loopback["ipv4"]:
-        errors.append(f"{name} has the wrong IP address")
-    elif loopback["enabled"] and (
-        actual["status"] != "up" or actual["protocol"] != "up"
-    ):
-        errors.append(f"{name} is not up/up")
-
-if errors:
-    raise RuntimeError("; ".join(errors))
-
-print("Verification passed.")
+    if device:
+        device.disconnect()

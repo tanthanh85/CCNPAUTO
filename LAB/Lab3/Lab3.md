@@ -74,9 +74,15 @@ lab3-restconf-resilience/
 │   ├── rate_limited_details.py
 │   └── resilient_loopbacks.py
 └── src/
-    ├── common.py
-    └── simple_retry.py
+    ├── http_cache.py
+    ├── interface_utils.py
+    ├── pagination.py
+    ├── rate_limiter.py
+    ├── restconf_client.py
+    └── settings.py
 ```
+
+The class design remains close to the network tasks. `RESTCONFClient` represents a normal API session. `ResilientRESTCONFClient` inherits that session behavior and adds retries and counters. `Paginator` divides a list into pages, `RateLimiter` controls request timing, and `HTTPCache` stores HTTP validators. Interface normalization and table printing remain ordinary functions because they do not need object state. Each script surrounds these objects with `try/except` blocks so the operational response to a failure is easy to find.
 
 ## Task 1: Reconnect to the Reserved Sandbox
 
@@ -134,7 +140,7 @@ python -m scripts.validate_source_of_truth
 The expected message is:
 
 ```text
-PASS: data/loopbacks.yaml is valid and contains 100 managed loopback interface(s).
+PASS: data/loopbacks.yaml contains 100 valid loopback(s).
 ```
 
 Inspect a small sample rather than scrolling through the complete file:
@@ -309,7 +315,7 @@ Rate limiting controls how quickly a consumer may call a provider. It protects C
 
 When a provider rejects excess traffic, HTTP `429 Too Many Requests` communicates the condition. The optional `Retry-After` response header tells the client how long to wait, expressed either as seconds or an HTTP date. A well-behaved client combines reactive handling of `429` with proactive request pacing so it does not create the overload in the first place.
 
-The function `wait_for_rate_limit()` calculates the minimum gap between requests. At five requests per second, each request begins at least 0.2 seconds after the previous request. The function uses only `time.monotonic()`, subtraction, and `time.sleep()`.
+The `RateLimiter` class stores the most recent request time and the total deliberate delay. Its `wait()` method calculates the minimum gap between requests. At five requests per second, each request begins at least 0.2 seconds after the previous request.
 
 `rate_limited_details.py` first obtains the interface index. It then requests each list entry individually and prints a page after every 20 details. Run it:
 
@@ -339,7 +345,7 @@ Pagination bounds how many records the application presents or requests in one l
 
 ## Task 7: Add Error Handling and Controlled Flow
 
-The first scripts call `raise_for_status()`, which stops on an HTTP error but does not explain what the application should do next. The final script calls the short `get_json_with_retry()` function in `src/simple_retry.py`. A visible `for` loop checks each response and decides whether to retry, continue, or stop.
+The `RESTCONFClient` class handles normal GET requests. `ResilientRESTCONFClient` inherits from it and replaces `get_json()` with a bounded retry loop. The shared connection behavior remains in the parent class, while the child class adds retry policy and counters. The loop is still visible in `src/restconf_client.py`, so learners can follow each decision.
 
 | Condition | Retry the same request? | Application action |
 |---|---|---|
@@ -363,7 +369,7 @@ delay = min(8 seconds, 0.5 × 2^(attempt-1)) + random jitter
 
 Jitter prevents many clients from retrying at exactly the same moment. `IOSXE_MAX_RETRIES=3` means at most four attempts: the original request plus three retries. The client retries only idempotent GET operations in this lab. Blindly retrying a POST or another non-idempotent operation could create duplicate state.
 
-For `429`, a numeric `Retry-After` takes precedence over calculated backoff and is capped at 60 seconds in this training script. After the configured attempts are exhausted, the helper returns `failed` and the main script stops.
+For `429`, a numeric `Retry-After` takes precedence over calculated backoff and is capped at 60 seconds. After the configured attempts are exhausted, the client raises `APIError`, which the script catches and reports.
 
 ### Run the Resilient Collector
 
@@ -379,7 +385,7 @@ Generate one safe, real `404` without changing the router:
 python -m scripts.resilient_loopbacks --demo-not-found
 ```
 
-The script requests a deliberately nonexistent `Loopback999999`. The helper returns `not_found`, prints the decision, and continues with the real collection. This demonstrates that “unrecoverable for one request” does not always mean “terminate the entire job.”
+The script requests a deliberately nonexistent `Loopback999999`. The client raises `NotFoundError`; an inner `except` block reports it and continues with the real collection. This demonstrates that “unrecoverable for one request” does not always mean “terminate the entire job.”
 
 Authentication and authorization are different. If the collection receives `401` or `403`, the workflow stops immediately. Repeating invalid credentials can lock accounts, create audit noise, and never correct the cause.
 
@@ -392,7 +398,7 @@ IOSXE_READ_TIMEOUT=0.001
 IOSXE_MAX_RETRIES=2
 ```
 
-Run the resilient collector once. Depending on local latency, it should print each retry and eventually return `failed`. Restore the normal values immediately:
+Run the resilient collector once. Depending on local latency, it should print each retry and eventually raise a controlled `APIError`. Restore the normal values immediately:
 
 ```dotenv
 IOSXE_READ_TIMEOUT=45
@@ -517,7 +523,7 @@ The configured rate is a maximum, not a performance guarantee. TLS processing, d
 
 ### HTTP 429 continues after retries
 
-Do not raise the request rate. Reduce `REQUESTS_PER_SECOND`, wait for the provider window to recover, and honor `Retry-After`. A final `failed` result means the bounded retry loop stopped as designed.
+Do not raise the request rate. Reduce `REQUESTS_PER_SECOND`, wait for the provider window to recover, and honor `Retry-After`. A final `APIError` means the bounded retry loop stopped as designed.
 
 ### HTTP 401 or 403 stops the program
 

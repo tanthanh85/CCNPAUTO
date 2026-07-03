@@ -20,31 +20,36 @@ def arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    args = arguments()
-    if not 1 <= args.count <= 500:
-        raise ValueError("count must be between 1 and 500")
-    network = ipaddress.ip_network(args.network)
-    addresses = list(network.hosts())
-    if len(addresses) < args.count:
-        raise ValueError(f"{network} has fewer than {args.count} usable addresses")
+    try:
+        args = arguments()
+        if not 1 <= args.count <= 500:
+            raise ValueError("count must be between 1 and 500")
 
-    loopbacks = [
-        {
-            "id": args.start_id + index,
-            "description": f"LAB3_PAGINATION_{index + 1:03d}",
-            "ipv4": str(addresses[index]),
-            "prefix_length": 32,
-            "enabled": True,
-        }
-        for index in range(args.count)
-    ]
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    yaml_text = yaml.safe_dump({"loopbacks": loopbacks}, sort_keys=False)
-    args.output.write_text(yaml_text)
-    print(
-        f"Wrote {len(loopbacks)} loopbacks ({args.start_id}-"
-        f"{args.start_id + args.count - 1}) to {args.output}"
-    )
+        network = ipaddress.ip_network(args.network)
+        addresses = list(network.hosts())
+        if len(addresses) < args.count:
+            raise ValueError(f"{network} has fewer than {args.count} usable addresses")
+
+        loopbacks = []
+        for index in range(args.count):
+            loopbacks.append(
+                {
+                    "id": args.start_id + index,
+                    "description": f"LAB3_PAGINATION_{index + 1:03d}",
+                    "ipv4": str(addresses[index]),
+                    "prefix_length": 32,
+                    "enabled": True,
+                }
+            )
+
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        yaml_text = yaml.safe_dump({"loopbacks": loopbacks}, sort_keys=False)
+        args.output.write_text(yaml_text)
+        print(f"Wrote {len(loopbacks)} loopbacks to {args.output}")
+
+    except (ValueError, OSError) as error:
+        print(f"Could not generate the loopback file: {error}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

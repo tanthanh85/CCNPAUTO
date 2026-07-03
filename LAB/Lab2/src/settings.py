@@ -38,9 +38,11 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         load_dotenv()
-        mode = os.getenv("SANDBOX_MODE", "always-on").strip().lower()
-        if mode not in {"always-on", "reserved"}:
-            raise ValueError("SANDBOX_MODE must be always-on or reserved")
+        mode = os.getenv("SANDBOX_MODE", "").strip().lower()
+        if mode != "reserved":
+            raise ValueError(
+                "Lab 2 requires SANDBOX_MODE=reserved and an active reservation"
+            )
 
         return cls(
             host=_required("IOSXE_HOST"),

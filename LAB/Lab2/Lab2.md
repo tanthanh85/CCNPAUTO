@@ -4,9 +4,9 @@
 
 Cisco DevNet Sandboxes provide remotely accessible Cisco products for learning, development, and API testing without requiring every learner to own physical equipment. A sandbox is more than a device address. It is a temporary lab environment with an access policy, topology, credentials, permitted operations, and reset behavior. Reading those details before connecting is part of responsible automation.
 
-DevNet offers two broad sandbox models. An **Always-On** sandbox is available immediately and is shared among users. Administrative access is restricted, and learners must treat it as read-only. It is useful for API exploration, authentication tests, and operational-data collection. A **reservable** sandbox is assigned for a defined period and may require a VPN connection. Because the reservation belongs to one learner or team, it is the correct environment for controlled configuration exercises.
+DevNet offers two broad sandbox models. An **Always-On** sandbox is available immediately and is shared among users, so administrative access is restricted. A **reservable** sandbox is assigned to one learner or team for a defined period and may require a VPN connection. Because Lab 2 includes configuration changes, every learner is assumed to have an active reservable IOS XE instance whose instructions permit CLI and RESTCONF access.
 
-This distinction matters in Lab 2. The first collection task can use either an Always-On or reservable IOS XE sandbox. The loopback configuration task, however, requires a reservable IOS XE environment whose instructions explicitly permit configuration. The supplied Python code refuses to send configuration while `SANDBOX_MODE=always-on` or while the change-enable flag remains false.
+The reservation boundary remains important even when the first operations are read-only. Learners should use the same assigned IOS XE instance from initial collection through loopback configuration and RESTCONF verification. The supplied Python code requires `SANDBOX_MODE=reserved` and still refuses to send configuration while the separate change-enable flag remains false.
 
 The lab begins with familiar CLI commands transported through Netmiko. TextFSM converts their human-oriented text into lists of dictionaries, allowing the script to print consistent tables. The lab then introduces a small desired-state workflow: YAML records loopback intent, Jinja2 renders IOS XE commands, and a reusable client applies and verifies the change. GitLab records that source-of-truth modification through a feature branch and merge request. Finally, the same interface state is collected from RESTCONF as YANG-modeled JSON, allowing learners to compare screen scraping with a structured API.
 
@@ -14,7 +14,7 @@ The lab begins with familiar CLI commands transported through Netmiko. TextFSM c
 
 After completing this lab, you will be able to:
 
-- Explain the operational difference between Always-On and reservable DevNet Sandboxes.
+- Explain why this configuration lab requires a reservable DevNet Sandbox.
 - Create and clone a project from the GitLab instance on the learner workstation.
 - Reuse the Python virtual environment created in Lab 1 and add project dependencies.
 - Connect securely to IOS XE with Netmiko.
@@ -67,7 +67,7 @@ flowchart LR
 
 ## Project Structure
 
-The supplied starter project separates transport, settings, validation, presentation, and executable workflows:
+The supplied project separates transport, settings, validation, presentation, and executable workflows:
 
 ```text
 lab2-iosxe-warmup/
@@ -97,7 +97,7 @@ The scripts are intentionally thin. Reusable behavior belongs in `src`, so colle
 
 ## Task 1: Select and Access the IOS XE Sandbox
 
-Sign in to the [Cisco DevNet Sandbox](https://devnetsandbox.cisco.com/) with the learner's Cisco account. Search for IOS XE. The current IOS XE DevNet page presents both Always-On and reservable options, including IOS XE on Catalyst 8000V/8kv environments.
+Sign in to the [Cisco DevNet Sandbox](https://devnetsandbox.cisco.com/) with the learner's Cisco account and search for IOS XE. Although the catalog also contains shared Always-On environments, select a **reservable IOS XE sandbox**, such as an available Catalyst 8000V/8kv environment, because this lab changes interface configuration.
 
 For the complete lab, select a **reservable IOS XE sandbox** that supports CLI and RESTCONF configuration. Reserve the environment for the required period and wait until its status reports that setup is complete. Read the reservation instructions rather than relying on credentials copied from a blog or previous course. Sandbox hostnames, ports, credentials, images, and VPN procedures can change.
 
@@ -112,8 +112,6 @@ Record these values privately:
 | VPN endpoint and credentials | Reservation VPN instructions, if required |
 
 Connect the VPN if the reservable sandbox requires it. Do not proceed to the configuration task until the router address is reachable through the expected path.
-
-If a reservation is temporarily unavailable, an Always-On IOS XE sandbox may be used for Tasks 1–4 and the RESTCONF read task. Keep `SANDBOX_MODE=always-on`, leave `ALLOW_CONFIG_CHANGES=false`, and skip the loopback change. Never attempt to bypass the write guard.
 
 ### Verify Network Reachability
 
@@ -139,7 +137,7 @@ During this lab:
 - Do not modify the management interface, default route, AAA, local users, SSH, HTTPS, RESTCONF, or VPN-related configuration.
 - Do not erase configuration, reload the device, or save changes with `write memory` unless the reservation explicitly requires it.
 - Create only the loopback allocated by the lab.
-- Do not run configuration code against an Always-On sandbox.
+- Do not run configuration code against any device outside the active learner reservation.
 - Assume the reservation will be reset when it expires.
 
 ## Task 2: Create and Clone the GitLab Repository
@@ -164,10 +162,13 @@ git remote -v
 
 When Git requests a password, use a narrowly scoped GitLab personal access token rather than placing a token in the clone URL. A token embedded in a command may remain in shell history and process logs.
 
-Copy the starter project into the clone. Replace `<COURSE_ROOT>` with the directory containing `CCNPAUTO`:
+Copy the project files from the Lab 2 course folder into the clone. Set `LAB2_FILES` to the actual Lab 2 path on the learner workstation:
 
 ```bash
-cp -R <COURSE_ROOT>/CCNPAUTO/LAB/Lab2/starter/. .
+LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
+cp "$LAB2_FILES/requirements.txt" "$LAB2_FILES/.env.example" "$LAB2_FILES/.gitignore" .
+cp -R "$LAB2_FILES/data" "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" \
+  "$LAB2_FILES/src" "$LAB2_FILES/templates" .
 tree -a -I '.git'
 ```
 
@@ -178,12 +179,12 @@ cat .gitignore
 git check-ignore -v .env || true
 ```
 
-Commit the reusable starter code to `main`:
+Commit the reusable project code to `main`:
 
 ```bash
 git add .
 git status
-git commit -m "Add reusable IOS XE automation starter"
+git commit -m "Add reusable IOS XE automation project"
 git push origin main
 ```
 
@@ -247,17 +248,10 @@ chmod 600 .env
 code .env
 ```
 
-Enter the values from the active sandbox. For a reservation, use:
+Enter the values from the active reservable sandbox. Keep the configuration gate disabled during the collection task:
 
 ```dotenv
 SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=false
-```
-
-For an Always-On environment, retain:
-
-```dotenv
-SANDBOX_MODE=always-on
 ALLOW_CONFIG_CHANGES=false
 ```
 
@@ -337,7 +331,7 @@ This completes the read-only warm-up. The next task moves desired state through 
 
 ## Task 5: Create a Feature Branch for Loopback Intent
 
-Confirm that the reservation belongs to the learner and permits configuration. If the environment is Always-On, stop here and return when a reservable sandbox is available.
+Confirm once more that the active reservation belongs to the learner and permits configuration before creating the source-of-truth change.
 
 Create a focused branch:
 
@@ -759,7 +753,7 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 
 ## Key Takeaways
 
-- Always-On sandboxes are shared and should be treated as read-only; configuration belongs in an authorized reservation.
+- Reservable sandboxes provide the controlled ownership boundary required for configuration exercises.
 - GitLab is the course's system of record, while `.env` keeps sandbox credentials outside version control.
 - Netmiko simplifies CLI transport, and TextFSM can turn supported commands into dictionaries, but parser success must be checked explicitly.
 - Reusable modules keep connection, collection, presentation, and validation logic consistent across scripts.

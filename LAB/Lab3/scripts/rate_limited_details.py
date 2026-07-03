@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-import time
 import requests
 
-from src.interface_utils import normalize_interfaces, print_interfaces, select_lab_loopbacks
-from src.pagination import Paginator
-from src.rate_limiter import RateLimiter
+from src.rate_limiter import BurstRateLimitExperiment
 from src.restconf_client import APIError, INTERFACES_PATH, RESTCONFClient
 from src.settings import Settings
 
@@ -13,31 +10,26 @@ from src.settings import Settings
 try:
     settings = Settings()
     client = RESTCONFClient(settings)
-    limiter = RateLimiter(settings.requests_per_second)
+    experiment = BurstRateLimitExperiment(
+        settings.burst_max_requests,
+        settings.burst_max_seconds,
+        settings.burst_max_backoffs,
+    )
 
-    index = client.get_json(INTERFACES_PATH)
-    loopbacks = select_lab_loopbacks(normalize_interfaces(index))
-    pages = Paginator(loopbacks, 20).pages()
+    print("Starting a bounded high-frequency RESTCONF experiment.")
+    print(
+        f"Safety limits: {settings.burst_max_requests} requests, "
+        f"{settings.burst_max_seconds:.0f} seconds, "
+        f"{settings.burst_max_backoffs} backoffs"
+    )
+    result = experiment.run(client, INTERFACES_PATH)
 
-    request_count = 0
-    start_time = time.monotonic()
+    print(f"\nExperiment stopped: {result}")
+    print(f"Requests sent: {experiment.request_count}")
+    print(f"HTTP 429 backoffs: {experiment.backoff_count}")
 
-    for page_number, page in enumerate(pages, start=1):
-        details = []
-
-        for loopback in page:
-            limiter.wait()
-            payload = client.get_interface(loopback["interface"])
-            details.extend(normalize_interfaces(payload))
-            request_count += 1
-
-        print_interfaces(details, f"Rate-limited page {page_number}")
-
-    elapsed = time.monotonic() - start_time
-    print(f"\nRequests: {request_count}")
-    print(f"Configured rate: {settings.requests_per_second} requests/second")
-    print(f"Observed average: {request_count / elapsed:.2f} requests/second")
-    print(f"Time spent waiting: {limiter.total_wait:.2f} seconds")
+    if experiment.backoff_count == 0:
+        print("IOS XE did not return HTTP 429 within the safety limits.")
 
 except requests.Timeout:
     print("A RESTCONF request timed out.")

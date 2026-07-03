@@ -53,9 +53,8 @@ flowchart LR
     Collection --> Normalize["Normalize and select<br/>Loopback1001-1100"]
     Normalize --> Pages["Client pages<br/>20 records each"]
 
-    Pages --> Detail["Per-interface RESTCONF GETs"]
-    Pacer["5 requests/second pacer"] --> Detail
-    Detail --> Errors["Timeout, 429, 5xx,<br/>401, 403, 404 handling"]
+    Pages --> Burst["Bounded high-frequency<br/>collection GETs"]
+    Burst --> Errors["429 detection and backoff;<br/>timeout, 5xx, 401, 403, 404 handling"]
     Errors --> Metrics["Attempts, retries,<br/>status and wait metrics"]
 ```
 
@@ -80,7 +79,7 @@ lab3-restconf-resilience/
     └── settings.py
 ```
 
-The class design remains close to the network tasks. `RESTCONFClient` represents a normal API session. `ResilientRESTCONFClient` inherits that session behavior and adds retries and counters. `Paginator` divides a list into pages, `RateLimiter` controls request timing, and `HTTPCache` stores HTTP validators. Interface normalization and table printing remain ordinary functions because they do not need object state. Each script surrounds these objects with `try/except` blocks so the operational response to a failure is easy to find.
+The class design remains close to the network tasks. `RESTCONFClient` represents a normal API session. `ResilientRESTCONFClient` inherits that session behavior and adds retries and counters. `Paginator` divides a list into pages, `BurstRateLimitExperiment` runs the bounded `429` exercise, and `RateLimiter` provides conservative pacing for the normal resilient collector. `HTTPCache` stores HTTP validators. Interface normalization and table printing remain ordinary functions because they do not need object state. Each script surrounds these objects with `try/except` blocks so the operational response to a failure is easy to find.
 
 ## Task 1: Verify the Standalone Lab Dataset
 
@@ -212,39 +211,39 @@ A URI such as `?limit=20&offset=0` is common in web APIs, but it is not part of 
 
 Client-side pagination has a consistency advantage: every displayed page comes from one response snapshot. However, it does not reduce response size, memory use, or device work. The next task intentionally performs multiple requests so rate protection becomes visible.
 
-## Task 5: Apply a Client-Side Rate Limit
+## Task 5: Trigger and Recover from an API Rate Limit
 
-Rate limiting controls how quickly a consumer may call a provider. It protects CPU, session capacity, bandwidth, downstream systems, and fairness among consumers. APIs may enforce limits per credential, source address, tenant, method, or time window.
+Rate limiting controls how quickly a consumer may call a provider. It protects CPU, session capacity, bandwidth, downstream systems, and fairness among consumers. APIs may enforce limits per credential, source address, tenant, method, or time window. In this task, the client deliberately removes proactive pacing and sends repeated RESTCONF collection requests as quickly as each response completes. The aim is to observe an actual HTTP `429`, not to estimate the limit from an arbitrary requests-per-second value.
 
-When a provider rejects excess traffic, HTTP `429 Too Many Requests` communicates the condition. The optional `Retry-After` response header tells the client how long to wait, expressed either as seconds or an HTTP date. A well-behaved client combines reactive handling of `429` with proactive request pacing so it does not create the overload in the first place.
+When a provider rejects excess traffic, HTTP `429 Too Many Requests` communicates the condition. The optional `Retry-After` response header tells the client how long to wait. This lab handles a numeric delay in seconds. If the header is absent, the client calculates exponential backoff with a small random jitter. After waiting, it resumes the same idempotent GET request.
 
-The `RateLimiter` class stores the most recent request time and the total deliberate delay. Its `wait()` method calculates the minimum gap between requests. At five requests per second, each request begins at least 0.2 seconds after the previous request.
+Because a reservable sandbox is still shared infrastructure, the experiment has three independent safety boundaries. It stops after 200 requests, 30 seconds, or three backoff events. Reaching a boundary without receiving `429` is a valid result: it means only that the IOS XE image did not expose its rate threshold under the permitted test conditions. Learners must not remove the boundaries or run several copies concurrently.
 
-`rate_limited_details.py` first obtains the interface index. It then requests each list entry individually and prints a page after every 20 details. Run it:
+Review the controls in `.env`:
+
+```dotenv
+BURST_MAX_REQUESTS=200
+BURST_MAX_SECONDS=30
+BURST_MAX_BACKOFFS=3
+```
+
+The `BurstRateLimitExperiment` class repeatedly sends an idempotent GET to the operational interface collection. Every status code is printed. On `429`, `_backoff_seconds()` first checks `Retry-After`; otherwise, it uses approximately `0.5 × 2^(backoff-1)` seconds plus jitter, capped at eight seconds. Run the experiment only once:
 
 ```bash
 python -m scripts.rate_limited_details
 ```
 
-One hundred detail requests at five requests per second should require approximately 20 seconds, plus network and device processing. The summary reports:
+The summary reports:
 
-- Number of detail requests
-- Configured maximum request rate
-- Total elapsed time
-- Observed average request rate
-- Time deliberately spent waiting
+- The safety condition that stopped the experiment
+- Total RESTCONF requests sent
+- Number of HTTP `429` responses followed by backoff
 
-Reduce the rate to two requests per second in `.env` and repeat:
-
-```dotenv
-REQUESTS_PER_SECOND=2
-```
-
-The run should take close to 50 seconds. Restore the value to five afterward. Do not increase the rate to discover the sandbox's failure threshold. A shared training platform is not a load-testing target.
+If IOS XE returns `429`, confirm that the script waits and then prints `Backoff completed; resuming the RESTCONF request.` A later successful `200` demonstrates recovery. If every request returns `200`, record that no server-side rate limit was observed within the bounded window. Do not increase the limits to force a particular outcome; the script must not become an open-ended load generator.
 
 ### Pagination and Rate Limiting Solve Different Problems
 
-Pagination bounds how many records the application presents or requests in one logical page. Rate limiting bounds how quickly requests reach a provider. A page size of 20 does not mean 20 requests per second, and a five-request-per-second limit does not determine page size. Treat them as separate controls.
+Pagination bounds how many records the application presents in one logical page. Rate limiting bounds how quickly requests reach a provider. A page size of 20 does not imply a particular request frequency, while a burst of collection GETs does not change the number of records in each response. Treat them as separate controls.
 
 ## Task 6: Add Error Handling and Controlled Flow
 
@@ -280,7 +279,7 @@ For `429`, a numeric `Retry-After` takes precedence over calculated backoff and 
 python -m scripts.resilient_loopbacks
 ```
 
-The client applies the same proactive pacing as Task 5 and prints metrics after collection. Under normal sandbox conditions, retries should remain zero.
+Unlike the deliberate burst in Task 5, this normal collector applies proactive pacing and prints metrics after collection. Under normal sandbox conditions, retries should remain zero.
 
 Generate one safe, real `404` without changing the router:
 
@@ -374,7 +373,7 @@ Confirm that:
 
 - Exactly 100 Lab 3 loopbacks are selected.
 - Five pages contain 20 records each.
-- The configured request rate is not exceeded.
+- The bounded burst either observes and recovers from `429` or stops at a configured safety limit.
 - The controlled 404 does not terminate the valid collection.
 - Normal collection completes with zero or a small bounded number of retries.
 - `.env`, `.cache`, and artifacts remain outside Git.
@@ -385,8 +384,8 @@ Retain evidence without passwords, tokens, or full unredacted payloads:
 
 - Pre-lab verification showing Loopback1001 through Loopback1100 are present
 - Five pagination tables of 20 loopbacks
-- Rate-limiter summary at five requests per second
-- Optional comparison at two requests per second
+- Bounded burst summary showing requests sent and HTTP `429` backoffs
+- Backoff and resumed-request output, or evidence that no `429` occurred within the safety limits
 - Controlled 404 output and continued collection
 - Resilient-client attempt, retry, status, and pacing metrics
 - Cache headers and `304` result, or evidence that validators were unavailable
@@ -415,13 +414,13 @@ Confirm the interface name and IOS XE URI syntax. The client percent-encodes the
 
 If the collection contains the interface but the list-instance resource is not exposed by that image, retain the client-side collection pagination task and ask the instructor before changing endpoints.
 
-### Rate-limited collection is slower than expected
+### The burst stops without receiving HTTP 429
 
-The configured rate is a maximum, not a performance guarantee. TLS processing, device response time, VPN latency, and printing add to the deliberate delay. The observed average should be at or below the configured maximum.
+This is a valid result. IOS XE may not enforce a visible threshold for this endpoint, identity, or software release. Record the configured boundaries and observed status codes. Do not increase the limits or start concurrent copies merely to force `429`.
 
 ### HTTP 429 continues after retries
 
-Do not raise the request rate. Reduce `REQUESTS_PER_SECOND`, wait for the provider window to recover, and honor `Retry-After`. A final `APIError` means the bounded retry loop stopped as designed.
+Do not extend the experiment. Let the client honor `Retry-After` or its calculated exponential delay. If the backoff limit is reached, stop and allow the provider window to recover before performing ordinary API work.
 
 ### HTTP 401 or 403 stops the program
 

@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 22.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Cisco pyATS, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Cisco pyATS, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
 
 This is deliberately an **all-in-one learning environment**. It makes the course portable because every learner has the same tools, but it is not a recommended production architecture. GitLab Runner should normally be isolated from the GitLab server; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
@@ -128,7 +128,7 @@ All commands should return versions or `active`.
 
 ## Task 2: Install Python, pip, and the Automation Libraries
 
-Ubuntu 22.04 normally provides Python 3.10. Avoid installing course packages into the system interpreter because `apt` owns that environment. A virtual environment gives the course a controlled dependency boundary and makes troubleshooting more predictable.
+Ubuntu 26.04 uses a distribution-managed Python installation. Avoid installing course packages into the system interpreter because `apt` owns that environment. A virtual environment gives the course a controlled dependency boundary and makes troubleshooting more predictable.
 
 ```bash
 sudo apt install -y \
@@ -656,7 +656,7 @@ sudo gitlab-runner register \
   --token "PASTE_TEMPORARY_GLRT_TOKEN_HERE" \
   --executor "docker" \
   --docker-image "python:3.10-slim" \
-  --description "ubuntu22-docker-runner" \
+  --description "ubuntu26-docker-runner" \
   --tag-list "docker" \
   --run-untagged="false" \
   --locked="true"
@@ -677,7 +677,7 @@ The Runner service can resolve `gitlab.lab.local` through the host's `/etc/hosts
 
 ```toml
 [[runners]]
-  name = "ubuntu22-docker-runner"
+  name = "ubuntu26-docker-runner"
   url = "http://gitlab.lab.local:8088"
   executor = "docker"
 

@@ -36,7 +36,7 @@ Allow approximately **2.5 to 4 hours**. Reserving a sandbox and establishing VPN
 
 ## Prerequisites
 
-Before starting, confirm that Lab 1 is complete. The workstation should contain:
+Before starting, confirm that Lab 1 is complete. The Ubuntu 26.04 workstation should contain:
 
 - The `ccnpauto` Python virtual environment
 - Git and Visual Studio Code

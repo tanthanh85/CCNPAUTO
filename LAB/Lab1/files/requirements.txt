@@ -1,4 +1,4 @@
-# Lab 1 Python environment for Ubuntu 22.04 / Python 3.10
+# Lab 1 Python environment for Ubuntu 26.04
 # Versions are bounded where the current upstream release may no longer support Python 3.10.
 ansible-core>=2.16,<2.18
 ansible-lint>=24,<26

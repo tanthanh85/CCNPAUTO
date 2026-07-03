@@ -1,6 +1,4 @@
-.env
 __pycache__/
 *.py[cod]
-.cache/
 artifacts/
 *.log

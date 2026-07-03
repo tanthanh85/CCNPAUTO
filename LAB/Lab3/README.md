@@ -1,5 +1,5 @@
-# Lab 3
+# Lab 3: Local HTTP API Behavior
 
-[Begin Lab 3: RESTCONF Pagination and Resilient API Consumption](Lab3.md)
+[Begin Lab 3: Pagination, Rate Limiting, and HTTP Backoff](Lab3.md)
 
-All supporting Python modules, scripts, and configuration examples are stored directly in this folder.
+This self-contained Flask lab covers server-side pagination, HTTP `429`, backoff and resume behavior, CSV reporting, and optional cache revalidation.

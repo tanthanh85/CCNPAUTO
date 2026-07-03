@@ -4,4 +4,4 @@
 
 All Python modules, scripts, templates, YAML data, and dependency files are stored directly in this folder. The lab explains which files learners copy into their own GitLab repository.
 
-The loopback source of truth is protected by JSON Schema, semantic validation, pytest, and the GitLab `test` stage in `.gitlab-ci.yml`.
+The loopback source of truth includes a lightweight validation command that checks YAML syntax, field structure, datatypes, addresses, and duplicate identifiers before configuration is sent.

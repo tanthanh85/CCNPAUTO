@@ -73,7 +73,6 @@ The supplied project separates transport, settings, validation, presentation, an
 
 ```text
 lab2-iosxe-warmup/
-├── .gitlab-ci.yml
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -95,10 +94,8 @@ lab2-iosxe-warmup/
 │   ├── loopback_source.py
 │   ├── reporting.py
 │   └── settings.py
-├── templates/
-│   └── loopback.j2
-└── tests/
-    └── test_loopback_source.py
+└── templates/
+    └── loopback.j2
 ```
 
 The scripts are intentionally thin. Reusable behavior belongs in `src`, so collecting interface state does not need to be rewritten for configuration verification or protocol comparison.
@@ -175,10 +172,9 @@ Copy the project files from the Lab 2 course folder into the clone. Set `LAB2_FI
 ```bash
 LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
 cp "$LAB2_FILES/requirements.txt" "$LAB2_FILES/.env.example" \
-  "$LAB2_FILES/.gitignore" "$LAB2_FILES/.gitlab-ci.yml" .
+  "$LAB2_FILES/.gitignore" .
 cp -R "$LAB2_FILES/data" "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" \
-  "$LAB2_FILES/schemas" "$LAB2_FILES/src" "$LAB2_FILES/templates" \
-  "$LAB2_FILES/tests" .
+  "$LAB2_FILES/schemas" "$LAB2_FILES/src" "$LAB2_FILES/templates" .
 tree -a -I '.git'
 ```
 
@@ -227,7 +223,6 @@ The project adds several libraries to the Lab 1 environment:
 | `PyYAML` | Safe YAML parsing through the `yaml` import |
 | `Jinja2` | Configuration template rendering |
 | `jsonschema` | Structural and datatype enforcement for loopback intent |
-| `pytest` | Automated positive and negative validation tests |
 | `python-dotenv` | Loading untracked connection settings from `.env` |
 | `requests` | RESTCONF HTTPS client |
 
@@ -248,14 +243,13 @@ print("ntc-templates:", ntc_templates.__file__)
 PY
 ```
 
-Run the source-of-truth test stage locally before making a change:
+Run the lightweight source-of-truth validator before making a change:
 
 ```bash
 python -m scripts.validate_source_of_truth
-python -m pytest -q
 ```
 
-The initial YAML list is empty, which is a valid repository state before the feature branch introduces intent. The validator should report zero managed loopbacks, and all tests should pass. The same commands appear in `.gitlab-ci.yml`, so every push asks the GitLab Runner to repeat the checks in a clean Python container. This is the course's first small **test stage**; later chapters will expand the idea to linting, unit tests, simulated-device tests, security scanning, and deployment gates.
+The initial YAML list is empty, which is a valid repository state before the feature branch introduces intent. The validator should report zero managed loopbacks. This is a simple preflight check; formal automated testing and CI/CD are intentionally left for later labs.
 
 If a later script reports a missing module, keep the virtual environment active and install through `python -m pip install PACKAGE`. Do not use `sudo pip` and do not modify Ubuntu's system Python.
 
@@ -425,18 +419,17 @@ flowchart LR
     YAML --> Schema["2. Validate names, types, ranges, and IPv4 format"]
     Schema --> Semantic["3. Check duplicate IDs and addresses"]
     Semantic --> Render["Render one command set per list item"]
-    Render --> Deploy["Deploy only after tests pass"]
+    Render --> Deploy["Deploy only after validation passes"]
 ```
 
 Malformed indentation, punctuation, or duplicate YAML keys fail at the YAML layer. A quoted ID such as `id: "101"`, a string such as `enabled: "yes"`, an unknown key, or prefix length 33 fails schema validation. Reusing ID 101 or `192.0.2.101` in another item fails semantic validation.
 
-### Run the Local Test Stage
+### Run the Source-of-Truth Validation
 
 Validate the learner's modified data before any router connection:
 
 ```bash
 python -m scripts.validate_source_of_truth
-python -m pytest -q
 ```
 
 For three entries, the first command should report:
@@ -445,7 +438,7 @@ For three entries, the first command should report:
 PASS: data/loopbacks.yaml is valid and contains 3 managed loopback interface(s).
 ```
 
-The automated tests prove that one and multiple entries are accepted and that invalid addresses, incorrect types, unknown fields, duplicate IDs, and duplicate IP addresses are rejected. A green test result does not prove that the intended network design is correct; it proves that the data satisfies the agreed machine-readable contract.
+The validator accepts one or multiple correctly formatted entries and rejects invalid addresses, incorrect types, unknown fields, duplicate IDs, and duplicate IP addresses. A successful result does not prove that the intended network design is correct; it proves only that the data satisfies the agreed machine-readable contract.
 
 ### Preview Jinja2 Output
 
@@ -538,7 +531,7 @@ IOS configuration commands describing the same state are operationally idempoten
 
 ### Keep the Change in Git
 
-Review, commit, and push the branch. The push automatically starts the GitLab `test` stage:
+Review, commit, and push the branch:
 
 ```bash
 git status
@@ -549,8 +542,6 @@ git commit -m "Define managed Lab 2 loopback"
 git push -u origin feature/add-lab-loopbacks
 ```
 
-Open **Build > Pipelines** and inspect the `loopback-source-of-truth` job. It creates a clean Python 3.10 container, installs the declared requirements, runs the source validator, and executes pytest. If the job fails, correct the YAML or code and push another commit to the same branch. Do not bypass the test merely because manual deployment succeeded.
-
 Open the GitLab project and create a merge request from `feature/add-lab-loopbacks` into `main`. In the description, include:
 
 - The reserved sandbox used
@@ -559,7 +550,7 @@ Open the GitLab project and create a merge request from `feature/add-lab-loopbac
 - The before/after verification result
 - The fact that no startup configuration was saved
 
-Review the diff and confirm that the pipeline is green before merging. Then synchronize the local repository:
+Review the diff and merge the change. Then synchronize the local repository:
 
 ```bash
 git switch main
@@ -568,7 +559,7 @@ git log --oneline --graph --decorate -5
 git branch -d feature/add-lab-loopbacks
 ```
 
-In a production workflow, the merge request would normally be approved before a protected deployment stage applied network intent. The lab applies the branch manually first so the learner can observe every stage, while the test stage introduces the quality gate that later labs will place before deployment.
+In a production workflow, the merge request would normally be approved before automation applied network intent. This warm-up lab applies the branch manually so the learner can observe each step. Later labs add automated testing and controlled deployment stages.
 
 ## Task 7: Understand the Limits of TextFSM
 
@@ -735,7 +726,6 @@ Run all three collection paths one final time while the reservation is active:
 source "$HOME/.venvs/ccnpauto/bin/activate"
 python -m pip check
 python -m scripts.validate_source_of_truth
-python -m pytest -q
 python -m scripts.collect_cli
 python -m scripts.collect_restconf
 python -m scripts.compare_cli_restconf
@@ -758,7 +748,7 @@ Retain the following evidence without including passwords, tokens, VPN credentia
 - GitLab project URL and initial `main` commit
 - TextFSM version and interface tables
 - Feature branch and merge request for `loopbacks.yaml`
-- Passing local and GitLab source-of-truth test stages
+- Successful source-of-truth validation
 - Rendered Jinja2 commands
 - Before-and-after CLI interface tables
 - Verification that the managed loopback has the expected address and up/up state
@@ -820,11 +810,10 @@ If the lab does not own the existing interface, stop and choose an instructor-ap
 
 Read the complete path in the error. A message such as `loopbacks.1.enabled: 'yes' is not of type 'boolean'` identifies the second list item and rejected field. Use YAML `true` or `false` without quotation marks. An “additional properties” error means the learner introduced a key outside the contract. Duplicate ID and address errors come from cross-record validation after every item passes the schema.
 
-Run the two checks separately to distinguish current-data validation from regression tests:
+Run the validator again after correcting the reported field:
 
 ```bash
 python -m scripts.validate_source_of_truth
-python -m pytest -q
 ```
 
 ### RESTCONF returns HTTP 401 or 403
@@ -867,13 +856,12 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 - YAML and Jinja2 separate intent from device syntax, although this introductory workflow manages only a bounded subset of loopback state.
 - JSON Schema and semantic validation prevent inconsistent keys, invalid types, malformed addresses, and duplicate loopback identity.
 - The same loop processes one or many loopback records without duplicating deployment logic.
-- GitLab's test stage rejects invalid source-of-truth changes before merge and previews the quality gates used later in the course.
 - A feature branch and merge request make the source-of-truth change reviewable and traceable.
 - JSON and XML preserve structure, while YANG supplies the model, types, constraints, and namespace semantics.
 - RESTCONF provides modeled data and HTTP error behavior that are more suitable for application integration than screen scraping.
 - Two sources can describe the same network state differently; good automation preserves raw evidence and normalizes only with understood rules.
 
-Lab 3 can build on this foundation by separating unit, integration, and deployment stages and by applying network intent only after protected CI checks and approval succeed.
+Lab 3 can build on this foundation by introducing automated tests and controlled pipeline stages after learners are comfortable with the basic collection, templating, validation, and Git workflow.
 
 ## Further Reading and Official References
 

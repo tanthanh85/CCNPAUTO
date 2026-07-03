@@ -1,4 +1,4 @@
-# Lab 2: IOS XE Automation Warm-Up
+# Lab 2: Network Automation Warm-Up Lab
 
 ## Lab Introduction
 

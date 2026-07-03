@@ -1,0 +1,13 @@
+stages:
+  - test
+
+loopback-source-of-truth:
+  stage: test
+  tags:
+    - docker
+  image: python:3.10-slim
+  before_script:
+    - python -m pip install --disable-pip-version-check -r requirements.txt
+  script:
+    - python -m scripts.validate_source_of_truth
+    - python -m pytest -q

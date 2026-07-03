@@ -2,18 +2,74 @@
 
 from __future__ import annotations
 
+import json
 from ipaddress import IPv4Interface
 from pathlib import Path
 from typing import Any
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema.exceptions import ValidationError
+from yaml.constructor import ConstructorError
 
 
-def load_loopbacks(path: Path) -> list[dict[str, Any]]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "loopbacks.schema.json"
+
+
+class UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def _construct_unique_mapping(
+    loader: UniqueKeyLoader, node: yaml.nodes.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"found duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
+
+
+def _format_error(error: ValidationError) -> str:
+    location = ".".join(str(part) for part in error.absolute_path)
+    return f"{location or '<document>'}: {error.message}"
+
+
+def load_loopbacks(
+    path: Path,
+    schema_path: Path = DEFAULT_SCHEMA_PATH,
+    *,
+    require_entries: bool = True,
+) -> list[dict[str, Any]]:
+    """Load YAML, enforce its schema, and apply cross-record validation."""
+    data = yaml.load(path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader)
+    if data is None:
+        data = {}
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    errors = sorted(validator.iter_errors(data), key=lambda item: list(item.path))
+    if errors:
+        details = "\n  - ".join(_format_error(error) for error in errors)
+        raise ValueError(f"Source-of-truth schema validation failed:\n  - {details}")
+
     loopbacks = data.get("loopbacks")
-    if not isinstance(loopbacks, list) or not loopbacks:
+    if require_entries and not loopbacks:
         raise ValueError(
             "data/loopbacks.yaml must contain a nonempty loopbacks list; "
             "add the lab loopback on your feature branch"
@@ -24,16 +80,7 @@ def load_loopbacks(path: Path) -> list[dict[str, Any]]:
     seen_ips: set[str] = set()
 
     for item in loopbacks:
-        if not isinstance(item, dict):
-            raise ValueError("Each loopback entry must be a mapping")
-        required = {"id", "description", "ipv4", "prefix_length", "enabled"}
-        missing = required - item.keys()
-        if missing:
-            raise ValueError(f"Loopback entry is missing: {sorted(missing)}")
-
         loopback_id = int(item["id"])
-        if not 0 <= loopback_id <= 2147483647:
-            raise ValueError(f"Invalid Loopback ID: {loopback_id}")
         if loopback_id in seen_ids:
             raise ValueError(f"Duplicate Loopback ID: {loopback_id}")
 
@@ -41,11 +88,7 @@ def load_loopbacks(path: Path) -> list[dict[str, Any]]:
         if str(address.ip) in seen_ips:
             raise ValueError(f"Duplicate Loopback IPv4 address: {address.ip}")
 
-        description = str(item["description"]).strip()
-        if not description or "\n" in description or "\r" in description:
-            raise ValueError("Description must be one nonempty line")
-        if not isinstance(item["enabled"], bool):
-            raise ValueError("enabled must be the YAML Boolean true or false")
+        description = item["description"].strip()
 
         validated.append(
             {

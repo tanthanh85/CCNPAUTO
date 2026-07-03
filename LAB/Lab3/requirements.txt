@@ -1,0 +1,4 @@
+python-dotenv>=1,<2
+PyYAML>=6,<7
+requests>=2.31,<3
+tabulate>=0.9,<1

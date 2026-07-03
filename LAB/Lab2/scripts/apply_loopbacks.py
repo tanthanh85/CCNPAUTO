@@ -10,6 +10,7 @@ from src.settings import Settings
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BATCH_SIZE = 20
 
 
 def main() -> None:
@@ -21,13 +22,23 @@ def main() -> None:
         before = device.collect_interfaces()
         print_interfaces(before, "Interfaces Before the Source-of-Truth Change")
 
-        for loopback in loopbacks:
-            commands = render_commands(loopback, PROJECT_ROOT / "templates")
-            print(f"\nApplying Loopback{loopback['id']} from YAML:")
+        for start in range(0, len(loopbacks), BATCH_SIZE):
+            batch = loopbacks[start : start + BATCH_SIZE]
+            commands: list[str] = []
+            for loopback in batch:
+                commands.extend(
+                    render_commands(loopback, PROJECT_ROOT / "templates")
+                )
+
+            first = start + 1
+            last = start + len(batch)
+            print(
+                f"\nApplying source-of-truth batch {first}-{last} "
+                f"of {len(loopbacks)}:"
+            )
             for command in commands:
                 print(f"  {command}")
-            result = device.send_config(commands)
-            print(result)
+            print(device.send_config(commands))
 
         after = device.collect_interfaces()
 

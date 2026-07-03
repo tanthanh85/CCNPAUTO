@@ -12,7 +12,6 @@ from src.settings import Settings
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BATCH_SIZE = 20
 device = None
 
 try:
@@ -30,15 +29,9 @@ try:
 
     print_interfaces(device.get_interfaces(), "Interfaces Before the Change")
 
-    for start in range(0, len(loopbacks), BATCH_SIZE):
-        batch = loopbacks[start : start + BATCH_SIZE]
-        commands = []
-
-        for loopback in batch:
-            commands.extend(manager.render(loopback))
-
-        print(f"Applying loopbacks {start + 1}-{start + len(batch)}")
-        print(device.configure(commands))
+    commands = manager.render(loopbacks)
+    print(f"Applying {len(loopbacks)} loopback interface(s)")
+    print(device.configure(commands))
 
     after = device.get_interfaces()
     print_interfaces(after, "Interfaces After the Change")

@@ -408,7 +408,7 @@ The address comes from the documentation prefix `192.0.2.0/24` and is suitable f
 
 ### Understand the Source-of-Truth Contract
 
-The `LoopbackManager` class in `src/loopback_source.py` has two main jobs: `load()` validates YAML data, and `render()` turns one loopback dictionary into IOS XE commands. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
+The `LoopbackManager` class in `src/loopback_source.py` has two main jobs: `load()` validates YAML data, and `render()` passes the complete loopback list to Jinja2. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
 
 | Field | Required type and rule | Purpose |
 |---|---|---|
@@ -427,7 +427,7 @@ flowchart LR
     File["data/loopbacks.yaml"] --> YAML["1. Parse YAML syntax"]
     YAML --> Fields["2. Check names and datatypes"]
     Fields --> Semantic["3. Check IP format and duplicates"]
-    Semantic --> Render["Render one command set per list item"]
+    Semantic --> Render["Jinja2 loops through the complete list"]
     Render --> Deploy["Deploy only after validation passes"]
 ```
 
@@ -467,10 +467,11 @@ manager = LoopbackManager(
     root / "templates" / "loopback.j2",
 )
 
-for loopback in manager.load():
-    print(f"Loopback{loopback['id']}")
-    for command in manager.render(loopback):
-        print(f"  {command}")
+loopbacks = manager.load()
+commands = manager.render(loopbacks)
+
+for command in commands:
+    print(command)
 PY
 ```
 
@@ -483,7 +484,7 @@ interface Loopback101
  no shutdown
 ```
 
-When multiple entries exist, the loop renders one command set for each item. A record with `enabled: false` renders `shutdown`.
+Open `templates/loopback.j2` and locate `{% for loopback in loopbacks %}`. The loop belongs in the template, so Python calls `manager.render(loopbacks)` only once. Jinja2 repeats the interface stanza for every list item, while the inner `if` statement renders either `no shutdown` or `shutdown`.
 
 Review the branch diff:
 
@@ -522,12 +523,11 @@ sequenceDiagram
     P->>Y: Load desired loopbacks
     P->>R: Collect show ip interface brief
     R-->>P: TextFSM interface records before change
-    loop Each validated loopback
-        P->>T: Render loopback values
-        T-->>P: IOS XE command list
-        P->>R: send_config_set commands
-        R-->>P: Configuration result
-    end
+    P->>T: Pass the complete validated list
+    T->>T: Loop through all loopbacks
+    T-->>P: One complete IOS XE command list
+    P->>R: send_config_set commands
+    R-->>P: Configuration result
     P->>R: Collect show ip interface brief again
     R-->>P: TextFSM interface records after change
     P->>P: Verify interface, IPv4 address, and up/up state
@@ -875,7 +875,7 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 - RESTCONF provides modeled data and HTTP error behavior that are more suitable for application integration than screen scraping.
 - Two sources can describe the same network state differently; good automation preserves raw evidence and normalizes only with understood rules.
 
-Lab 3 can build on this foundation by introducing automated tests and controlled pipeline stages after learners are comfortable with the basic collection, templating, validation, and Git workflow.
+A later lab can build on this foundation by introducing automated tests and controlled pipeline stages after learners are comfortable with the basic collection, templating, validation, and Git workflow. Lab 3 remains independent and may be completed before or after this lab.
 
 ## Further Reading and Official References
 

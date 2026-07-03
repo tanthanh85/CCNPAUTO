@@ -67,7 +67,7 @@ class LoopbackManager:
             "enabled": item["enabled"],
         }
 
-    def render(self, loopback):
+    def render(self, loopbacks):
         template = Template(self.template_path.read_text())
-        rendered = template.render(loopback=loopback)
+        rendered = template.render(loopbacks=loopbacks)
         return [line.strip() for line in rendered.splitlines() if line.strip()]

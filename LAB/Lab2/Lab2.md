@@ -195,35 +195,6 @@ python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-The project adds several libraries to the Lab 1 environment:
-
-| Library | Use in this lab |
-|---|---|
-| `netmiko` | IOS XE SSH/CLI transport |
-| `ntc-templates` | Community TextFSM templates used by Netmiko |
-| `tabulate` | Table rendering |
-| `PyYAML` | Safe YAML parsing through the `yaml` import |
-| `Jinja2` | Configuration template rendering |
-| `python-dotenv` | Loading untracked connection settings from `.env` |
-| `requests` | RESTCONF HTTPS client |
-
-Confirm the imports and locate the installed TextFSM template package:
-
-```bash
-python - <<'PY'
-import jinja2
-import netmiko
-import ntc_templates
-import requests
-import tabulate
-import yaml
-
-print("netmiko:", netmiko.__version__)
-print("requests:", requests.__version__)
-print("ntc-templates:", ntc_templates.__file__)
-PY
-```
-
 Run the lightweight source-of-truth validator before making a change:
 
 ```bash
@@ -312,25 +283,6 @@ IOS XE Interfaces from CLI and TextFSM
 |--------------------|----------------|----------------|------------|
 | GigabitEthernet1   | ...            | up             | up         |
 | Loopback...        | ...            | up             | up         |
-```
-
-Examine the raw parsed data in an interactive Python session if the normalization seems unclear:
-
-```bash
-python - <<'PY'
-from pprint import pprint
-
-from src.iosxe_cli import IOSXEDevice
-from src.settings import Settings
-
-device = IOSXEDevice(Settings())
-try:
-    device.connect()
-    pprint(device.get_version())
-    pprint(device.get_interfaces())
-finally:
-    device.disconnect()
-PY
 ```
 
 This completes the read-only warm-up. The next task moves desired state through a controlled Git branch before applying it.

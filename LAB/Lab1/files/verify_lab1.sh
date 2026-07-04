@@ -40,11 +40,10 @@ check_command "Docker" docker
 check_command "Docker Compose" docker
 check_command "kubectl" kubectl
 check_command "Minikube" minikube
-check_command "pyATS" pyats
 check_command "VS Code" code
 check_command "GitLab Runner" gitlab-runner
 
-for module in requests netmiko scrapli ncclient xmltodict yaml json pyats genie; do
+for module in requests netmiko scrapli ncclient xmltodict yaml json; do
   check_python_module "$module"
 done
 

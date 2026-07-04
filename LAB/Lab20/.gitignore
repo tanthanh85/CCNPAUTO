@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+cpu_usage.csv
+monitor.log
+cpu_monitor.pid
+

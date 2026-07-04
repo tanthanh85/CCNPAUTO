@@ -950,6 +950,43 @@ sudo ss -lntp | grep ':8088'
 curl -I http://gitlab.lab.local:8088/users/sign_in
 ```
 
+If the disposable container succeeds but the Runner helper still reports `Could not resolve host`, configure a DNS-independent clone URL. First, discover Docker's default bridge gateway and prove that it reaches GitLab's published port:
+
+```bash
+DOCKER_GATEWAY=$(docker network inspect bridge \
+  --format '{{(index .IPAM.Config 0).Gateway}}')
+echo "$DOCKER_GATEWAY"
+
+docker run --rm curlimages/curl:8.12.1 \
+  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  "http://${DOCKER_GATEWAY}:8088/users/sign_in"
+```
+
+After the test returns an HTTP response, edit `/etc/gitlab-runner/config.toml`. Add `clone_url` inside the affected `[[runners]]` block at the same level as `url`, `token`, and `executor`. Replace the sample address with the gateway printed by the preceding command:
+
+```toml
+[[runners]]
+  name = "ubuntu26-docker-runner"
+  url = "http://gitlab.lab.local:8088"
+  clone_url = "http://172.17.0.1:8088"
+  token = "EXISTING_TOKEN_REMAINS_HERE"
+  executor = "docker"
+
+  [runners.docker]
+    image = "python:3.13-slim"
+    extra_hosts = ["gitlab.lab.local:host-gateway"]
+```
+
+Do not copy the sample token line over the real token. Restart the service and retry the job:
+
+```bash
+sudo systemctl restart gitlab-runner
+sudo gitlab-runner verify
+sudo journalctl -u gitlab-runner -n 50 --no-pager
+```
+
+The runner continues to poll GitLab through its configured `url`, while repository checkout uses `clone_url`. Seeing the Docker gateway address in the next job's **Getting source from Git repository** stage confirms that the helper no longer depends on local DNS.
+
 ## Lab Cleanup
 
 Ordinary cleanup should stop services without deleting persistent state:

@@ -1,0 +1,9 @@
+devices:
+  - hostname: branch-r1
+    platform: iosxe
+    role: branch-router
+    management_ip: 192.0.2.10
+  - hostname: campus-sw1
+    platform: iosxe
+    role: access-switch
+    management_ip: 192.0.2.20

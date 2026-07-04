@@ -962,22 +962,23 @@ docker run --rm curlimages/curl:8.12.1 \
   "http://${DOCKER_GATEWAY}:8088/users/sign_in"
 ```
 
-After the test returns an HTTP response, edit `/etc/gitlab-runner/config.toml`. Add `clone_url` inside the affected `[[runners]]` block at the same level as `url`, `token`, and `executor`. Replace the sample address with the gateway printed by the preceding command:
+After the test returns an HTTP response, edit the system-mode file `/etc/gitlab-runner/config.toml`. Do not edit `$HOME/.gitlab-runner/config.toml`; the systemd service does not read that user-mode file. Add only the `clone_url` line inside the affected `[[runners]]` block, at the same level as `url`, `token`, and `executor`. Replace the sample address with the gateway printed by the preceding command. The comments below represent existing lines and must not be copied over them:
 
 ```toml
 [[runners]]
-  name = "ubuntu26-docker-runner"
-  url = "http://gitlab.lab.local:8088"
+  # Keep the existing name, URL, and nonempty token unchanged.
   clone_url = "http://172.17.0.1:8088"
-  token = "EXISTING_TOKEN_REMAINS_HERE"
-  executor = "docker"
-
-  [runners.docker]
-    image = "python:3.13-slim"
-    extra_hosts = ["gitlab.lab.local:host-gateway"]
 ```
 
-Do not copy the sample token line over the real token. Restart the service and retry the job:
+Before restarting, validate that every configured runner token is nonempty without printing the secret itself:
+
+```bash
+sudo awk -F'"' '/^[[:space:]]*token =/ {
+  print "runner token length:", length($2)
+}' /etc/gitlab-runner/config.toml
+```
+
+A token length of zero means the runner cannot authenticate. Recreate the runner in GitLab and register it again rather than inventing or reusing a placeholder. When the token length is nonzero, restart the service and retry the job:
 
 ```bash
 sudo systemctl restart gitlab-runner

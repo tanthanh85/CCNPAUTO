@@ -112,6 +112,49 @@ less /tmp/install-ollama.sh
 sh /tmp/install-ollama.sh
 ```
 
+Run the download as the learner account, **not** as `sudo curl`. The temporary file does not require root ownership, and `sudo` can remove proxy-related environment variables. The installer itself requests privilege only for operations that require it.
+
+If `curl` reports that it cannot verify the server certificate, do not add `-k` or `--insecure` when downloading executable code. First check the workstation clock and refresh Ubuntu's trusted certificate bundle:
+
+```bash
+timedatectl status
+sudo timedatectl set-ntp true
+sudo apt update
+sudo apt install --reinstall -y ca-certificates curl
+sudo update-ca-certificates
+curl -Iv https://ollama.com
+```
+
+An incorrect clock can make a valid certificate appear expired or not yet valid. A missing CA bundle prevents `curl` from building a trust chain. If the final command still fails, inspect the issuer without downloading or executing anything:
+
+```bash
+openssl s_client -connect ollama.com:443 -servername ollama.com \
+  </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates
+env | grep -iE '^(http|https|no)_proxy='
+```
+
+When the issuer names the learner's organization, firewall, or security product, HTTPS inspection is probably replacing the public certificate with an organizational certificate. Obtain the approved root CA from the instructor or system administrator, copy that `.crt` file into Ubuntu's local trust directory, and rebuild the bundle:
+
+```bash
+sudo cp <approved-organization-root-ca.crt> \
+  /usr/local/share/ca-certificates/organization-proxy-root.crt
+sudo chmod 644 \
+  /usr/local/share/ca-certificates/organization-proxy-root.crt
+sudo update-ca-certificates
+curl -Iv https://ollama.com
+```
+
+Never export a certificate from an unexpected connection and trust it merely to make the error disappear. Confirm its fingerprint through an independent organizational channel. If an explicit proxy is required, configure `HTTPS_PROXY` and `NO_PROXY` using the values supplied by the administrator, and run `curl` without `sudo` so those variables remain available.
+
+Only after `curl -Iv https://ollama.com` reports successful certificate verification should the learner repeat the download, review the script, and run it:
+
+```bash
+rm -f /tmp/install-ollama.sh
+curl -fsSL https://ollama.com/install.sh -o /tmp/install-ollama.sh
+less /tmp/install-ollama.sh
+sh /tmp/install-ollama.sh
+```
+
 Check the service and client:
 
 ```bash
@@ -393,6 +436,7 @@ This extension demonstrates the preferred growth pattern: add a narrow capabilit
 
 | Symptom | Likely cause | Corrective action |
 |---|---|---|
+| `curl` cannot verify Ollama's certificate | Incorrect clock, stale CA bundle, lost proxy variables, or HTTPS inspection | Download without `sudo`; correct time; refresh `ca-certificates`; install only the administrator-approved inspection CA; never use `-k` for the installer |
 | `Connection refused` on port 11434 | Ollama service stopped | `sudo systemctl restart ollama` |
 | Ollama says model not found | Model was not pulled or name differs | `ollama list`; then `ollama pull qwen2.5:3b` |
 | Model never requests tools | Model lacks tool support or prompt is vague | Use the specified tool-capable model and ask about current state |

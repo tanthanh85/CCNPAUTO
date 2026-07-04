@@ -516,50 +516,17 @@ The following checklist should be applied after these controls are designed.
 
 > **Study guide takeaway:** Security controls work as a system. Identity, authorization, encryption, secret management, input validation, secure delivery, and monitoring reinforce one another. If one control fails, another should still limit the impact.
 
-## 20. Security Risks in AI Network Automation
-
-The controls discussed earlier in this chapter also apply to AI-enabled automation, but the introduction of models, retrieval, and tool use creates additional trust boundaries. ML and GenAI systems expand the attack surface through training data, model artifacts, prompts, retrieval sources, plugins, and tool calls. Therefore, an agent must never treat model-generated instructions as authorization. Tools should use least privilege, outputs should be validated before execution, untrusted content should be isolated, and consequential actions should retain a reliable human override.
-
-### 20.1 Interpreting Risk in an AI Network-Automation Solution
-
-Consider a conversational assistant that reads network telemetry and configurations, uses a retrieval system for runbooks, and can call Catalyst Center and RESTCONF tools. The assistant proposes a remediation and, after user confirmation, applies it. A security review should trace data and trust boundaries rather than focus only on the model.
-
-```mermaid
-flowchart LR
-    User["Operator"] --> Agent["LLM agent"]
-    Docs["Runbooks and tickets"] --> Retrieve["Retrieval service"]
-    Retrieve --> Agent
-    Agent --> MCP["MCP tools"]
-    MCP --> Read["Inventory and telemetry APIs"]
-    MCP --> Change["Configuration APIs"]
-    Agent --> Logs["Prompts, tool calls, and audit logs"]
-```
-
-Following the data flow reveals several distinct risks:
-
-- **Prompt injection:** A retrieved ticket, interface description, or runbook can contain instructions that attempt to override policy. Treat retrieved content as untrusted data, separate it from system instructions, and never let it grant permissions.
-- **Excessive agency:** A broadly privileged configuration tool can turn one mistaken recommendation into a network-wide outage. Separate read and write tools, restrict target scope, require change plans and approval, and impose rate and blast-radius limits.
-- **Sensitive-data disclosure:** Prompts and logs may contain credentials, configurations, customer identifiers, or vulnerabilities. Redact inputs, use approved model endpoints, restrict retention, and encrypt stored conversations.
-- **Tool and supply-chain compromise:** A malicious MCP server, plugin, model, or Python dependency can alter tool descriptions or results. Pin and verify dependencies, authenticate servers, approve tool catalogs, and validate returned schemas.
-- **Insecure output handling:** Generated CLI, JSON, SQL, or Markdown can become an injection vector when executed or rendered. Parse against a schema and encode output for its destination.
-- **Hallucination and stale knowledge:** The model may invent a command or use an obsolete API. Ground recommendations in live state and current documentation, then verify deterministically.
-- **Denial of service and cost abuse:** Recursive agent loops and oversized context can consume tokens, controller quota, and device resources. Limit turns, tool calls, request size, concurrency, and total budget.
-
-A high-risk design gives the same agent unrestricted read/write credentials and allows it to approve its own plan. A safer design uses read-only discovery by default, generates an explicit proposed difference, evaluates policy outside the LLM, requires an authorized person or trusted workflow to approve, executes through a narrowly scoped identity, and verifies the service afterward. Logs should preserve the user request, model and prompt version, retrieved evidence, tool arguments, approval, result, and rollback decision.
-
 ## Key Takeaways
 
 - Confidentiality, integrity, availability, privacy, identity, authorization, and auditing must be designed as complementary controls.
 - Secret management, PKI, TLS certificates, encryption, and OAuth protect application and API communications.
 - Secure applications mitigate access-control failures, injection, XSS, CSRF, misconfiguration, vulnerable dependencies, and supply-chain threats.
-- AI network solutions must address prompt injection, excessive agency, data leakage, insecure tools and outputs, hallucination, cost abuse, and auditable human approval.
 
 Chapter 9 shifts from application concerns to the infrastructure lifecycle, showing how modern networks are provisioned, managed, and assured.
 
 ## Further Reading and References
 
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) - major web-application security risks.
-- [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) - GenAI-specific risks.
 - [TLS 1.3 - RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) - current TLS protocol definition.
 
 **Next chapter:** [Chapter 9: Network Infrastructure Management](../Part4/Chapter9.md)

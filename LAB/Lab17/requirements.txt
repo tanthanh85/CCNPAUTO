@@ -1,3 +1,0 @@
-python-dotenv>=1,<2
-tabulate>=0.9,<1
-ucsmsdk>=0.9,<1

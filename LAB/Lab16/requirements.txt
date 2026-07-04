@@ -1,3 +1,0 @@
-meraki>=1.53,<2
-python-dotenv>=1,<2
-tabulate>=0.9,<1

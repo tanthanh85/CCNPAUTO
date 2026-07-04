@@ -19,7 +19,6 @@ After completing the course, learners should be able to:
 - Automate Cisco infrastructure with controllers, RESTCONF, NETCONF, YANG, model-driven telemetry, Ansible, and Terraform.
 - Host and operate suitable containerized applications on supported Cisco network and IOx platforms.
 - Integrate Webex, Cisco Secure Firewall, Meraki, Intersight, UCS Manager, Catalyst Center, and AppDynamics APIs.
-- Evaluate AI-assisted code, interpret AI security risks, build FastMCP tools and conversational agents, and validate AI recommendations.
 
 ## Course Structure
 
@@ -28,7 +27,7 @@ After completing the course, learners should be able to:
 1. [Software Design Foundations](Part1/Chapter1.md) introduces software architecture, requirements, distributed applications, development models, DevOps, reviews, and testing.
 2. [Software Quality and Resilience](Part1/Chapter2.md) measurable quality attributes, modularity, scalability, availability, resilience, and hybrid deployment considerations.
 3. [Performance, Data, and Observability](Part1/Chapter3.md) connects maintainability, latency, throughput, caching, logs, metrics, traces, failure diagnosis, and database selection.
-4. [Git and Release Management](Part1/Chapter4.md) covers professional Git workflows, advanced history operations, branching, review, release artifacts, dependencies, and AI-assisted development controls.
+4. [Git and Release Management](Part1/Chapter4.md) covers professional Git workflows, advanced history operations, branching, review, release artifacts, and dependency controls.
 
 ### Part 2: APIs
 
@@ -38,14 +37,14 @@ After completing the course, learners should be able to:
 ### Part 3: Application Deployment and Security
 
 7. [CI/CD and Application Deployment](Part3/Chapter7.md) develops DevOps, SRE, pipelines, continuous testing, static analysis, Docker, Kubernetes, GitOps, deployment strategies, logging, and 12-factor applications.
-8. [Secure Application Design](Part3/Chapter8.md) covers privacy, secrets, PKI, TLS, encryption, OAuth, injection, XSS, CSRF, secure CI/CD, and AI solution risks.
+8. [Secure Application Design](Part3/Chapter8.md) covers privacy, secrets, PKI, TLS, encryption, OAuth, injection, XSS, CSRF, and secure CI/CD.
 
 ### Part 4: Infrastructure and Automation
 
 9. [Network Infrastructure Management](Part4/Chapter9.md) explains PDIOO, management planes, provisioning, ZTP, SDN, intent, inventory, topology, and assurance.
-10. [Network Automation and Orchestration](Part4/Chapter10.md) develops safe automation workflows, concurrency, APIs, cross-domain orchestration, FastMCP servers, conversational agents, and agentic governance.
+10. [Network Automation and Orchestration](Part4/Chapter10.md) develops safe automation workflows, concurrency, APIs, cross-domain orchestration, governance, and reliable verification.
 11. [NETCONF, RESTCONF, and YANG](Part4/Chapter11.md) covers data models, datastores, RPCs, transactions, errors, and IOS XE interface, VLAN, and static-route workflows.
-12. [Streaming Telemetry and AIOps](Part4/Chapter12.md) explains polling and streaming models, subscriptions, sensor paths, gNMI, storage, dashboards, AIOps, and recommendation evaluation.
+12. [Streaming Network Telemetry](Part4/Chapter12.md) explains polling and streaming models, subscriptions, sensor paths, gNMI, storage, dashboards, alerting, and event-driven operations.
 13. [Infrastructure as Code Tools](Part4/Chapter13.md) compares Puppet, Chef, Ansible, and Terraform, including state, secrets, inventories, workflow design, and tool selection.
 14. [Configuration and Release Control](Part4/Chapter14.md) covers configuration items, baselines, traceability, audits, requirements, reproducibility, dependencies, and technical debt.
 15. [Edge Application Hosting](Part4/Chapter15.md) explains containers, Cisco IOx, Catalyst application hosting, networking, security, offline behavior, fleet operation, and troubleshooting.
@@ -101,7 +100,6 @@ The project can be expanded gradually:
 - Use NETCONF or RESTCONF for an IOS XE lab device.
 - Collect telemetry and display service health on a dashboard.
 - Use Ansible or Terraform for infrastructure definitions.
-- Add a read-only FastMCP server and require human approval before any AI-proposed change.
 
 ## Working with the Markdown Files
 

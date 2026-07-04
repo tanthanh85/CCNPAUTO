@@ -1,4 +1,4 @@
-# Chapter 12: Streaming Telemetry and AIOps
+# Chapter 12: Streaming Network Telemetry
 
 ## Chapter Introduction
 
@@ -120,7 +120,7 @@ flowchart LR
     Verify --> Audit["Record outcome"]
 ```
 
-AI can assist anomaly detection and correlation, but baselines must account for scheduled changes and normal seasonality. Automated remediation should be narrow, rate-limited, reversible, and disabled when evidence is incomplete.
+Statistical baselines and correlation rules must account for scheduled changes and normal seasonality. Automated remediation should be narrow, rate-limited, reversible, and disabled when evidence is incomplete.
 
 ## 10. Designing Subscriptions for Operational Questions
 
@@ -228,54 +228,11 @@ Before selecting a sample interval, estimate detection requirements and data vol
 
 > **Study guide takeaway:** MDT is an end-to-end data system, not merely a device feature. Valuable telemetry starts with an operational question and ends with trustworthy storage, visualization, alerting, and controlled action.
 
-## 18. Evaluating AI Recommendations
-
-Telemetry provides the evidence on which an AI recommendation should be judged. A recommendation is not accurate merely because it sounds reasonable or matches an engineer's intuition. Instead, determine whether its claims are supported by current observations, whether the proposed action satisfies policy, and whether deterministic tests confirm the predicted outcome. A representative evaluation should include normal, degraded, ambiguous, and adversarial scenarios.
-
-Build a curated evaluation set from sanitized incidents and lab scenarios. Each case should contain the user question, approved input evidence, expected diagnosis or acceptable diagnoses, prohibited conclusions, safe recommended actions, required citations, and verification steps. Keep a hidden test set so prompt or model tuning does not simply memorize the evaluation examples.
-
-| Evaluation dimension | Measurement question |
-|---|---|
-| Factual correctness | Are device, interface, route, policy, and metric claims present in authoritative evidence? |
-| Groundedness | Does every important claim cite a tool result or approved source? |
-| Diagnostic accuracy | Does the recommendation identify the correct fault or include it in a justified ranked set? |
-| Action validity | Is the proposed API call or configuration syntactically and semantically valid? |
-| Safety | Does it avoid prohibited targets, excessive scope, credential exposure, and irreversible action? |
-| Completeness | Does it include assumptions, impact, verification, rollback, and uncertainty? |
-| Operational outcome | In a lab or canary, does the action improve the intended service without regression? |
-
-Useful metrics include exact-match accuracy for structured facts, precision and recall for fault classification, citation correctness, unsupported-claim rate, safe-refusal rate, invalid-tool-call rate, policy-violation rate, and human acceptance after review. For ranked diagnoses, use top-k accuracy or reciprocal rank. Measure latency and token/tool cost as well because an accurate recommendation that arrives too late or overloads controllers may not be operationally useful.
-
-```mermaid
-flowchart LR
-    Cases["Versioned evaluation cases"] --> Run["Run model, prompt, retrieval, and tools"]
-    Run --> Facts["Check facts and citations"]
-    Run --> Policy["Check authorization and safety policy"]
-    Run --> Lab["Validate recommendation in lab or digital twin"]
-    Facts & Policy & Lab --> Score["Score accuracy, safety, cost, and latency"]
-    Score --> Compare["Compare with baseline and prior release"]
-    Compare --> Gate{"Meets release thresholds?"}
-    Gate -->|no| Reject["Reject or revise"]
-    Gate -->|yes| Canary["Canary with human approval"]
-    Canary --> Monitor["Monitor outcomes and capture feedback"]
-```
-
-Do not use the same LLM as the sole judge of its own answer. Automated model-based scoring can assist, but deterministic schema checks, network simulators, API dry runs, policy engines, and qualified human review provide independent evidence. Re-run the suite whenever the model, system prompt, retrieval corpus, MCP server, tool schema, or controller API changes. In production, compare recommendations with actual outcomes and feed confirmed failures back into the evaluation set.
-
-### 18.1 Worked Recommendation Review
-
-Suppose an agent observes high application latency and recommends shutting an interface because it reports errors. The evaluator should confirm that the error counter is recent, increasing, and associated with the application path; compare redundant links; inspect loss, queue, routing, and maintenance context; and determine whether shutdown would isolate the site. If the evidence only proves historical errors on an unused interface, the recommendation is ungrounded even though the command is technically valid. A safer answer states the uncertainty, requests missing evidence, and proposes a read-only diagnostic step.
-
-## 19. AIOps and AI for Observability
-
-The same evaluation discipline applies when AI is used continuously in operations. AIOps combines telemetry with topology, incidents, and change history to detect anomalies and rank likely causes. ML baselines should account for seasonality, site role, maintenance, and missing data. GenAI can create incident summaries or natural-language query assistance; however, every conclusion should link to source metrics and events. Closed-loop remediation additionally requires confidence thresholds, blast-radius limits, rate limits, rollback, and human escalation when signals disagree.
-
 ## Key Takeaways
 
 - Monitoring-model selection depends on operational purpose, device support, detection delay, bandwidth, scale, retention, and security.
 - Model-driven telemetry uses YANG sensor paths, dial-in or dial-out subscriptions, and periodic or on-change delivery.
 - Collectors, queues, time-series databases, dashboards, alerts, and event workflows must be engineered and monitored as production services.
-- AI recommendations require versioned evaluation cases, grounded evidence, deterministic policy checks, lab validation, measurable accuracy, and monitored canary outcomes.
 
 Chapter 13 applies these automation and observability foundations through open-source tools such as Ansible, Terraform, Puppet, and Chef.
 
@@ -284,6 +241,5 @@ Chapter 13 applies these automation and observability foundations through open-s
 - [OpenConfig gNMI specification](https://www.openconfig.net/docs/gnmi/gnmi-specification/) - modeled telemetry and configuration RPCs.
 - [Grafana documentation](https://grafana.com/docs/grafana/latest/) - dashboards and alerting.
 - [InfluxDB documentation](https://docs.influxdata.com/) - time-series ingestion, queries, and retention.
-- [NIST AI RMF Playbook](https://airc.nist.gov/airmf-resources/playbook/) - methods for mapping, measuring, managing, and governing AI risk.
 
 **Next chapter:** [Chapter 13: Infrastructure as Code Tools](Chapter13.md)

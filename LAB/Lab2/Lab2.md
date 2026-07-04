@@ -639,25 +639,8 @@ git status --short --ignored
 
 Confirm that Loopback101 appears. The CLI may describe the line protocol as `up`, while the Cisco operational model may encode it as `if-oper-state-ready`. The normalizer maps `ready` to `up` for the comparison table, but the raw artifact preserves the device's original enumeration.
 
-## Task 10: Compare CLI and RESTCONF Sources
 
-The final script collects the interface list through both transports, indexes each list by interface name, and iterates over the union of names. It then prints IP addresses and state side by side:
-
-```bash
-python -m scripts.compare_cli_restconf
-```
-
-Do not expect every field to match mechanically. A CLI parser and a YANG operational model can differ in naming, timing, inclusion of internal interfaces, or representation of “unassigned.” The purpose of normalization is to make an informed comparison possible, not to hide meaningful semantic differences.
-
-If an interface exists in only one source, investigate the raw data:
-
-1. Run `show ip interface brief` interactively through SSH.
-2. Inspect `artifacts/interfaces-restconf.json`.
-3. Confirm the YANG resource and IOS XE release.
-4. Check whether the interface is internal, filtered, newly created, or represented under another model.
-5. Record the reason instead of forcing the values to appear identical.
-
-## Task 11: Final Repository and Lab Validation
+## Task 10: Final Repository and Lab Validation
 
 Confirm that the merged source-of-truth change is on `main` and that secrets and artifacts remain untracked:
 
@@ -676,7 +659,6 @@ python -m pip check
 python -m scripts.validate_source_of_truth
 python -m scripts.collect_cli
 python -m scripts.collect_restconf
-python -m scripts.compare_cli_restconf
 ```
 
 Return the write gate to its safe default after configuration work:
@@ -701,7 +683,6 @@ Retain the following evidence without including passwords, tokens, VPN credentia
 - Before-and-after CLI interface tables
 - Verification that the managed loopback has the expected address and up/up state
 - RESTCONF HTTP status and normalized table
-- CLI-to-RESTCONF comparison table
 - Final clean Git status on `main`
 
 ## Troubleshooting
@@ -802,14 +783,10 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 - Netmiko simplifies CLI transport, and TextFSM can turn supported commands into dictionaries, but parser success must be checked explicitly.
 - Reusable modules keep connection, collection, presentation, and validation logic consistent across scripts.
 - YAML and Jinja2 separate intent from device syntax, although this introductory workflow manages only a bounded subset of loopback state.
-- Simple validation prevents inconsistent keys, invalid types, malformed addresses, and duplicate loopback identity.
-- The same loop processes one or many loopback records without duplicating deployment logic.
 - A feature branch and merge request make the source-of-truth change reviewable and traceable.
 - JSON and XML preserve structure, while YANG supplies the model, types, constraints, and namespace semantics.
 - RESTCONF provides modeled data and HTTP error behavior that are more suitable for application integration than screen scraping.
-- Two sources can describe the same network state differently; good automation preserves raw evidence and normalizes only with understood rules.
 
-A later lab can build on this foundation by introducing automated tests and controlled pipeline stages after learners are comfortable with the basic collection, templating, validation, and Git workflow. Lab 3 remains independent and may be completed before or after this lab.
 
 ## Further Reading and Official References
 

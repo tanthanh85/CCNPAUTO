@@ -2,9 +2,9 @@
 
 ## Lab Introduction
 
-Public training APIs do not always expose pagination, rate limits, or cache behavior consistently. Consequently, this lab uses a local Flask server on the learner's Ubuntu 26.04 workstation. The server behaves like a small network inventory API: it holds 100 dummy loopback-interface records, returns them in pages, enforces a fixed-window request limit, and supports entity tags for an optional HTTP cache exercise.
+This lab uses a local Flask server on the learner's Ubuntu 26.04 workstation. The server behaves like a small network inventory API: it holds 100 dummy loopback-interface records, returns them in pages, enforces a fixed-window request limit, and supports entity tags for an optional HTTP cache exercise.
 
-The client first retrieves different pages through query parameters. It then performs 100 logical requests rapidly enough to trigger HTTP `429 Too Many Requests`. Each `429` response is recorded, the client honors `Retry-After` or calculates exponential backoff, and the request is resumed. Every HTTP attempt is written to CSV with request and response timestamps, status, outcome, and delay. This arrangement gives every learner repeatable behavior without generating load against Cisco-hosted infrastructure.
+The Python client in this lab first retrieves different pages through query parameters. It then performs 100 logical requests rapidly enough to trigger HTTP `429 Too Many Requests`. Each `429` response is recorded, the client honors `Retry-After` or calculates exponential backoff, and the request is resumed. Every HTTP attempt is written to CSV with request and response timestamps, status, outcome, and delay. This arrangement gives every learner repeatable behavior without generating load against Cisco-hosted infrastructure.
 
 ## Learning Objectives
 

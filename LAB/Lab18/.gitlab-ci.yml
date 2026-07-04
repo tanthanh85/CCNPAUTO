@@ -1,0 +1,46 @@
+stages:
+  - validate
+  - deploy
+  - verify
+
+default:
+  tags:
+    - network-deploy
+  before_script:
+    - source "$HOME/.venvs/ccnpauto/bin/activate"
+    - python -m pip install --quiet --requirement requirements.txt
+  artifacts:
+    when: always
+    paths:
+      - artifacts/
+    expire_in: 30 days
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - when: never
+
+validate-netbox-intent:
+  stage: validate
+  script:
+    - python -m scripts.validate_intent
+
+deploy-loopbacks:
+  stage: deploy
+  resource_group: iosxe-netbox
+  needs:
+    - job: validate-netbox-intent
+      artifacts: true
+  script:
+    - python -m scripts.deploy_loopbacks
+
+verify-loopbacks:
+  stage: verify
+  resource_group: iosxe-netbox
+  needs:
+    - job: validate-netbox-intent
+      artifacts: true
+    - job: deploy-loopbacks
+  script:
+    - python -m scripts.verify_loopbacks

@@ -2,9 +2,8 @@
 
 ## Lab Introduction
 
-This short lab helps learners confirm that the workstation, local GitLab, Python environment, DevNet VPN, and IOS XE sandbox work together before the main project begins. Learners create a disposable GitLab repository named `lab2_warm_up`, connect to a reserved IOS XE router with Netmiko, run `show version` and `show ip interface brief`, parse the output with TextFSM, and display tables. They then retrieve interface data through RESTCONF and compare structured YANG JSON with parsed CLI text.
+This short lab helps learners confirm that the workstation, local GitLab, Python environment, DevNet VPN, and IOS XE sandbox work together before the main project begins. Learners create a disposable GitLab repository named `lab2_warm_up`, connect to a reserved IOS XE router with Netmiko, run `show version` and `show ip interface brief`, parse the output with TextFSM, and display tables. They then retrieve structured YANG JSON interface data through RESTCONF.
 
-Lab 2 is read-only. It does not create loopbacks or become the base repository for later work.
 
 ## Learning Objectives
 
@@ -69,12 +68,6 @@ lab2_warm_up/
 
 Reserve a private IOS XE sandbox, start the VPN, and record the current hostname, SSH port, HTTPS port, username, and password. Do not use a shared always-on router for configuration experiments, although this warm-up performs only read operations.
 
-Test reachability:
-
-```bash
-nc -vz <sandbox-host> 22
-nc -vz <sandbox-host> 443
-```
 
 ## Task 2: Create `lab2_warm_up` in GitLab
 

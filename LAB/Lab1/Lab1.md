@@ -580,9 +580,11 @@ docker logs -f gitlab-ce
 docker exec gitlab-ce cat /etc/gitlab/initial_root_password
 ```
 
-Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes.
+Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes. Do not use `admin` as the learner username because `/admin` is reserved for GitLab's administrative web routes.
 
-Create a private project named `network-automation-labs`. Then initialize and push a local repository:
+Sign in with the normal learner account and create a **blank** private project named `network-automation-labs`. Do not initialize it with a README because the local repository will supply the first commit. On the project page, select **Code > Clone with HTTP** and copy the exact URL. The namespace portion must match the learner's GitLab username; do not guess it and do not substitute `admin`.
+
+Then initialize the local repository:
 
 ```bash
 mkdir -p "$HOME/ccnpauto-workspace/network-automation-labs"
@@ -597,11 +599,13 @@ EOF
 
 git add README.md
 git commit -m "Initialize network automation lab repository"
-git remote add origin http://gitlab.lab.local:8088/YOUR_USERNAME/network-automation-labs.git
+git branch -M main
+git remote add origin http://gitlab.lab.local:8088/ACTUAL_GITLAB_USERNAME/network-automation-labs.git
+git remote -v
 git push -u origin main
 ```
 
-GitLab normally requires a personal access token rather than the web password for Git over HTTP. Create a narrowly scoped token in the learner account and use it when Git requests a password. Do not place the token in a command, script, screenshot, or repository.
+Before pushing, compare `git remote get-url origin` with the HTTP clone URL shown on the project page. If they differ, correct the existing remote with `git remote set-url origin COPIED_HTTP_CLONE_URL`. GitLab normally requires a personal access token rather than the web password for Git over HTTP. Create a narrowly scoped token with `write_repository` permission in the learner account. When Git prompts, enter the learner username and use the token as the password. Do not place the token in the URL, command, script, screenshot, or repository.
 
 Useful service commands are:
 
@@ -629,7 +633,9 @@ sudo apt install -y gitlab-runner
 gitlab-runner --version
 ```
 
-In GitLab, open the project and go to **Settings > CI/CD > Runners**. Create a project runner, assign the tag `docker`, and copy the runner authentication token beginning with `glrt-`. Register it with the Docker executor:
+In GitLab, open the project and go to **Settings > CI/CD > Runners**, then select **Create project runner**. Choose Linux, enter the `docker` tag, clear **Run untagged**, add the description `ubuntu26-docker-runner`, and create the runner. GitLab then opens a registration-instructions page that displays a runner authentication token beginning with `glrt-`. Copy it immediately because GitLab displays it only briefly and does not reveal it again after leaving that page. If the page was closed before the token was copied, delete that unregistered runner and create a new one.
+
+With the current authentication-token workflow, settings such as tags, protection, locking, and untagged-job behavior belong to the runner object created in the UI. Register the runner manager with the Docker executor using only the connection and executor arguments:
 
 ```bash
 sudo gitlab-runner register \
@@ -637,11 +643,7 @@ sudo gitlab-runner register \
   --url "http://gitlab.lab.local:8088" \
   --token "PASTE_TEMPORARY_GLRT_TOKEN_HERE" \
   --executor "docker" \
-  --docker-image "python:3.10-slim" \
-  --description "ubuntu26-docker-runner" \
-  --tag-list "docker" \
-  --run-untagged="false" \
-  --locked="true"
+  --docker-image "python:3.13-slim"
 ```
 
 Do not save the registration command with a real token in shell scripts or course notes. Clear the shell line from history if organizational policy requires it.
@@ -664,16 +666,29 @@ The Runner service can resolve `gitlab.lab.local` through the host's `/etc/hosts
   executor = "docker"
 
   [runners.docker]
-    image = "python:3.10-slim"
+    image = "python:3.13-slim"
     extra_hosts = ["gitlab.lab.local:host-gateway"]
 ```
 
 Do not replace the complete file with this abbreviated example because the existing runner token and generated settings must remain. After saving the one added line, restart and verify the runner:
 
 ```bash
+sudo grep -n "extra_hosts" /etc/gitlab-runner/config.toml
 sudo systemctl restart gitlab-runner
 sudo gitlab-runner verify
 ```
+
+Before starting a pipeline, reproduce the helper container's network path with a disposable container:
+
+```bash
+docker run --rm \
+  --add-host gitlab.lab.local:host-gateway \
+  curlimages/curl:8.12.1 \
+  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  http://gitlab.lab.local:8088/users/sign_in
+```
+
+An HTTP response such as `200` proves that a container can resolve `gitlab.lab.local`, reach the workstation through Docker's host gateway, and connect to GitLab on port 8088. A connection response is the goal; this check does not authenticate a user.
 
 In the GitLab project, add `.gitlab-ci.yml`:
 
@@ -685,7 +700,7 @@ python-environment:
   stage: test
   tags:
     - docker
-  image: python:3.10-slim
+  image: python:3.13-slim
   script:
     - python --version
     - python -m pip --version
@@ -877,15 +892,63 @@ If configuration changed, run `docker exec gitlab-ce gitlab-ctl reconfigure`. Av
 
 ### A pipeline remains pending
 
-Confirm that the runner is online, assigned to the project, and has the `docker` tag used by the job:
+Open the pending job first and read the status message displayed by GitLab. If the runner is online but the job remains pending, GitLab normally considers the runner ineligible rather than unreachable. In **Project > Settings > CI/CD > Runners**, open the runner and confirm all of the following:
+
+- The runner appears under **Assigned project runners** for this project.
+- **Paused** is disabled.
+- The runner tag is exactly `docker`, using the same lowercase spelling as `.gitlab-ci.yml`.
+- **Protected** is disabled for this introductory test. A protected runner accepts jobs only from protected branches or tags.
+- The runner has not been locked or assigned exclusively to a different project.
+
+The job definition must contain the matching tag:
+
+```yaml
+python-environment:
+  tags:
+    - docker
+```
+
+After correcting a runner setting, select **Retry** on the existing job or run a new pipeline. On the workstation, confirm that the registered runner manager is valid and polling GitLab:
 
 ```bash
 sudo systemctl status gitlab-runner --no-pager
+sudo gitlab-runner list
 sudo gitlab-runner verify
 sudo journalctl -u gitlab-runner -n 100 --no-pager
 ```
 
-The job tag and runner tag must match. The runner also needs permission to communicate with Docker.
+If the log repeatedly shows successful job polling but no assignment, return to the UI eligibility checks. If the job changes from pending to running and then fails, scheduling is fixed; investigate the Docker executor, image pull, or GitLab hostname shown in the job log instead.
+
+### The Docker helper cannot resolve gitlab.lab.local
+
+Repository checkout happens in a GitLab Runner helper container before the CI script starts. Consequently, adding `gitlab.lab.local` only to the Ubuntu host's `/etc/hosts` is insufficient. Confirm that the following line is inside `[runners.docker]` in `/etc/gitlab-runner/config.toml`, not above that table and not under a different runner:
+
+```toml
+[runners.docker]
+  extra_hosts = ["gitlab.lab.local:host-gateway"]
+```
+
+Apply the configuration and test the same mapping independently:
+
+```bash
+sudo grep -n "extra_hosts" /etc/gitlab-runner/config.toml
+sudo systemctl restart gitlab-runner
+sudo journalctl -u gitlab-runner -n 50 --no-pager
+
+docker run --rm \
+  --add-host gitlab.lab.local:host-gateway \
+  curlimages/curl:8.12.1 \
+  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  http://gitlab.lab.local:8088/users/sign_in
+```
+
+If the disposable container succeeds, retry the pipeline. If it fails, confirm that GitLab is running and port 8088 is published:
+
+```bash
+docker ps --filter name=gitlab-ce
+sudo ss -lntp | grep ':8088'
+curl -I http://gitlab.lab.local:8088/users/sign_in
+```
 
 ## Lab Cleanup
 

@@ -18,7 +18,7 @@ Vault development mode is used because the course runs on one workstation. It is
 
 ## Prerequisites
 
-- Labs 1, 2, and 4 completed
+- Labs 1, 3, and 4 completed
 - Existing `network_automation_project` repository
 - HashiCorp Vault installed in Lab 1
 - Active reservable IOS XE sandbox when running the final verification
@@ -132,10 +132,9 @@ Stop Vault and repeat the command. It should fail clearly instead of falling bac
 
 ## Task 7: Re-run Existing Project Functions
 
-Read-only collection should work with Vault credentials:
+Read-only project validation should work while the settings layer retrieves credentials from Vault:
 
 ```bash
-python -m scripts.collect_cli
 python -m scripts.validate_netbox
 ```
 
@@ -181,4 +180,3 @@ Lab 6 adds NETCONF and uses Cisco IOS XE native YANG to place every NetBox-manag
 - [Vault KV version 2](https://developer.hashicorp.com/vault/docs/secrets/kv/kv-v2)
 - [Vault authentication methods](https://developer.hashicorp.com/vault/docs/auth)
 - [hvac documentation](https://python-hvac.org/)
-

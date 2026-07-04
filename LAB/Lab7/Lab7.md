@@ -16,7 +16,7 @@ The pipeline reconciles the complete managed set rather than trusting fields in 
 - Build validate, deploy, and verify stages.
 - Serialize access to a shared sandbox with a resource group.
 - Trigger a pipeline from a NetBox IP-address event.
-- Reuse the Python modules built in Labs 2–6.
+- Reuse the Python modules built in Labs 3–6.
 - Retain deployment evidence as artifacts.
 - Diagnose webhook, runner, Vault, NetBox, SSH, and NETCONF failures.
 
@@ -270,7 +270,7 @@ Do not delete NetBox records merely because the disposable sandbox resets. NetBo
 
 ## Key Takeaways
 
-- Labs 2–7 form one evolving `network_automation_project`.
+- Labs 3–7 form one evolving `network_automation_project`.
 - NetBox events trigger reconciliation but do not supply trusted configuration directly.
 - Validation must complete before device changes begin.
 - Vault separates device credentials from GitLab repository content.
@@ -285,4 +285,3 @@ Do not delete NetBox records merely because the disposable sandbox resets. NetBo
 - [GitLab resource groups](https://docs.gitlab.com/ci/resource_groups/)
 - [NetBox webhooks](https://netboxlabs.com/docs/netbox/integrations/webhooks/)
 - [NetBox event rules](https://netboxlabs.com/docs/netbox/features/event-rules/)
-

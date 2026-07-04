@@ -1,4 +1,4 @@
-"""Render normalized loopback intent with the Lab 2 Jinja2 template."""
+"""Render normalized loopback intent with the Lab 3 Jinja2 template."""
 
 from pathlib import Path
 
@@ -13,4 +13,3 @@ class LoopbackRenderer:
         template = Template(self.template_path.read_text(encoding="utf-8"))
         output = template.render(loopbacks=loopbacks)
         return [line.strip() for line in output.splitlines() if line.strip()]
-

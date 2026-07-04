@@ -2,11 +2,11 @@
 
 ## Lab Introduction
 
-Lab 2 stored loopback intent in `data/loopbacks.yaml`. That approach made the first automation workflow easy to understand, but a flat file provides few relationships, limited search, and no built-in API or object history. In this lab, learners keep the same `network_automation_project` repository and move the authoritative loopback data to NetBox.
+Lab 3 stored loopback intent in `data/loopbacks.yaml`. That approach made the first automation workflow easy to understand, but a flat file provides few relationships, limited search, and no built-in API or object history. In this lab, learners keep the same `network_automation_project` repository and move the authoritative loopback data to NetBox.
 
 NetBox will model the IOS XE sandbox as a device. Each managed loopback will be a virtual interface with exactly one IPv4 `/32` address and the tag `automation-managed`. The Python project will query those objects through the NetBox REST API, validate them, render the existing Jinja2 template, configure IOS XE with the existing Netmiko class, and verify the result.
 
-The YAML file remains in Git as evidence of Lab 2, but it is no longer the active source of truth after this lab.
+The YAML file remains in Git as evidence of Lab 3, but it is no longer the active source of truth after this lab.
 
 ## Learning Objectives
 
@@ -14,17 +14,17 @@ The YAML file remains in Git as evidence of Lab 2, but it is no longer the activ
 - Model a router, virtual interfaces, tags, and IP assignments in NetBox.
 - Create a restricted NetBox API token.
 - Retrieve and validate loopback intent with `pynetbox`.
-- Preserve the normalized loopback contract created in Lab 2.
+- Preserve the normalized loopback contract created in Lab 3.
 - Reuse the existing Jinja2 and Netmiko workflow.
 - Distinguish intended NetBox state from observed IOS XE state.
 
 ## Prerequisites
 
-- Labs 1 and 2 completed
+- Labs 1–3 completed
 - NetBox installed and running from the updated Lab 1
 - Active IOS XE reservable sandbox and VPN
 - Existing local clone at `~/ccnpauto-workspace/network_automation_project`
-- Loopback automation from Lab 2 working successfully
+- Loopback automation from Lab 3 working successfully
 
 ## Cumulative Architecture
 
@@ -134,9 +134,9 @@ git check-ignore -v .env
 
 ## Task 6: Extend the Shared Settings Class
 
-Open `src/settings.py` from Lab 2 and add the four attributes shown in `settings-netbox-addition.txt` inside `Settings.__init__`. Keep the existing IOS XE attributes and safety controls unchanged.
+Open `src/settings.py` from Lab 3 and add the four attributes shown in `settings-netbox-addition.txt` inside `Settings.__init__`. Keep the existing IOS XE attributes and safety controls unchanged.
 
-This is an incremental change to one settings object. Existing Lab 2 scripts should continue to work.
+This is an incremental change to one settings object. Existing Lab 3 scripts should continue to work.
 
 ## Task 7: Validate NetBox Without Changing the Router
 
@@ -159,7 +159,7 @@ Correct invalid records in NetBox rather than weakening validation in Python.
 
 ## Task 8: Preview the Existing Jinja2 Workflow
 
-The new source adapter returns the same normalized keys used in Lab 2: `id`, `description`, `ipv4`, `prefix_length`, `netmask`, and `enabled`. Therefore, the existing `templates/loopback.j2` does not need to change.
+The new source adapter returns the same normalized keys used in Lab 3: `id`, `description`, `ipv4`, `prefix_length`, `netmask`, and `enabled`. Therefore, the existing `templates/loopback.j2` does not need to change.
 
 Temporarily keep `ALLOW_CONFIG_CHANGES=false` and run the validation again. Then inspect `scripts/sync_loopbacks_from_netbox.py`. It loads all managed intent once, renders one command list, and reuses `IOSXEDevice` for configuration and verification.
 
@@ -194,7 +194,7 @@ Create a merge request into `main`. Include validation output and the number of 
 
 ## Key Takeaways
 
-- NetBox now owns managed loopback intent; the Lab 2 YAML file is historical rather than authoritative.
+- NetBox now owns managed loopback intent; the Lab 3 YAML file is historical rather than authoritative.
 - Tags define a narrow automation scope.
 - Validation occurs before device access.
 - A normalized internal contract lets the data source change without rewriting the template or device client.
@@ -207,4 +207,3 @@ Lab 5 keeps this NetBox workflow but moves the IOS XE username and password from
 - [NetBox documentation](https://netboxlabs.com/docs/netbox/)
 - [NetBox REST API](https://netboxlabs.com/docs/netbox/integrations/rest-api/)
 - [pynetbox documentation](https://pynetbox.readthedocs.io/)
-

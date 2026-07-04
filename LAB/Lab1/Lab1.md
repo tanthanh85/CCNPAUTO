@@ -636,30 +636,9 @@ docker exec gitlab-ce cat /etc/gitlab/initial_root_password
 
 Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes. Do not use `admin` as the learner username because `/admin` is reserved for GitLab's administrative web routes.
 
-Sign in with the normal learner account and create a **blank** private project named `network_automation_project`. This is the single cumulative repository used from Lab 2 through Lab 7. Do not initialize it with a README because the local repository will supply the first commit. On the project page, select **Code > Clone with HTTP** and copy the exact URL. The namespace portion must match the learner's GitLab username; do not guess it and do not substitute `admin`.
+Sign in with the normal learner account and confirm that the **New project** page is available. Lab 2 will create the disposable `lab2_warm_up` repository, while Lab 3 will create the durable `network_automation_project`. Deferring project creation keeps the purpose of each repository inside its own lab.
 
-Then initialize the local repository:
-
-```bash
-mkdir -p "$HOME/ccnpauto-workspace/network_automation_project"
-cd "$HOME/ccnpauto-workspace/network_automation_project"
-git init
-
-cat > README.md <<'EOF'
-# Network Automation Project
-
-Course repository for tested network automation code.
-EOF
-
-git add README.md
-git commit -m "Initialize network automation lab repository"
-git branch -M main
-git remote add origin http://gitlab.lab.local:8088/ACTUAL_GITLAB_USERNAME/network_automation_project.git
-git remote -v
-git push -u origin main
-```
-
-Before pushing, compare `git remote get-url origin` with the HTTP clone URL shown on the project page. If they differ, correct the existing remote with `git remote set-url origin COPIED_HTTP_CLONE_URL`. GitLab normally requires a personal access token rather than the web password for Git over HTTP. Create a narrowly scoped token with `write_repository` permission in the learner account. When Git prompts, enter the learner username and use the token as the password. Do not place the token in the URL, command, script, screenshot, or repository.
+GitLab normally requires a personal access token rather than the web password for Git over HTTP. Create a narrowly scoped token with `write_repository` permission in the learner account and store it in an approved credential manager. Do not place the token in a URL, command, script, screenshot, or repository.
 
 Useful service commands are:
 
@@ -671,7 +650,7 @@ docker stop gitlab-ce
 docker start gitlab-ce
 ```
 
-## Task 12: Install and Register GitLab Runner
+## Task 12: Install GitLab Runner
 
 GitLab Runner executes pipeline jobs. Production guidance recommends placing it on a different host because CI jobs process repository-controlled instructions. The same-host arrangement here is accepted only to keep the learner lab self-contained.
 
@@ -687,7 +666,9 @@ sudo apt install -y gitlab-runner
 gitlab-runner --version
 ```
 
-In GitLab, open the project and go to **Settings > CI/CD > Runners**, then select **Create project runner**. Choose Linux, enter the `docker` tag, clear **Run untagged**, add the description `ubuntu26-docker-runner`, and create the runner. GitLab then opens a registration-instructions page that displays a runner authentication token beginning with `glrt-`. Copy it immediately because GitLab displays it only briefly and does not reveal it again after leaving that page. If the page was closed before the token was copied, delete that unregistered runner and create a new one.
+Installation is the required Lab 1 outcome. Lab 7 will register the protected shell runner used by `network_automation_project`. If the instructor also wants an early Docker-executor test, complete the remainder of this section only after Lab 2 creates `lab2_warm_up`; register the optional Docker runner against that disposable project.
+
+In GitLab, open `lab2_warm_up` and go to **Settings > CI/CD > Runners**, then select **Create project runner**. Choose Linux, enter the `docker` tag, clear **Run untagged**, add the description `ubuntu26-docker-runner`, and create the runner. GitLab then opens a registration-instructions page that displays a runner authentication token beginning with `glrt-`. Copy it immediately because GitLab displays it only briefly and does not reveal it again after leaving that page. If the page was closed before the token was copied, delete that unregistered runner and create a new one.
 
 With the current authentication-token workflow, settings such as tags, protection, locking, and untagged-job behavior belong to the runner object created in the UI. Register the runner manager with the Docker executor using only the connection and executor arguments:
 
@@ -810,7 +791,7 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - Kubernetes node and successful NGINX deployment result
 - YANG Suite login page
 - NetBox login page
-- GitLab project and passed pipeline
+- GitLab login and installed Runner service; the optional `lab2_warm_up` test pipeline if completed
 - Final validation summary
 
 ## Operating the All-in-One Workstation

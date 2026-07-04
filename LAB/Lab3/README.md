@@ -1,5 +1,4 @@
-# Lab 3: Local HTTP API Behavior
+# Lab 3: Let's Start Your Network Automation Project
 
-[Begin Lab 3: Pagination, Rate Limiting, and HTTP Backoff](Lab3.md)
+Begin with [Lab3.md](Lab3.md). This lab creates the durable GitLab repository `network_automation_project`. Labs 4–7 continue enhancing this same repository.
 
-This self-contained Flask lab covers server-side pagination, HTTP `429`, backoff and resume behavior, CSV reporting, and optional cache revalidation.

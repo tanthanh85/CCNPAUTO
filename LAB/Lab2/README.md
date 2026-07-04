@@ -1,9 +1,4 @@
-# Lab 2
+# Lab 2: Network Automation Warm-Up
 
-[Begin Lab 2: IOS XE Automation Warm-Up](Lab2.md)
+Begin with [Lab2.md](Lab2.md). This lab uses its own disposable GitLab repository named `lab2_warm_up`. It does not create interfaces or supply files to the cumulative project that begins in Lab 3.
 
-All Python modules, scripts, templates, YAML data, and dependency files are stored directly in this folder. The lab explains which files learners copy into their own GitLab repository.
-
-The repository name is `network_automation_project`. Labs 4–7 continue enhancing that same repository.
-
-The loopback source of truth includes a lightweight validation command that checks YAML syntax, field structure, datatypes, addresses, and duplicate identifiers before configuration is sent.

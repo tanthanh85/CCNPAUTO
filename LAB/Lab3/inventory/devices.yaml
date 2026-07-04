@@ -1,0 +1,10 @@
+devices:
+  - name: iosxe-sandbox
+    platform: cisco_ios
+    role: lab-router
+    connection:
+      host_env: IOSXE_HOST
+      ssh_port_env: IOSXE_SSH_PORT
+      https_port_env: IOSXE_HTTPS_PORT
+
+# Credentials intentionally remain in .env and are never committed to Git.

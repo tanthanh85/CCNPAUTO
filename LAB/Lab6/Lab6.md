@@ -19,7 +19,7 @@ Cisco YANG Suite is central to the exercise. Learners must inspect the model rev
 
 ## Prerequisites
 
-- Labs 1, 2, 4, and 5 completed
+- Labs 1 and 3–5 completed
 - Existing `network_automation_project`
 - YANG Suite installed in Lab 1
 - NetBox and Vault running

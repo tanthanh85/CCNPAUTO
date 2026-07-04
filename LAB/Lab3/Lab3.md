@@ -1,269 +1,320 @@
-# Lab 3: Pagination, Rate Limiting, and HTTP Backoff
+# Lab 3: Let's Start Your Network Automation Project
 
 ## Lab Introduction
 
-This lab uses a local Flask server on the learner's Ubuntu 26.04 workstation. The server behaves like a small network inventory API: it holds 100 dummy loopback-interface records, returns them in pages, enforces a fixed-window request limit, and supports entity tags for an optional HTTP cache exercise.
+Lab 2 confirmed that the workstation can retrieve IOS XE information. Lab 3 now begins the durable project that learners will extend through Lab 7. Learners create a separate GitLab repository named `network_automation_project`, define one or more loopback interfaces in YAML, validate the data, render IOS XE commands with a Jinja2 template, configure a reserved router with Netmiko, and verify the resulting interface state.
 
-The Python client in this lab first retrieves different pages through query parameters. It then performs 100 logical requests rapidly enough to trigger HTTP `429 Too Many Requests`. Each `429` response is recorded, the client honors `Retry-After` or calculates exponential backoff, and the request is resumed. Every HTTP attempt is written to CSV with request and response timestamps, status, outcome, and delay. This arrangement gives every learner repeatable behavior without generating load against Cisco-hosted infrastructure.
+This first version uses `data/loopbacks.yaml` as a small source of truth. Lab 4 will replace that file as the active data source with NetBox. Lab 5 will replace environment-file device credentials with Vault. Lab 6 will add NETCONF-based OSPF configuration, and Lab 7 will place the complete workflow into GitLab CI/CD.
 
 ## Learning Objectives
 
-After completing this lab, you will be able to:
-
-- Explain page-number and page-size pagination.
-- Interpret pagination metadata returned by an API.
-- Implement a fixed-window rate limit in Flask.
-- Interpret HTTP `429` and `Retry-After`.
-- Resume an idempotent GET after bounded backoff.
-- Distinguish logical requests from HTTP attempts and retries.
-- Record API activity and UTC timestamps in CSV format.
-- Use `ETag` and `If-None-Match` for optional cache revalidation.
+- Create the cumulative `network_automation_project` GitLab repository.
+- Organize Python into reusable scripts and modules.
+- Represent one or many loopback interfaces in YAML.
+- Validate required fields, datatypes, addresses, and uniqueness.
+- Use a loop inside a Jinja2 template.
+- Preview configuration before sending it.
+- Configure IOS XE with a small object-oriented Netmiko client.
+- Verify intended IP addresses and operational state.
+- Use a feature branch and merge request for source-of-truth changes.
+- Explain the difference between repeatable commands and full reconciliation.
 
 ## Estimated Time
 
-Allow approximately **2 to 3 hours**.
+Allow approximately **3 hours**.
 
 ## Prerequisites
 
-- Ubuntu 26.04 workstation prepared in Lab 1, or an equivalent environment
-- Python 3, `pip`, Git, and VS Code
-- The `ccnpauto` virtual environment
-- Local GitLab access when source-control tasks are required
+- Labs 1 and 2 completed
+- Local GitLab and learner account
+- Active IOS XE reservable sandbox and VPN
+- Python virtual environment from Lab 1
+- Permission to create lab-owned loopback interfaces
 
-Lab 2 and Lab 3 are independent and may be completed in either order. No Cisco sandbox reservation is required for Lab 3.
-
-## Lab Architecture
+## Project Architecture
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant C as "Python client"
-    participant F as "Local Flask API"
-    participant R as "CSV report"
-
-    C->>F: GET /api/interfaces?page=1&page_size=10
-    F-->>C: 200 + items + pagination metadata
-    loop 100 logical requests
-        C->>F: Rapid paginated GET
-        alt Request is within current window
-            F-->>C: HTTP 200
-        else Window limit is exceeded
-            F-->>C: HTTP 429 + Retry-After
-            C->>C: Wait using backoff
-            C->>F: Resume the same GET
-            F-->>C: HTTP 200
-        end
-        C->>R: Timestamp, status, outcome, delay
-    end
+flowchart LR
+    G["GitLab<br/>network_automation_project"] --> Y["loopbacks.yaml"]
+    Y --> V["Validation"]
+    V --> J["Jinja2 template"]
+    J --> C["IOS XE commands"]
+    C --> N["Netmiko client"]
+    N --> R["Reserved IOS XE"]
+    R --> S["show ip interface brief"]
+    S --> Q["Verification against YAML"]
 ```
 
 ## Project Structure
 
 ```text
-lab3-http-api/
+network_automation_project/
+├── .env.example
 ├── .gitignore
 ├── requirements.txt
-├── server.py
-├── client.py
-└── artifacts/
-    └── api_results.csv
+├── data/
+│   └── loopbacks.yaml
+├── inventory/
+│   └── devices.yaml
+├── scripts/
+│   ├── __init__.py
+│   ├── apply_loopbacks.py
+│   ├── preview_loopbacks.py
+│   └── validate_source_of_truth.py
+├── src/
+│   ├── __init__.py
+│   ├── iosxe_cli.py
+│   ├── loopback_source.py
+│   ├── reporting.py
+│   └── settings.py
+└── templates/
+    └── loopback.j2
 ```
 
-## Task 1: Create the GitLab Project
+## Task 1: Create the Main GitLab Repository
 
-Create a private GitLab project named `lab3-http-api`, clone it, and copy the supplied Lab 3 files:
+In GitLab, create a blank private project:
+
+- Project name: `network_automation_project`
+- Project slug: `network_automation_project`
+- Default branch: `main`
+- Do not initialize with a README
+
+Clone it:
 
 ```bash
-cd "$HOME/ccnpauto-workspace"
-git clone http://gitlab.lab.local:8088/YOUR_USERNAME/lab3-http-api.git
-cd lab3-http-api
+cd ~/ccnpauto-workspace
+git clone \
+  http://gitlab.lab.local:8088/YOUR_USERNAME/network_automation_project.git
+cd network_automation_project
+```
 
+This repository is separate from `lab2_warm_up` and becomes the only repository extended in Labs 4–7.
+
+## Task 2: Copy the Baseline Project
+
+```bash
 LAB3_FILES="/path/to/CCNPAUTO/LAB/Lab3"
-cp "$LAB3_FILES/server.py" "$LAB3_FILES/client.py" .
-cp "$LAB3_FILES/requirements.txt" "$LAB3_FILES/.gitignore" .
+cp "$LAB3_FILES/.env.example" "$LAB3_FILES/.gitignore" \
+  "$LAB3_FILES/requirements.txt" .
+cp -R "$LAB3_FILES/data" "$LAB3_FILES/inventory" \
+  "$LAB3_FILES/scripts" "$LAB3_FILES/src" "$LAB3_FILES/templates" .
+tree -a -I '.git'
 ```
 
-Activate the environment and install the dependencies:
+Install dependencies:
 
 ```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
+source ~/.venvs/ccnpauto/bin/activate
 python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-## Task 2: Understand the Dummy Network Dataset
-
-The `build_dummy_interfaces()` function creates 100 records. Although the records are synthetic, their fields resemble data that a network inventory service might return:
-
-```json
-{
-  "id": 1,
-  "name": "Loopback1",
-  "ipv4_address": "198.18.0.1",
-  "prefix_length": 32,
-  "oper_status": "up",
-  "site": "BRANCH-01"
-}
-```
-
-The server does not return all records blindly. Instead, `page` identifies the requested page and `page_size` controls its maximum number of records. With 100 records and a page size of 10, the API produces 10 pages. The response also includes `total_items`, `total_pages`, `has_next`, and `next_page`, allowing the client to decide whether another call is needed.
-
-## Task 3: Start and Test the Flask Server
-
-Open a terminal, activate the environment, and start the API:
+The baseline YAML intentionally contains an empty list. Commit the reusable framework before defining a device change:
 
 ```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
-python server.py
-```
-
-Keep this terminal open. Flask listens only on `127.0.0.1:5000`, so the training API is not exposed to the external network. In a second terminal, test its health endpoint:
-
-```bash
-curl -s http://127.0.0.1:5000/health | python -m json.tool
-```
-
-The response should report `status: ok` and 100 records. Now request the second page:
-
-```bash
-curl -s "http://127.0.0.1:5000/api/interfaces?page=2&page_size=10" \
-  | python -m json.tool
-```
-
-The returned records should begin with Loopback11, while the pagination object should report page 2 of 10. Try `page_size=20`; this reduces the total to five pages without changing the underlying dataset.
-
-## Task 4: Examine Server-Side Pagination
-
-In `server.py`, the server calculates the slice as follows:
-
-```python
-start = (page - 1) * page_size
-records = interfaces[start : start + page_size]
-```
-
-For page 3 with 10 records per page, `start` is 20 and the slice returns list positions 20 through 29. Because Python indexes from zero, these positions represent Loopback21 through Loopback30. The server rejects page numbers below 1 and page sizes outside 1 through 50 with HTTP `400`, preventing an invalid or excessively large request.
-
-This is true server-side pagination: only the selected records are serialized into the response. By comparison, client-side pagination first downloads the entire collection and then slices it locally, which improves presentation but does not reduce payload size or server work.
-
-## Task 5: Understand the Simulated Rate Limit
-
-The `FixedWindowRateLimiter` permits eight requests during a one-second window. Every call updates the counter. Once the limit is exceeded, the server returns:
-
-```http
-HTTP/1.1 429 TOO MANY REQUESTS
-Retry-After: 1
-X-RateLimit-Limit: 8
-X-RateLimit-Remaining: 0
-```
-
-After the one-second window expires, the counter resets. This model is intentionally simple and deterministic enough for study. Production APIs may use token buckets, sliding windows, per-user quotas, distributed counters, or tier-specific policies.
-
-The client treats each desired page retrieval as one **logical request**. A logical request may require several **HTTP attempts**. When an attempt receives `429`, the client records it and waits. A later `200` for the same logical request increments the successful-resume counter.
-
-If `Retry-After` contains seconds, that provider instruction takes precedence. Otherwise, the client uses bounded exponential backoff with jitter:
-
-```text
-delay = min(0.5 × 2^(attempt-1) + random jitter, 8 seconds)
-```
-
-The maximum retry count prevents an unavailable service from trapping the client in an infinite loop. Repeating GET is appropriate because it is idempotent; retrying a state-changing POST requires additional duplicate-prevention design.
-
-## Task 6: Run 100 Logical Requests
-
-With the Flask server still running, execute the client from the second terminal:
-
-```bash
-python client.py --requests 100 --pages 10 --page-size 10
-```
-
-The client cycles through pages 1 to 10. Because it makes requests without proactive pacing, the ninth request in a busy one-second window should receive `429`. The client waits, resumes that page, and continues until all 100 logical requests succeed or one exceeds the retry limit.
-
-The final table separates the important measurements:
-
-- **Logical requests** should equal 100.
-- **HTTP attempts** includes initial calls and retry attempts, so it is normally greater than 100.
-- **Successful responses** counts the 100 completed logical operations.
-- **HTTP 429 responses** counts rate-limit rejections.
-- **Successful resumes after backoff** counts logical operations that eventually succeeded after at least one `429`.
-
-## Task 7: Interpret the CSV Report
-
-Open `artifacts/api_results.csv` in VS Code. Each row represents one HTTP attempt rather than one logical operation:
-
-| Column | Meaning |
-|---|---|
-| `logical_request` | Desired operation number from 1 through 100 |
-| `attempt` | Attempt number for that logical operation |
-| `page` | Requested page |
-| `requested_at_utc` | UTC timestamp immediately before the GET |
-| `responded_at_utc` | UTC timestamp immediately after the response |
-| `status_code` | HTTP `200`, `429`, or another status |
-| `outcome` | Success, rate-limited, resumed, or error |
-| `backoff_seconds` | Delay selected after that response |
-
-Filter for `status_code=429`. The following row with the same logical request should have a later timestamp and normally report `resumed_after_backoff`. Therefore, the CSV preserves evidence of both the failure-control decision and its successful recovery.
-
-## Task 8: Optional HTTP Cache Revalidation
-
-Successful page responses include `Cache-Control` and `ETag`. The entity tag is a SHA-256 digest of the records on that page. A client can present that validator later through `If-None-Match`; if the page is unchanged, the server returns `304 Not Modified` without another JSON body.
-
-Run the optional demonstration after the rate-limit window has recovered:
-
-```bash
-python client.py --cache-demo
-```
-
-The expected sequence is HTTP `200` followed by HTTP `304`. The example waits before revalidation so the earlier burst cannot interfere. In production, cache keys must include the URI, query parameters, relevant representation headers, and authorization context. Operational network state should never be cached merely because a response can technically be stored.
-
-## Task 9: Commit the Lab
-
-The generated CSV is ignored because it is runtime evidence rather than source code. Commit the implementation and learner notes:
-
-```bash
-git switch -c feature/complete-http-api-lab
 git add .
-git diff --staged
-git commit -m "Complete pagination and rate-limit lab"
-git push -u origin feature/complete-http-api-lab
+git commit -m "Initialize network automation project"
+git push -u origin main
 ```
 
-Create a merge request, review it, and merge it into `main`.
+## Task 3: Configure the Reserved Router Connection
+
+```bash
+cp .env.example .env
+chmod 600 .env
+```
+
+Enter the current reservation values. Keep:
+
+```dotenv
+SANDBOX_MODE=reserved
+ALLOW_CONFIG_CHANGES=false
+```
+
+Confirm `.env` is ignored:
+
+```bash
+git check-ignore -v .env
+```
+
+`Settings.confirm_write_access()` requires both an explicitly reserved environment and an explicit write flag. A missing or false value stops configuration.
+
+## Task 4: Create a Feature Branch for Loopback Intent
+
+```bash
+git switch -c feature/add-loopbacks
+```
+
+Edit `data/loopbacks.yaml`. One loopback uses:
+
+```yaml
+---
+loopbacks:
+  - id: 101
+    description: MANAGED_BY_NETWORK_AUTOMATION_PROJECT
+    ipv4: 192.0.2.101
+    prefix_length: 32
+    enabled: true
+```
+
+Several loopbacks use the same list:
+
+```yaml
+---
+loopbacks:
+  - id: 101
+    description: MANAGED_BY_NETWORK_AUTOMATION_PROJECT
+    ipv4: 192.0.2.101
+    prefix_length: 32
+    enabled: true
+  - id: 102
+    description: MANAGED_BY_NETWORK_AUTOMATION_PROJECT
+    ipv4: 192.0.2.102
+    prefix_length: 32
+    enabled: true
+```
+
+Use only instructor-approved IDs and documentation addresses. Do not overwrite an existing sandbox interface.
+
+## Task 5: Validate the YAML Contract
+
+Run:
+
+```bash
+python -m scripts.validate_source_of_truth
+```
+
+Each item must contain exactly:
+
+- `id`: non-negative integer;
+- `description`: nonempty, single-line string;
+- `ipv4`: valid IPv4 address;
+- `prefix_length`: integer;
+- `enabled`: Boolean.
+
+The loader also rejects duplicate IDs and duplicate addresses. Correct source data rather than bypassing validation.
+
+## Task 6: Preview the Jinja2 Output
+
+```bash
+python -m scripts.preview_loopbacks
+```
+
+The template, not Python, contains the loop:
+
+```jinja2
+{% raw %}{% for loopback in loopbacks %}
+interface Loopback{{ loopback.id }}
+ description {{ loopback.description }}
+ ip address {{ loopback.ipv4 }} {{ loopback.netmask }}
+{% if loopback.enabled %}
+ no shutdown
+{% else %}
+ shutdown
+{% endif %}
+{% endfor %}{% endraw %}
+```
+
+Python loads and validates the list once. Jinja2 repeats the interface stanza for every item.
+
+## Task 7: Review the Reusable Classes
+
+`LoopbackManager` owns source loading, validation, address normalization, and rendering. `IOSXEDevice` owns connection lifecycle, parsed operational commands, and configuration transport. `reporting.py` owns table presentation.
+
+This separation matters in Lab 4: NetBox will replace the YAML loader, while the template and device adapter remain useful.
+
+## Task 8: Apply and Verify the Loopbacks
+
+Review the preview carefully, confirm the private reservation, and change:
+
+```dotenv
+ALLOW_CONFIG_CHANGES=true
+```
+
+Run:
+
+```bash
+python -m scripts.apply_loopbacks
+```
+
+The script:
+
+1. checks the write boundary;
+2. validates YAML;
+3. connects once with Netmiko;
+4. displays interface state before the change;
+5. renders and sends commands;
+6. retrieves interface state again; and
+7. verifies every intended interface and address.
+
+Run it a second time. Reapplying the same interface commands should not create duplicate interfaces or change the intended result. This is operationally repeatable, but it is not complete reconciliation: interfaces omitted from YAML are not deleted automatically.
+
+Return `ALLOW_CONFIG_CHANGES=false` after testing.
+
+## Task 9: Commit Through a Merge Request
+
+```bash
+git diff
+git add data/loopbacks.yaml
+git commit -m "Define managed loopback interfaces"
+git push -u origin feature/add-loopbacks
+```
+
+Create a merge request into `main`. Include:
+
+- intended interface IDs and addresses;
+- validation result;
+- rendered-command review;
+- verification result;
+- rollback command such as `no interface Loopback101`.
+
+Merge after review, then synchronize:
+
+```bash
+git switch main
+git pull --ff-only
+git branch -d feature/add-loopbacks
+```
+
+## Task 10: Establish the Project Baseline
+
+Confirm:
+
+```bash
+git status --short
+git log --oneline --graph --decorate --all
+python -m scripts.validate_source_of_truth
+```
+
+The repository now contains the first version of the cumulative automation project. `.env` remains local and untracked.
 
 ## Troubleshooting
 
-### Connection refused
-
-Confirm that `python server.py` is still running and listening on `127.0.0.1:5000`. The client and server must run in separate terminals.
-
-### No HTTP 429 responses appear
-
-Confirm that the client uses its defaults and that only one server process is running. Slow debugging, breakpoints, or manually paced calls can allow the one-second window to reset before the ninth request.
-
-### A logical request exceeds the retry limit
-
-Verify that the server returns `Retry-After: 1` and that the client has not been modified to skip `time.sleep()`. Stop additional client processes because they share the same server-side counter.
-
-### CSV contains more than 100 rows
-
-This is expected. The experiment performs 100 logical operations, while every `429` adds an HTTP attempt and CSV row before the resumed attempt succeeds.
+| Symptom | Likely cause | Action |
+|---|---|---|
+| Validation reports empty list | No loopback was added on the feature branch | Add at least one complete YAML item |
+| YAML parser error | Indentation or syntax problem | Correct spacing and list markers |
+| TextFSM returns raw text | Missing or incompatible `ntc-templates` | Reinstall requirements and inspect release support |
+| Safety check stops change | Write flag false or sandbox mode incorrect | Confirm reservation, then enable changes deliberately |
+| SSH timeout | VPN, hostname, port, or reservation expired | Test reachability and reservation details |
+| Verification finds wrong address | Existing interface conflict or unintended state | Stop and compare YAML with router configuration |
 
 ## Key Takeaways
 
-- Server-side pagination reduces response size by selecting records before serialization.
-- Pagination metadata helps clients traverse a collection safely.
-- HTTP `429` indicates temporary rate-limit rejection rather than malformed input.
-- `Retry-After` should be preferred when the provider supplies it.
-- Exponential backoff with jitter is a fallback, and retries must remain bounded.
-- Logical requests and HTTP attempts are different operational measurements.
-- UTC timestamps and CSV records make API behavior auditable.
-- `ETag` enables conditional revalidation, but cache policy must match data sensitivity and freshness requirements.
+- `network_automation_project` begins in Lab 3 and continues through Lab 7.
+- YAML provides a simple first source of truth for one or many loopbacks.
+- Validation and preview happen before device access.
+- Jinja2 owns iteration and separates intent from IOS XE syntax.
+- Reusable modules allow later labs to replace one concern at a time.
+- Git branches and merge requests make network intent reviewable.
 
-Lab 4 returns to the cumulative IOS XE project and moves its loopback source of truth from YAML into NetBox.
+Lab 4 moves the loopback source of truth from YAML to NetBox while retaining this project's normalized contract, template, device adapter, and verification logic.
 
-## Further Reading
+## References
 
-- [Flask documentation](https://flask.palletsprojects.com/)
-- [Requests documentation](https://requests.readthedocs.io/)
-- [RFC 6585: HTTP 429 Too Many Requests](https://www.rfc-editor.org/rfc/rfc6585)
-- [RFC 9110: HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
-- [RFC 9111: HTTP Caching](https://www.rfc-editor.org/rfc/rfc9111)
+- [Jinja documentation](https://jinja.palletsprojects.com/)
+- [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation)
+- [Netmiko documentation](https://ktbyers.github.io/netmiko/docs/netmiko/)
+- [GitLab merge requests](https://docs.gitlab.com/user/project/merge_requests/)
+

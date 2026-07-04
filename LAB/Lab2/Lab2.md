@@ -1,783 +1,235 @@
-# Lab 2: The Network Automation Warm-Up Lab
+# Lab 2: Network Automation Warm-Up
 
 ## Lab Introduction
 
-Cisco DevNet Sandboxes provide remotely accessible Cisco products for learning, development, and API testing without requiring every learner to own physical equipment. A sandbox is more than a device address. It is a temporary lab environment with an access policy, topology, credentials, permitted operations, and reset behavior. Reading those details before connecting is part of responsible automation.
+This short lab helps learners confirm that the workstation, local GitLab, Python environment, DevNet VPN, and IOS XE sandbox work together before the main project begins. Learners create a disposable GitLab repository named `lab2_warm_up`, connect to a reserved IOS XE router with Netmiko, run `show version` and `show ip interface brief`, parse the output with TextFSM, and display tables. They then retrieve interface data through RESTCONF and compare structured YANG JSON with parsed CLI text.
 
-DevNet offers two broad sandbox models. An **Always-On** sandbox is available immediately and is shared among users, so administrative access is restricted. A **reservable** sandbox is assigned to one learner or team for a defined period and may require a VPN connection. Because Lab 2 includes configuration changes, every learner is assumed to have an active reservable IOS XE instance whose instructions permit CLI and RESTCONF access.
-
-The reservation boundary remains important even when the first operations are read-only. Learners should use the same assigned IOS XE instance from initial collection through loopback configuration and RESTCONF verification. The supplied Python code requires `SANDBOX_MODE=reserved` and still refuses to send configuration while the separate change-enable flag remains false.
-
-The lab begins with familiar CLI commands transported through Netmiko. TextFSM converts their human-oriented text into lists of dictionaries, allowing the script to print consistent tables. The lab then introduces a small desired-state workflow: YAML records loopback intent, Jinja2 renders IOS XE commands, and a reusable client applies and verifies the change. GitLab records that source-of-truth modification through a feature branch and merge request. Finally, the same interface state is collected from RESTCONF as YANG-modeled JSON, allowing learners to compare screen scraping with a structured API.
+Lab 2 is read-only. It does not create loopbacks or become the base repository for later work.
 
 ## Learning Objectives
 
-After completing this lab, you will be able to:
-
-- Explain why this configuration lab requires a reservable DevNet Sandbox.
-- Create and clone a project from the GitLab instance on the learner workstation.
-- Reuse the Python virtual environment created in Lab 1 and add project dependencies.
-- Connect securely to IOS XE with Netmiko.
-- Execute `show version` and `show ip interface brief` through Python.
-- Parse supported CLI output with TextFSM and iterate through structured records.
-- Print network information in readable tables.
-- Use YAML as a limited source of truth for managed loopback interfaces.
-- Define one or many loopback interfaces with one consistent data contract.
-- Validate YAML fields, datatypes, addresses, and duplicate values before deployment.
-- Render IOS XE configuration from a Jinja2 template.
-- Apply and verify a loopback configuration only in a reserved sandbox.
-- Create a Git feature branch, push it to GitLab, review it, and merge it into `main`.
-- Explain the limitations of TextFSM and the value of YANG-modeled JSON and XML.
-- Retrieve and normalize IOS XE interface information through RESTCONF.
+- Create and clone a GitLab repository.
+- Work in a Python virtual environment.
+- Protect sandbox credentials with an untracked `.env` file.
+- Connect to a reserved IOS XE sandbox with Netmiko.
+- Parse common operational commands with TextFSM.
+- Iterate through structured records and print tables.
+- Retrieve YANG-modeled interface state through RESTCONF.
+- Compare CLI parsing with a structured API response.
 
 ## Estimated Time
 
-Allow approximately **2.5 to 4 hours**. Reserving a sandbox and establishing VPN access may require additional time.
+Allow approximately **90 minutes to 2 hours**.
 
 ## Prerequisites
 
-Before starting, confirm that Lab 1 is complete. The Ubuntu 26.04 workstation should contain:
+- Lab 1 completed
+- Local GitLab available at `http://gitlab.lab.local:8088`
+- Python virtual environment from Lab 1
+- Active IOS XE reservable sandbox and VPN
+- GitLab learner account and repository token
 
-- The `ccnpauto` Python virtual environment
-- Git and Visual Studio Code
-- Local GitLab CE at `http://gitlab.lab.local:8088`
-- A working learner GitLab account and personal access token
-- Internet access to Cisco DevNet
-- Cisco.com/DevNet credentials
-
-The configuration task also requires an active reservable IOS XE sandbox and, where stated by the sandbox instructions, a Cisco Secure Client VPN connection.
-
-## Automation Flow
+## Lab Flow
 
 ```mermaid
 flowchart LR
-    GitLab["Local GitLab project"] --> Clone["Local clone"]
-    Clone --> Venv["ccnpauto virtual environment"]
-    Venv --> CLI["Netmiko CLI client"]
-    CLI --> TextFSM["TextFSM / ntc-templates"]
-    TextFSM --> Table["Normalized table"]
-
-    YAML["loopbacks.yaml<br/>desired state"] --> Validate["Simple field and IP checks"]
-    Validate --> Jinja["Jinja2 template"]
-    Jinja --> CLI
-    CLI --> Router["Reserved IOS XE sandbox"]
-
-    Router --> RESTCONF["RESTCONF HTTPS"]
-    RESTCONF --> JSON["YANG-modeled JSON"]
-    JSON --> Table
+    G["GitLab<br/>lab2_warm_up"] --> C["Local clone"]
+    C --> P["Python scripts"]
+    P --> N["Netmiko SSH"]
+    N --> I["IOS XE reserved sandbox"]
+    I --> T["CLI text"]
+    T --> F["TextFSM records"]
+    I --> R["RESTCONF YANG JSON"]
+    F --> O["Tables"]
+    R --> O
 ```
 
 ## Project Structure
 
-The supplied project separates transport, settings, validation, presentation, and executable workflows:
-
 ```text
-network_automation_project/
+lab2_warm_up/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
-├── data/
-│   └── loopbacks.yaml
 ├── inventory/
 │   └── devices.yaml
 ├── scripts/
-│   ├── apply_loopbacks.py
+│   ├── __init__.py
 │   ├── collect_cli.py
-│   ├── collect_restconf.py
-│   ├── compare_cli_restconf.py
-│   └── validate_source_of_truth.py
-├── src/
-│   ├── iosxe_cli.py
-│   ├── iosxe_restconf.py
-│   ├── loopback_source.py
-│   ├── reporting.py
-│   └── settings.py
-└── templates/
-    └── loopback.j2
+│   └── collect_restconf.py
+└── src/
+    ├── __init__.py
+    ├── iosxe_cli.py
+    ├── iosxe_restconf.py
+    ├── reporting.py
+    └── settings.py
 ```
 
-The scripts are intentionally thin. Reusable behavior belongs in `src`, so collecting interface state does not need to be rewritten for configuration verification or protocol comparison.
+## Task 1: Reserve IOS XE
 
-The object model is deliberately small. `Settings` owns environment values, `IOSXEDevice` owns one Netmiko connection, `LoopbackManager` owns YAML validation and rendering, and `RESTCONFClient` owns one HTTP session. The scripts create these objects and use `try/except/finally` to decide how authentication, timeout, validation, and cleanup should behave.
+Reserve a private IOS XE sandbox, start the VPN, and record the current hostname, SSH port, HTTPS port, username, and password. Do not use a shared always-on router for configuration experiments, although this warm-up performs only read operations.
 
-## Task 1: Select and Access the IOS XE Sandbox
+Test reachability:
 
-Sign in to the [Cisco DevNet Sandbox](https://devnetsandbox.cisco.com/) with the learner's Cisco account and search for IOS XE. Although the catalog also contains shared Always-On environments, select a **reservable IOS XE sandbox**, such as an available Catalyst 8000V/8kv environment, because this lab changes interface configuration.
+```bash
+nc -vz <sandbox-host> 22
+nc -vz <sandbox-host> 443
+```
 
-Reserve an environment that supports CLI and RESTCONF configuration for the required period and wait until its status reports that setup is complete. Read the reservation instructions rather than relying on credentials copied from a blog or previous course. Sandbox hostnames, ports, credentials, images, and VPN procedures can change.
+## Task 2: Create `lab2_warm_up` in GitLab
 
-Record these values privately:
+Create a blank private project:
 
-| Required value | Where to find it |
-|---|---|
-| Router hostname or IP address | Reservation topology/instructions |
-| SSH port | Reservation instructions, commonly TCP 22 |
-| HTTPS/RESTCONF port | Reservation instructions, commonly TCP 443 |
-| Username and password | Reservation credentials |
-| VPN endpoint and credentials | Reservation VPN instructions, if required |
-
-Connect the VPN if the reservable sandbox requires it. Do not proceed to the configuration task until the router address is reachable through the expected path.
-
-### Sandbox Safety Boundaries
-
-During this lab:
-
-- Do not modify the management interface (GigabitEthernet1), default route, AAA, local users, SSH, HTTPS, RESTCONF, or VPN-related configuration.
-- Do not erase configuration, reload the device, or save changes with `write memory` unless the reservation explicitly requires it.
-- Create only the loopback allocated by the lab.
-- Assume the reservation will be reset when it expires (default 8 hours, max 3 days or so). The instance is shared so just reserve enough time to allow other users can reserve and do their labs!!!
-
-## Task 2: Open the Cumulative GitLab Repository
-
-Lab 1 created the cumulative GitLab project with these settings:
-
-- Project name: `network_automation_project`
-- Project slug: `network_automation_project`
-- Visibility: private
+- Project name: `lab2_warm_up`
+- Project slug: `lab2_warm_up`
 - Default branch: `main`
+- Do not initialize with a README
 
-If it does not exist, create it now as a blank private project. Do not create a separate repository for later labs. Labs 4–7 will enhance this same project.
-
-If Lab 1 already initialized the local repository, enter it and confirm the remote:
-
-```bash
-cd "$HOME/ccnpauto-workspace/network_automation_project"
-git status
-git remote -v
-```
-
-Otherwise, clone the existing GitLab project:
+Clone it:
 
 ```bash
-mkdir -p "$HOME/ccnpauto-workspace"
-cd "$HOME/ccnpauto-workspace"
+mkdir -p ~/ccnpauto-workspace
+cd ~/ccnpauto-workspace
 git clone \
-  http://gitlab.lab.local:8088/YOUR_USERNAME/network_automation_project.git
-cd network_automation_project
+  http://gitlab.lab.local:8088/YOUR_USERNAME/lab2_warm_up.git
+cd lab2_warm_up
 ```
 
-When Git requests a password, use a narrowly scoped GitLab personal access token rather than placing a token in the clone URL. A token embedded in a command may remain in shell history and process logs.
-
-Copy the project files from the Lab 2 course folder into the clone. Set `LAB2_FILES` to the actual Lab 2 path on the learner workstation:
+Copy the supplied files:
 
 ```bash
 LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
-cp "$LAB2_FILES/requirements.txt" "$LAB2_FILES/.env.example" \
-  "$LAB2_FILES/.gitignore" .
-cp -R "$LAB2_FILES/data" "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" \
-  "$LAB2_FILES/src" "$LAB2_FILES/templates" .
-tree -a -I '.git'
+cp "$LAB2_FILES/.env.example" "$LAB2_FILES/.gitignore" \
+  "$LAB2_FILES/requirements.txt" .
+cp -R "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" "$LAB2_FILES/src" .
 ```
 
-Review `.gitignore` before creating credentials:
+## Task 3: Install Dependencies
 
 ```bash
-cat .gitignore
-git check-ignore -v .env || true
-```
-
-Commit the reusable project code to `main`:
-
-```bash
-git add .
-git status
-git commit -m "Add reusable IOS XE automation project"
-git push origin main
-```
-
-At this point, `main` contains code but no device secrets and no requested loopback intent.
-
-## Task 3: Activate Python and Install Missing Libraries
-
-Activate the virtual environment created in Lab 1:
-
-```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
-which python
-python --version
-```
-
-Install the dependencies required by this project. `pip` installs only missing or incompatible packages, so this step is safe when some packages already exist:
-
-```bash
+source ~/.venvs/ccnpauto/bin/activate
 python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-Run the lightweight source-of-truth validator before making a change:
+Commit the baseline:
 
 ```bash
-python -m scripts.validate_source_of_truth
+git add .
+git commit -m "Add IOS XE warm-up scripts"
+git push -u origin main
 ```
 
-The initial YAML list is empty, which is a valid repository state before the feature branch introduces intent. The validator should report zero managed loopbacks. This is a simple preflight check; formal automated testing and CI/CD are intentionally left for later labs.
-
-If a later script reports a missing module, keep the virtual environment active and install through `python -m pip install PACKAGE`. Do not use `sudo pip` and do not modify Ubuntu's system Python.
-
-## Task 4: Configure Credentials and Collect CLI Data
-
-Copy the example environment file and protect it:
+## Task 4: Configure the Environment
 
 ```bash
 cp .env.example .env
 chmod 600 .env
-code .env
 ```
 
-Enter the values from the active reservable sandbox. Keep the configuration gate disabled during the collection task:
+Enter the active reservation values. Keep `VERIFY_TLS=false` only because the training device commonly uses a certificate that the workstation does not trust.
 
-```dotenv
-SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=false
-```
-
-Do not commit `.env`. Verify that Git ignores it:
+Confirm the secret file is ignored:
 
 ```bash
 git check-ignore -v .env
+```
+
+## Task 5: Collect and Parse CLI Data
+
+Run:
+
+```bash
+python -m scripts.collect_cli
+```
+
+`IOSXEDevice` opens one SSH connection and runs:
+
+```text
+show version
+show ip interface brief
+```
+
+Netmiko asks the `ntc-templates` TextFSM templates to parse each response. The script checks that parsing returned a list rather than raw text, normalizes selected fields, loops through the records, and prints GitHub-style tables.
+
+Review `src/iosxe_cli.py` and identify the connection lifecycle, timeout settings, command execution, and explicit parser-success check.
+
+## Task 6: Understand TextFSM Limitations
+
+TextFSM adds structure to human-oriented output, but the parser depends on exact command wording and templates. A software upgrade can alter spacing or labels. Unsupported commands return raw strings, and parsing generally loses schema constraints and namespace meaning.
+
+This does not make TextFSM unsuitable. It remains useful when an API is unavailable. However, automation must detect parser failure and test templates against supported releases.
+
+## Task 7: Inspect RESTCONF Manually
+
+Load environment variables temporarily:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Retrieve interface state:
+
+```bash
+curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" \
+  -H 'Accept: application/yang-data+json' \
+  "https://$IOSXE_HOST:$IOSXE_HTTPS_PORT/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces" \
+  | python -m json.tool | less
+```
+
+The JSON field hierarchy comes from a YANG model rather than a screen-oriented CLI format.
+
+## Task 8: Collect RESTCONF Data with Python
+
+```bash
+python -m scripts.collect_restconf
+```
+
+The client tries the Cisco operational interface model and falls back to `ietf-interfaces:interfaces-state` when the first path returns 404. It saves the unmodified payload under `artifacts/` and prints a normalized table.
+
+Compare the CLI and RESTCONF tables:
+
+- Are interface names identical?
+- How are unassigned addresses represented?
+- Which source exposes administrative and operational state?
+- Which response retains explicit model structure?
+
+## Task 9: Exercise Safe Error Handling
+
+Test one error at a time:
+
+- incorrect password;
+- unreachable hostname;
+- wrong HTTPS port;
+- invalid RESTCONF resource path.
+
+Restore the correct value after each test. The scripts should display controlled authentication, timeout, HTTP, or response-processing errors rather than a long unhandled traceback.
+
+## Task 10: Finish the Warm-Up
+
+```bash
 git status --short
+git log --oneline --decorate -3
 ```
 
-### Understand the CLI Client
-
-Open `src/iosxe_cli.py`. The `IOSXEDevice` class represents one router connection. Its methods—`connect()`, `disconnect()`, `get_version()`, `get_interfaces()`, and `configure()`—use names familiar to a network engineer. The class keeps the connection and credentials together without hiding the individual operations.
-
-The `send_and_parse()` function uses:
-
-```python
-result = self.connection.send_command(command, use_textfsm=True)
-```
-
-Netmiko identifies a TextFSM template from the platform and command. When parsing succeeds, the result is a list of dictionaries. When no template matches or parsing fails, Netmiko may return the original string. The wrapper treats a string as an error instead of accidentally iterating through it one character at a time.
-
-The collection script creates an object and uses `try/except/finally`. Expected authentication and timeout failures receive specific messages, and `finally` disconnects regardless of success or failure:
-
-```python
-device = IOSXEDevice(settings)
-try:
-    device.connect()
-    version_records = device.get_version()
-    interface_records = device.get_interfaces()
-except NetmikoTimeoutException:
-    print("Connection timed out")
-finally:
-    device.disconnect()
-
-print_version(version_records)
-print_interfaces(interface_records, "IOS XE Interfaces from CLI and TextFSM")
-```
-
-Inside `get_interfaces()`, a normal `for` loop copies the TextFSM fields into four consistent keys: `interface`, `ip_address`, `status`, and `protocol`.
-
-### Run the CLI Collector
-
-Run executable files as modules from the project root. This keeps the project root on Python's import path:
-
-```bash
-python -m scripts.collect_cli
-```
-
-Expected output resembles the following, although sandbox values will differ:
-
-```text
-IOS XE Software and Platform
-============================
-| Hostname   | IOS XE Version   | Image                         | Uptime   | Serial   |
-|------------|------------------|-------------------------------|----------|----------|
-| sandbox-r1 | 17.x             | packages.conf                 | ...      | ...      |
-
-IOS XE Interfaces from CLI and TextFSM
-======================================
-| Interface          | IPv4 Address   | Admin Status   | Protocol   |
-|--------------------|----------------|----------------|------------|
-| GigabitEthernet1   | ...            | up             | up         |
-| Loopback...        | ...            | up             | up         |
-```
-
-This completes the read-only warm-up. The next task moves desired state through a controlled Git branch before applying it.
-
-## Task 5: Create a Feature Branch for One or More Loopbacks
-
-Confirm once more that the active reservation belongs to the learner and permits configuration before creating the source-of-truth change.
-
-Create a focused branch:
-
-```bash
-git switch main
-git pull --ff-only
-git switch -c feature/add-lab-loopbacks
-git branch --show-current
-```
-
-Open `data/loopbacks.yaml`. It begins with an empty list so new desired state appears clearly in the branch diff. A learner who needs one interface can use:
-
-```yaml
----
-loopbacks:
-  - id: 101
-    description: LAB2_MANAGED_AUTOMATION
-    ipv4: 192.0.2.101
-    prefix_length: 32
-    enabled: true
-```
-
-The same list can contain multiple loopbacks. To create three interfaces in one controlled change, use:
-
-```yaml
----
-loopbacks:
-  - id: 101
-    description: LAB2_MANAGED_PRIMARY
-    ipv4: 192.0.2.101
-    prefix_length: 32
-    enabled: true
-
-  - id: 102
-    description: LAB2_MANAGED_MONITORING
-    ipv4: 192.0.2.102
-    prefix_length: 32
-    enabled: true
-
-  - id: 103
-    description: LAB2_MANAGED_DISABLED_TEST
-    ipv4: 192.0.2.103
-    prefix_length: 32
-    enabled: false
-```
-
-Choose either form. Every entry uses the same five keys; alternatives such as `interface_number`, `ip`, `mask`, or `state` are rejected by the validator. Interface IDs and addresses must also be unique.
-
-The address comes from the documentation prefix `192.0.2.0/24` and is suitable for an isolated loopback exercise. If the reservation instructions allocate a different range or Loopback101 already exists, choose an instructor-approved ID and address. Never overwrite an existing interface that the lab does not own.
-
-### Understand the Source-of-Truth Contract
-
-The `LoopbackManager` class in `src/loopback_source.py` has two main jobs: `load()` validates YAML data, and `render()` passes the complete loopback list to Jinja2. At the top level, only `loopbacks` is allowed. Each list item must contain exactly these fields:
-
-| Field | Required type and rule | Purpose |
-|---|---|---|
-| `id` | Integer | IOS XE Loopback interface number |
-| `description` | Nonempty string | Ownership and operational context |
-| `ipv4` | Valid IPv4 address string | Interface address |
-| `prefix_length` | Integer from 0 through 32 | Converted to an IOS dotted-decimal mask |
-| `enabled` | YAML Boolean `true` or `false` | Renders `no shutdown` or `shutdown` |
-
-The function compares the supplied keys with the required field names. Therefore, adding `subnet_mask: 255.255.255.255` fails rather than being ignored. Two Python sets track IDs and addresses so duplicates are rejected.
-
-The resulting test sequence has three layers:
-
-```mermaid
-flowchart LR
-    File["data/loopbacks.yaml"] --> YAML["1. Parse YAML syntax"]
-    YAML --> Fields["2. Check names and datatypes"]
-    Fields --> Semantic["3. Check IP format and duplicates"]
-    Semantic --> Render["Jinja2 loops through the complete list"]
-    Render --> Deploy["Deploy only after validation passes"]
-```
-
-Malformed indentation or punctuation fails while PyYAML reads the file. A quoted ID such as `id: "101"`, a string such as `enabled: "yes"`, or an unknown key fails the field checks. Invalid and duplicate addresses are rejected before rendering.
-
-### Run the Source-of-Truth Validation
-
-Validate the learner's modified data before any router connection:
-
-```bash
-python -m scripts.validate_source_of_truth
-```
-
-For three entries, the first command should report:
-
-```text
-PASS: data/loopbacks.yaml contains 3 valid loopback(s).
-```
-
-The validator accepts one or multiple correctly formatted entries and rejects invalid addresses, incorrect types, unknown fields, duplicate IDs, and duplicate IP addresses. A successful result does not prove that the intended network design is correct; it proves only that the data satisfies the agreed machine-readable contract.
-
-### Preview Jinja2 Output
-
-The YAML file is a **scoped source of truth**: it owns only the loopbacks listed in this file and only the attributes rendered by this lab. It does not claim ownership of every interface on the router, and the script deliberately does not delete interfaces omitted from the file.
-
-Validate and render without connecting to the router:
-
-```bash
-python - <<'PY'
-from pathlib import Path
-
-from src.loopback_source import LoopbackManager
-
-root = Path.cwd()
-manager = LoopbackManager(
-    root / "data" / "loopbacks.yaml",
-    root / "templates" / "loopback.j2",
-)
-
-loopbacks = manager.load()
-commands = manager.render(loopbacks)
-
-for command in commands:
-    print(command)
-PY
-```
-
-For a single enabled entry, the expected command set is:
-
-```text
-interface Loopback101
- description LAB2_MANAGED_AUTOMATION
- ip address 192.0.2.101 255.255.255.255
- no shutdown
-```
-
-Open `templates/loopback.j2` and locate `{% for loopback in loopbacks %}`. The loop belongs in the template, so Python calls `manager.render(loopbacks)` only once. Jinja2 repeats the interface stanza for every list item, while the inner `if` statement renders either `no shutdown` or `shutdown`.
-
-Review the branch diff:
-
-```bash
-git diff -- data/loopbacks.yaml
-```
-
-## Task 6: Apply and Verify the Loopback Interfaces
-
-Open `.env` and make the second deliberate change gate:
-
-```dotenv
-SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=true
-```
-
-Both values are required. This is not intended as unbreakable security; it is a guard against pointing a configuration script at a shared environment through habit or copy-and-paste.
-
-Run the source-of-truth workflow:
-
-```bash
-python -m scripts.apply_loopbacks
-```
-
-The script performs these steps for one or many YAML entries:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Y as "loopbacks.yaml"
-    participant P as "Python workflow"
-    participant T as "Jinja2 template"
-    participant R as "Reserved IOS XE router"
-
-    P->>P: Validate reserved mode and write flag
-    P->>Y: Load desired loopbacks
-    P->>R: Collect show ip interface brief
-    R-->>P: TextFSM interface records before change
-    P->>T: Pass the complete validated list
-    T->>T: Loop through all loopbacks
-    T-->>P: One complete IOS XE command list
-    P->>R: send_config_set commands
-    R-->>P: Configuration result
-    P->>R: Collect show ip interface brief again
-    R-->>P: TextFSM interface records after change
-    P->>P: Verify interface, IPv4 address, and up/up state
-```
-
-The workflow reuses `device.get_interfaces()` before and after the change. Enabled loopbacks must have the intended address and report up/up. Disabled loopbacks must exist with the intended address but are not expected to report up/up.
-
-Run the script a second time:
-
-```bash
-python -m scripts.apply_loopbacks
-```
-
-IOS configuration commands describing the same state are operationally idempotent: sending them again should leave the managed attributes unchanged. However, this introductory workflow does not calculate a full candidate diff, remove omitted loopbacks, or manage every interface property. Later labs will distinguish repeatable command execution from complete declarative reconciliation.
-
-### Keep the Change in Git
-
-Review, commit, and push the branch:
-
-```bash
-git status
-git diff
-git add data/loopbacks.yaml
-git diff --staged
-git commit -m "Define managed Lab 2 loopback"
-git push -u origin feature/add-lab-loopbacks
-```
-
-Open the GitLab project and create a merge request from `feature/add-lab-loopbacks` into `main`. In the description, include:
-
-- The reserved sandbox used
-- The intended Loopback ID and address
-- The validation and rendered commands
-- The before/after verification result
-- The fact that no startup configuration was saved
-
-Review the diff and merge the change. Then synchronize the local repository:
-
-```bash
-git switch main
-git pull --ff-only
-git log --oneline --graph --decorate -5
-git branch -d feature/add-lab-loopbacks
-```
-
-In a production workflow, the merge request would normally be approved before automation applied network intent. This warm-up lab applies the branch manually so the learner can observe each step. Later labs add automated testing and controlled deployment stages.
-
-## Task 7: Understand the Limits of TextFSM
-
-TextFSM is valuable because many network platforms expose important state through CLI commands. It converts familiar output into structured records without requiring the engineer to write a new regular-expression parser for every script. Nevertheless, it does not turn the CLI into a formal API.
-
-### Template Dependence
-
-A TextFSM template recognizes a particular command format through regular expressions and state transitions. Minor differences in command spelling, platform family, IOS XE release, field wrapping, localization, or optional output can cause a field to be missed or the entire parse to fail. Installing `ntc-templates` supplies many community-maintained templates, but coverage is not universal.
-
-### Loss of Meaning
-
-The template selects a subset of visible text and assigns locally chosen field names. Information that the template does not capture disappears from the structured result. Types are also weak: an interface index, speed, Boolean, and timestamp commonly arrive as strings unless application code converts them. The parser knows that text matched a regular expression; it does not know the YANG datatype, units, defaults, constraints, or whether a value is configuration or operational state.
-
-### CLI Is Human-Oriented
-
-CLI output is designed for engineers reading a terminal. Columns may wrap, abbreviations may change, and pagination or banners can interfere. The command itself can require privilege and may consume device resources. A parser can return plausible but incomplete data, so automation must detect unexpected types, empty results, and missing fields rather than assuming that `use_textfsm=True` always succeeded.
-
-### JSON and XML Are Encodings, Not Schemas
-
-JSON and XML provide explicit structure, but structure alone does not guarantee a stable contract. In model-driven IOS XE, YANG defines containers, lists, keys, leaf datatypes, constraints, namespaces, configuration status, and operational state. RESTCONF commonly encodes YANG data as JSON or XML, while NETCONF uses XML for RPC messages and datastore content.
-
-For example, a JSON object preserves list and field boundaries without column parsing:
-
-```json
-{
-  "Cisco-IOS-XE-interfaces-oper:interfaces": {
-    "interface": [
-      {
-        "name": "Loopback101",
-        "ipv4": "192.0.2.101",
-        "admin-status": "if-state-up",
-        "oper-status": "if-oper-state-ready"
-      }
-    ]
-  }
-}
-```
-
-The equivalent XML uses elements and a namespace:
-
-```xml
-<interfaces xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-interfaces-oper">
-  <interface>
-    <name>Loopback101</name>
-    <ipv4>192.0.2.101</ipv4>
-    <admin-status>if-state-up</admin-status>
-    <oper-status>if-oper-state-ready</oper-status>
-  </interface>
-</interfaces>
-```
-
-Applications must still handle model revisions, namespace-qualified names, optional leaves, lists, HTTP errors, authorization, and TLS. Structured APIs reduce ambiguity; they do not eliminate the need for validation.
-
-## Task 8: Explore RESTCONF with an Explicit HTTP Request
-
-RESTCONF is defined by RFC 8040 and exposes YANG-modeled resources through HTTP methods. This lab uses `GET`, which is safe and read-only. IOS XE normally protects RESTCONF with HTTPS and device credentials.
-
-First, display the connection values without printing the password:
-
-```bash
-python - <<'PY'
-from src.settings import Settings
-
-s = Settings()
-print("Host:", s.host)
-print("HTTPS port:", s.https_port)
-print("Username:", s.username)
-print("TLS verification:", s.verify_tls)
-PY
-```
-
-Use `curl` to inspect the Cisco operational interface resource. Replace the placeholders with the active values. Supplying only the username causes `curl` to prompt for the password instead of recording it in shell history:
-
-```bash
-curl --insecure \
-  --user '<IOSXE_USERNAME>' \
-  --header 'Accept: application/yang-data+json' \
-  'https://<IOSXE_HOST>:<HTTPS_PORT>/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces' \
-  | jq
-```
-
-`--insecure` disables certificate validation and is acceptable only when the reserved lab presents a certificate that the workstation cannot validate. A production client should trust the issuing CA, verify the hostname, and omit this option.
-
-The request components are:
-
-| Component | Meaning |
-|---|---|
-| `GET` | Retrieve a resource without requesting a state change |
-| `/restconf/data` | RESTCONF data resource root |
-| `Cisco-IOS-XE-interfaces-oper:interfaces` | Module-qualified YANG container |
-| `Accept: application/yang-data+json` | Request YANG data encoded as JSON |
-| Basic authentication | Send sandbox credentials over the protected TLS session |
-
-To observe XML encoding, repeat the request with this header:
-
-```bash
---header 'Accept: application/yang-data+xml'
-```
-
-The data meaning comes from the YANG model; the `Accept` header selects the representation.
-
-## Task 9: Collect RESTCONF JSON with Python
-
-Open `src/iosxe_restconf.py`. `RESTCONFClient` keeps authentication, media headers, and TLS behavior in one `requests.Session`. Each request has a 30-second timeout, and `raise_for_status()` prevents an authentication failure or missing resource from being mistaken for interface data.
-
-The preferred resource is:
-
-```text
-/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces
-```
-
-If that Cisco operational model is not exposed by the sandbox image and returns HTTP 404, the client attempts the IETF operational interface-state resource. The normalizer understands both root names and maps their response fields into the same four keys used by the CLI workflow.
-
-Run the RESTCONF collector:
-
-```bash
-python -m scripts.collect_restconf
-```
-
-The script writes the unmodified response to `artifacts/interfaces-restconf.json` and prints normalized records as a table. The `artifacts` directory is ignored by Git because operational snapshots can contain addresses, identifiers, or topology data that should not be committed automatically.
-
-Inspect the response deliberately:
-
-```bash
-jq 'keys' artifacts/interfaces-restconf.json
-jq '.. | objects | select(has("name")) | .name' artifacts/interfaces-restconf.json | head
-git status --short --ignored
-```
-
-Confirm that Loopback101 appears. The CLI may describe the line protocol as `up`, while the Cisco operational model may encode it as `if-oper-state-ready`. The normalizer maps `ready` to `up` for the comparison table, but the raw artifact preserves the device's original enumeration.
-
-
-## Task 10: Final Repository and Lab Validation
-
-Confirm that the merged source-of-truth change is on `main` and that secrets and artifacts remain untracked:
-
-```bash
-git branch --show-current
-git status
-git log --oneline --graph --decorate -6
-git check-ignore -v .env artifacts/interfaces-restconf.json
-```
-
-Run all three collection paths one final time while the reservation is active:
-
-```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
-python -m pip check
-python -m scripts.validate_source_of_truth
-python -m scripts.collect_cli
-python -m scripts.collect_restconf
-```
-
-Return the write gate to its safe default after configuration work:
-
-```dotenv
-ALLOW_CONFIG_CHANGES=false
-```
-
-Because `.env` is not tracked, this safety change does not alter the repository.
-
-## Expected Evidence
-
-Retain the following evidence without including passwords, tokens, VPN credentials, or complete environment files:
-
-- Active reservable IOS XE sandbox name and reservation time
-- Successful SSH and HTTPS reachability checks
-- GitLab project URL and initial `main` commit
-- TextFSM version and interface tables
-- Feature branch and merge request for `loopbacks.yaml`
-- Successful source-of-truth validation
-- Rendered Jinja2 commands
-- Before-and-after CLI interface tables
-- Verification that the managed loopback has the expected address and up/up state
-- RESTCONF HTTP status and normalized table
-- Final clean Git status on `main`
-
-## Troubleshooting
-
-### SSH times out
-
-For a reserved sandbox, confirm that the VPN is connected.
-
-### Netmiko reports authentication failure
-
-Confirm that `.env` contains the active reservation credentials and no surrounding quotes copied from a formatted document. Do not print the password. Test an interactive SSH session with the same host, port, and username.
-
-### TextFSM returns raw text
-
-Confirm that the virtual environment contains `ntc-templates`, the device type is `cisco_ios`, and the command has not been altered:
-
-```bash
-python -m pip show netmiko ntc-templates
-python -c 'import ntc_templates; print(ntc_templates.__file__)'
-```
-
-The helper raises a clear error when Netmiko returns unparsed text. Confirm the platform and command match an installed template rather than adding fragile string splits.
-
-### The configuration script refuses to run
-
-This is expected unless both gates confirm a reserved environment:
-
-```dotenv
-SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=true
-```
-
-### RESTCONF returns HTTP 401 or 403
-
-`401` normally indicates missing or invalid authentication. `403` indicates that the authenticated account is not authorized for the resource. Confirm reservation credentials and privilege rather than retrying repeatedly.
-
-### RESTCONF returns HTTP 404
-
-The specific YANG model or resource path may not be available on that IOS XE image. The Python client attempts the IETF interface-state resource after a 404 from the Cisco operational model. Review the raw error, query the YANG library with YANG Suite, and compare the module name with the device release.
-
-### RESTCONF certificate validation fails
-
-The lab may use a self-signed certificate or an address that does not match its certificate. `VERIFY_TLS=false` suppresses validation only for this controlled sandbox. In a production environment, install the issuing CA and connect using the certificate's correct hostname; do not normalize `verify=False` as standard practice.
-
-## Cleanup and Reservation End
-
-Do not save the running configuration to startup configuration unless the reservation instructions explicitly require it. DevNet resets disposable environments after use.
-
-If the instructor requires the loopback to be removed before releasing a still-active shared reservation, connect to the reserved router and remove only the interface created by this lab:
-
-```text
-configure terminal
-no interface Loopback101
-end
-show ip interface brief | include Loopback101
-```
-
-Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reservation according to the DevNet Sandbox instructions. Removing the interface creates temporary drift from the Git source of truth, but the reservation is being destroyed; the Git history remains the durable record of the lab exercise.
+Do not commit `.env` or generated artifacts. This repository can remain as completed warm-up evidence, but later labs do not extend it.
 
 ## Key Takeaways
 
-- GitLab is the course's system of record, while `.env` keeps sandbox credentials outside version control.
-- Netmiko simplifies CLI transport, and TextFSM can turn supported commands into dictionaries, but parser success must be checked explicitly.
-- Reusable modules keep connection, collection, presentation, and validation logic consistent across scripts.
-- YAML and Jinja2 separate intent from device syntax, although this introductory workflow manages only a bounded subset of loopback state.
-- A feature branch and merge request make the source-of-truth change reviewable and traceable.
-- JSON and XML preserve structure, while YANG supplies the model, types, constraints, and namespace semantics.
-- RESTCONF provides modeled data and HTTP error behavior that are more suitable for application integration than screen scraping.
+- `lab2_warm_up` confirms the workstation-to-sandbox development path.
+- Netmiko and TextFSM make common CLI collection approachable, but parsing success must be checked.
+- RESTCONF returns structured YANG-modeled data over HTTP.
+- `.env` protects credentials from ordinary Git commits but is not a production secret manager.
+- Lab 2 is deliberately read-only and independent from the main project.
 
-Lab 4 will keep this repository and replace the YAML loopback source of truth with NetBox while preserving the reusable template and device client.
+Lab 3 creates a new repository named `network_automation_project` and introduces the first configuration workflow: YAML-driven loopback management with Jinja2 and Netmiko.
 
+## References
 
-## Further Reading and Official References
-
-- [Cisco DevNet Sandbox getting started](https://developer.cisco.com/docs/sandbox/getting-started/)
-- [Cisco IOS XE sandboxes](https://developer.cisco.com/docs/ios-xe-voip/sandbox/)
-- [Cisco IOS XE programmability](https://developer.cisco.com/iosxe/)
-- [Cisco YANG Suite documentation](https://developer.cisco.com/docs/yangsuite/)
-- [RESTCONF RFC 8040](https://www.rfc-editor.org/rfc/rfc8040)
-- [NETCONF RFC 6241](https://www.rfc-editor.org/rfc/rfc6241)
-- [Cisco IOS XE YANG models](https://github.com/YangModels/yang/tree/main/vendor/cisco/xe)
 - [Netmiko documentation](https://ktbyers.github.io/netmiko/docs/netmiko/)
-- [TextFSM project](https://github.com/google/textfsm)
-- [ntc-templates project](https://github.com/networktocode/ntc-templates)
-- [Jinja documentation](https://jinja.palletsprojects.com/)
-- [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation)
-- [Requests documentation](https://requests.readthedocs.io/)
-- [GitLab branches](https://docs.gitlab.com/user/project/repository/branches/)
-- [GitLab merge requests](https://docs.gitlab.com/user/project/merge_requests/)
+- [ntc-templates](https://github.com/networktocode/ntc-templates)
+- [RESTCONF RFC 8040](https://www.rfc-editor.org/rfc/rfc8040)
+- [Cisco IOS XE programmability](https://developer.cisco.com/iosxe/)
+

@@ -545,7 +545,7 @@ docker compose stop
 
 ## Task 10: Install GitLab Community Edition
 
-GitLab CE provides the local Git remote, merge-request workflow, package and artifact functions, and CI/CD control plane. It is the heaviest component in this lab. The Linux package includes GitLab services such as PostgreSQL, Redis, and Sidekiq, so allow the installation time to complete.
+GitLab CE provides the local Git remote, merge-request workflow, package and artifact functions, and CI/CD control plane. It is the heaviest component in this lab. As of July 2026, GitLab's Linux package matrix supports Ubuntu 22.04 and 24.04 but does not yet publish GitLab CE packages for Ubuntu 26.04 (`resolute`). Therefore, this lab runs the official GitLab CE container instead of adding an unsupported host package repository. The container includes GitLab services such as PostgreSQL, Redis, and Sidekiq, while named Docker volumes preserve their state.
 
 Map a training hostname to the workstation's primary address. If learners use only the workstation browser, `127.0.0.1` is sufficient:
 
@@ -554,27 +554,30 @@ echo "127.0.0.1 gitlab.lab.local" | sudo tee -a /etc/hosts
 getent hosts gitlab.lab.local
 ```
 
-Add the GitLab CE repository. In a security-controlled environment, download and inspect repository bootstrap scripts before running them.
+If a previous attempt added the unsupported `resolute` GitLab CE repository, locate and remove that source before the next `apt update`:
 
 ```bash
-curl --location \
-  "https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh" \
-  -o /tmp/gitlab-ce-repository.sh
-less /tmp/gitlab-ce-repository.sh
-sudo bash /tmp/gitlab-ce-repository.sh
+grep -Ril "packages.gitlab.com/gitlab/gitlab-ce" /etc/apt/sources.list.d/ || true
+sudo rm -f /etc/apt/sources.list.d/gitlab_gitlab-ce.list
+sudo apt update
 ```
 
-Install GitLab on port `8088`, leaving ports 80 and 8443 available for YANG Suite:
+Review the supplied Compose file, then start GitLab on port `8088`. SSH-based Git operations use host port `2222`, leaving port 22 for the workstation itself:
 
 ```bash
-sudo EXTERNAL_URL="http://gitlab.lab.local:8088" apt install -y gitlab-ce
-sudo gitlab-ctl status
+cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
+less files/gitlab-compose.yaml
+docker compose -f files/gitlab-compose.yaml pull
+docker compose -f files/gitlab-compose.yaml up -d
+docker compose -f files/gitlab-compose.yaml ps
 ```
 
-Retrieve the one-time initial password promptly; GitLab removes this file after a limited period:
+The initial startup can take several minutes. Follow the logs until the service becomes ready, then retrieve the one-time password from inside the container:
 
 ```bash
-sudo cat /etc/gitlab/initial_root_password
+docker logs -f gitlab-ce
+# Press Ctrl+C after startup settles, then run:
+docker exec gitlab-ce cat /etc/gitlab/initial_root_password
 ```
 
 Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes.
@@ -603,11 +606,11 @@ GitLab normally requires a personal access token rather than the web password fo
 Useful service commands are:
 
 ```bash
-sudo gitlab-ctl status
-sudo gitlab-ctl tail
-sudo gitlab-ctl restart
-sudo gitlab-ctl stop
-sudo gitlab-ctl start
+docker exec gitlab-ce gitlab-ctl status
+docker logs --tail=200 gitlab-ce
+docker restart gitlab-ce
+docker stop gitlab-ce
+docker start gitlab-ce
 ```
 
 ## Task 11: Install and Register GitLab Runner
@@ -717,7 +720,7 @@ Then collect service evidence:
 docker version --format '{{.Server.Version}}'
 docker compose version
 minikube status
-sudo gitlab-ctl status
+docker exec gitlab-ce gitlab-ctl status
 sudo systemctl is-active gitlab-runner
 curl --silent http://gitlab.lab.local:8088/-/readiness | jq
 ```
@@ -776,8 +779,9 @@ minikube stop
 ### Start and Stop GitLab
 
 ```bash
-sudo gitlab-ctl start
-sudo gitlab-ctl stop
+cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
+docker compose -f files/gitlab-compose.yaml start
+docker compose -f files/gitlab-compose.yaml stop
 ```
 
 GitLab Runner can be stopped separately:
@@ -862,13 +866,14 @@ Self-signed certificate warnings are expected in the lab. A connection refusal i
 GitLab services may still be initializing. Check service state, memory, and logs:
 
 ```bash
-sudo gitlab-ctl status
-sudo gitlab-ctl tail
+docker ps --filter name=gitlab-ce
+docker exec gitlab-ce gitlab-ctl status
+docker logs --tail=200 gitlab-ce
 free -h
 df -h /
 ```
 
-If configuration changed, run `sudo gitlab-ctl reconfigure`. Avoid repeatedly restarting while PostgreSQL migrations are still running.
+If configuration changed, run `docker exec gitlab-ce gitlab-ctl reconfigure`. Avoid repeatedly restarting while PostgreSQL migrations are still running.
 
 ### A pipeline remains pending
 
@@ -894,7 +899,7 @@ cd "$HOME/lab-services/yangsuite/docker"
 docker compose stop
 
 minikube stop
-sudo gitlab-ctl stop
+docker compose -f <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/gitlab-compose.yaml stop
 sudo systemctl stop gitlab-runner
 ```
 
@@ -929,6 +934,7 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 - [Cisco YANG Suite documentation](https://developer.cisco.com/docs/yangsuite/)
 - [Cisco YANG Suite source repository](https://github.com/CiscoDevNet/yangsuite)
 - [Visual Studio Code on Linux](https://code.visualstudio.com/docs/setup/linux)
-- [GitLab CE installation on Ubuntu](https://docs.gitlab.com/install/package/ubuntu/)
+- [GitLab installation with Docker](https://docs.gitlab.com/install/docker/installation/)
+- [GitLab supported Linux package platforms](https://docs.gitlab.com/install/package/)
 - [GitLab Runner installation](https://docs.gitlab.com/runner/install/)
 - [GitLab Runner Docker executor](https://docs.gitlab.com/runner/executors/docker/)

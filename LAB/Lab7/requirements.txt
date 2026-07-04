@@ -1,1 +1,11 @@
+hvac>=2.3,<3
+Jinja2>=3.1,<4
+ncclient>=0.7,<1
+netmiko>=4.4,<5
+ntc-templates>=7,<9
+pynetbox>=7.4,<8
+pytest>=8,<9
+python-dotenv>=1,<2
 PyYAML>=6,<7
+requests>=2.31,<3
+tabulate>=0.9,<1

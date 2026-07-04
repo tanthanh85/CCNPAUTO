@@ -72,7 +72,7 @@ flowchart LR
 The supplied project separates transport, settings, validation, presentation, and executable workflows:
 
 ```text
-lab2-iosxe-warmup/
+network_automation_project/
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -127,24 +127,33 @@ During this lab:
 - Create only the loopback allocated by the lab.
 - Assume the reservation will be reset when it expires (default 8 hours, max 3 days or so). The instance is shared so just reserve enough time to allow other users can reserve and do their labs!!!
 
-## Task 2: Create and Clone the GitLab Repository
+## Task 2: Open the Cumulative GitLab Repository
 
-Open the learner's local GitLab at `http://gitlab.lab.local:8088`. Create a **private** (production recommended) or **public** (good for lab time) project with these settings:
+Lab 1 created the cumulative GitLab project with these settings:
 
-- Project name: `lab2-iosxe-warmup`
-- Project slug: `lab2-iosxe-warmup`
-- Initialize repository with a README
+- Project name: `network_automation_project`
+- Project slug: `network_automation_project`
+- Visibility: private
 - Default branch: `main`
 
-Copy the HTTP clone URL. Then clone the project into the course workspace:
+If it does not exist, create it now as a blank private project. Do not create a separate repository for later labs. Labs 4–7 will enhance this same project.
+
+If Lab 1 already initialized the local repository, enter it and confirm the remote:
+
+```bash
+cd "$HOME/ccnpauto-workspace/network_automation_project"
+git status
+git remote -v
+```
+
+Otherwise, clone the existing GitLab project:
 
 ```bash
 mkdir -p "$HOME/ccnpauto-workspace"
 cd "$HOME/ccnpauto-workspace"
-git clone http://gitlab.lab.local:8088/YOUR_USERNAME/lab2-iosxe-warmup.git
-cd lab2-iosxe-warmup
-git status
-git remote -v
+git clone \
+  http://gitlab.lab.local:8088/YOUR_USERNAME/network_automation_project.git
+cd network_automation_project
 ```
 
 When Git requests a password, use a narrowly scoped GitLab personal access token rather than placing a token in the clone URL. A token embedded in a command may remain in shell history and process logs.
@@ -751,6 +760,8 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 - A feature branch and merge request make the source-of-truth change reviewable and traceable.
 - JSON and XML preserve structure, while YANG supplies the model, types, constraints, and namespace semantics.
 - RESTCONF provides modeled data and HTTP error behavior that are more suitable for application integration than screen scraping.
+
+Lab 4 will keep this repository and replace the YAML loopback source of truth with NetBox while preserving the reusable template and device client.
 
 
 ## Further Reading and Official References

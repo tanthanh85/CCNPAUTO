@@ -1,5 +1,0 @@
-vlans:
-  - id: 310
-    name: USERS_LAB11
-  - id: 320
-    name: SERVERS_LAB11

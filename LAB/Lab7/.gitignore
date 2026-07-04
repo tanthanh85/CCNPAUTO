@@ -1,5 +1,0 @@
-logs/
-artifacts/
-__pycache__/
-*.py[cod]
-.env

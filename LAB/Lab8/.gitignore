@@ -1,7 +1,0 @@
-.terraform/
-*.tfstate
-*.tfstate.*
-terraform/terraform.tfvars
-*.tfplan
-artifacts/
-*.retry

@@ -1,0 +1,6 @@
+# Add these attributes inside Settings.__init__ after the Lab 2 attributes:
+self.netbox_url = self._required("NETBOX_URL")
+self.netbox_token = self._required("NETBOX_TOKEN")
+self.netbox_device = os.getenv("NETBOX_DEVICE", "iosxe-sandbox")
+self.netbox_tag = os.getenv("NETBOX_TAG", "automation-managed")
+

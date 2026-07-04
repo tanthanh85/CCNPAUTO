@@ -1,0 +1,42 @@
+stages:
+  - validate
+  - deploy
+  - verify
+
+default:
+  tags:
+    - network-deploy
+  before_script:
+    - python3 -m venv .ci-venv
+    - . .ci-venv/bin/activate
+    - python -m pip install --quiet --upgrade pip
+    - python -m pip install --quiet -r requirements.txt
+    - mkdir -p artifacts
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - artifacts/
+
+validate-netbox:
+  stage: validate
+  script:
+    - set -o pipefail
+    - python -m scripts.validate_netbox 2>&1 | tee artifacts/validate-netbox.log
+
+deploy-loopback-and-ospf:
+  stage: deploy
+  resource_group: iosxe-sandbox
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - set -o pipefail
+    - python -m scripts.sync_loopbacks_from_netbox 2>&1 | tee artifacts/deploy-loopbacks.log
+    - python -m scripts.configure_ospf 2>&1 | tee artifacts/deploy-ospf.log
+
+verify-network:
+  stage: verify
+  script:
+    - set -o pipefail
+    - python -m scripts.verify_network 2>&1 | tee artifacts/verify-network.log
+

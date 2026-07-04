@@ -258,7 +258,7 @@ This is expected. The experiment performs 100 logical operations, while every `4
 - UTC timestamps and CSV records make API behavior auditable.
 - `ETag` enables conditional revalidation, but cache policy must match data sensitivity and freshness requirements.
 
-The next lab can place these API behaviors into a CI/CD workflow, where automated tests verify pagination, retry boundaries, and reporting before code is deployed.
+Lab 4 returns to the cumulative IOS XE project and moves its loopback source of truth from YAML into NetBox.
 
 ## Further Reading
 

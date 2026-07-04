@@ -1,5 +1,4 @@
-# Lab 5: Model-Driven IOS XE Configuration
+# Lab 5: Move IOS XE Credentials to Vault
 
-[Begin Lab 5: NETCONF, RESTCONF, and YANG Suite](Lab5.md)
+Continue in the same `network_automation_project` repository. Follow [Lab5.md](Lab5.md) to replace environment-file device credentials with HashiCorp Vault retrieval.
 
-The supplied Python scripts create ten loopback interfaces with IETF YANG over NETCONF and advertise their host addresses in OSPF area 0 with Cisco IOS XE native YANG over RESTCONF.

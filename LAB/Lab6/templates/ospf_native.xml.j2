@@ -1,0 +1,21 @@
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <router>
+      <router-ospf xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ospf">
+        <ospf>
+          <process-id>
+            <id>{{ process_id }}</id>
+{% for loopback in loopbacks %}
+            <network>
+              <ip>{{ loopback.ipv4 }}</ip>
+              <wildcard>0.0.0.0</wildcard>
+              <area>{{ area }}</area>
+            </network>
+{% endfor %}
+          </process-id>
+        </ospf>
+      </router-ospf>
+    </router>
+  </native>
+</config>
+

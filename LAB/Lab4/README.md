@@ -1,5 +1,4 @@
-# Lab 4: Git for Network Automation
+# Lab 4: Move Loopback Intent to NetBox
 
-[Begin Lab 4: Git from Fundamentals to Advanced Operations](Lab4.md)
+Continue in the `network_automation_project` repository created in Lab 2. Follow [Lab4.md](Lab4.md) to add the files in this folder to that existing project.
 
-The `files` directory contains the small network-inventory project used throughout the lab.

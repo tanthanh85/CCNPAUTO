@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, source-of-truth server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, NetBox, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
 
 This is deliberately an **all-in-one learning environment**. It makes the course portable because every learner has the same tools, but it is not a recommended production architecture. GitLab Runner should normally be isolated from the GitLab server; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
@@ -19,12 +19,13 @@ After completing this lab, you will be able to:
 - Install `kubectl` and run a local Kubernetes cluster with Minikube.
 - Install Terraform and use Vault safely in training development mode.
 - Deploy Cisco YANG Suite with Docker.
+- Deploy NetBox as the source of truth used from Lab 4 onward.
 - Install Git, Visual Studio Code, GitLab CE, and a local GitLab Runner.
 - Validate the complete workstation and collect evidence for troubleshooting.
 
 ## Estimated Time
 
-Allow **3 to 5 hours**, depending on Internet speed and workstation resources. Container image downloads and the GitLab installation account for much of the time.
+Allow **4 to 6 hours**, depending on Internet speed and workstation resources. Container image downloads and the GitLab and NetBox installations account for much of the time.
 
 ## Workstation Requirements
 
@@ -38,7 +39,7 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
-GitLab, Minikube, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has only 16 GB of RAM, stop services that are not needed before starting Minikube.
+GitLab, NetBox, Minikube, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has only 16 GB of RAM, stop services that are not needed before starting Minikube.
 
 ## Lab Architecture
 
@@ -53,6 +54,7 @@ flowchart TB
 
     Docker["Docker Engine"] --> TIG["TIG stack<br/>Grafana :3000 / InfluxDB :8086"]
     Docker --> YANG["Cisco YANG Suite<br/>HTTPS :8443"]
+    Docker --> NetBox["NetBox<br/>HTTP :8000"]
     Docker --> K8s["Minikube Kubernetes"]
     Runner --> Docker
     Python --> Devices["Cisco labs, controllers, and APIs"]
@@ -71,6 +73,7 @@ flowchart TB
 | Vault | `http://127.0.0.1:8200` | Training-only secret service |
 | YANG Suite | `https://localhost:8443` | YANG, NETCONF, RESTCONF, and telemetry tools |
 | GitLab CE | `http://gitlab.lab.local:8088` | Source control and CI/CD |
+| NetBox | `http://127.0.0.1:8000` | Network source of truth |
 | SSH | TCP `22` | Host access and Git over SSH |
 
 The TIG services bind to `127.0.0.1` so they are not exposed automatically to the surrounding network. If the learner accesses the workstation remotely, use SSH port forwarding or deliberately configure a firewall and trusted interface instead of changing every service to `0.0.0.0` without review.
@@ -543,7 +546,58 @@ cd "$HOME/lab-services/yangsuite/docker"
 docker compose stop
 ```
 
-## Task 10: Install GitLab Community Edition
+## Task 10: Install NetBox
+
+NetBox will become the source of truth for router loopback interfaces in Lab 4. Install the community Docker Compose deployment outside the course repositories:
+
+```bash
+mkdir -p "$HOME/lab-services"
+cd "$HOME/lab-services"
+git clone --branch release --depth 1 \
+  https://github.com/netbox-community/netbox-docker.git
+cd netbox-docker
+```
+
+Copy the supplied override into the NetBox Docker project:
+
+```bash
+cp /path/to/CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml \
+  docker-compose.override.yml
+```
+
+The override publishes NetBox only on workstation loopback port 8000. It also lets the NetBox worker resolve `gitlab.lab.local` through Docker's host gateway; Lab 7 needs that path when an event rule triggers a GitLab pipeline.
+
+Pull and start NetBox:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 netbox
+```
+
+Create the administrator account:
+
+```bash
+docker compose exec netbox \
+  /opt/netbox/netbox/manage.py createsuperuser
+```
+
+Open `http://127.0.0.1:8000`, sign in, and confirm the dashboard loads. Do not delete the PostgreSQL, Redis, or media volumes during ordinary cleanup because they preserve the source-of-truth data used in later labs.
+
+Stop NetBox when workstation memory is needed elsewhere:
+
+```bash
+docker compose stop
+```
+
+Restart it before Lab 4:
+
+```bash
+docker compose up -d
+```
+
+## Task 11: Install GitLab Community Edition
 
 GitLab CE provides the local Git remote, merge-request workflow, package and artifact functions, and CI/CD control plane. It is the heaviest component in this lab. As of July 2026, GitLab's Linux package matrix supports Ubuntu 22.04 and 24.04 but does not yet publish GitLab CE packages for Ubuntu 26.04 (`resolute`). Therefore, this lab runs the official GitLab CE container instead of adding an unsupported host package repository. The container includes GitLab services such as PostgreSQL, Redis, and Sidekiq, while named Docker volumes preserve their state.
 
@@ -582,17 +636,17 @@ docker exec gitlab-ce cat /etc/gitlab/initial_root_password
 
 Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes. Do not use `admin` as the learner username because `/admin` is reserved for GitLab's administrative web routes.
 
-Sign in with the normal learner account and create a **blank** private project named `network-automation-labs`. Do not initialize it with a README because the local repository will supply the first commit. On the project page, select **Code > Clone with HTTP** and copy the exact URL. The namespace portion must match the learner's GitLab username; do not guess it and do not substitute `admin`.
+Sign in with the normal learner account and create a **blank** private project named `network_automation_project`. This is the single cumulative repository used from Lab 2 through Lab 7. Do not initialize it with a README because the local repository will supply the first commit. On the project page, select **Code > Clone with HTTP** and copy the exact URL. The namespace portion must match the learner's GitLab username; do not guess it and do not substitute `admin`.
 
 Then initialize the local repository:
 
 ```bash
-mkdir -p "$HOME/ccnpauto-workspace/network-automation-labs"
-cd "$HOME/ccnpauto-workspace/network-automation-labs"
+mkdir -p "$HOME/ccnpauto-workspace/network_automation_project"
+cd "$HOME/ccnpauto-workspace/network_automation_project"
 git init
 
 cat > README.md <<'EOF'
-# Network Automation Labs
+# Network Automation Project
 
 Course repository for tested network automation code.
 EOF
@@ -600,7 +654,7 @@ EOF
 git add README.md
 git commit -m "Initialize network automation lab repository"
 git branch -M main
-git remote add origin http://gitlab.lab.local:8088/ACTUAL_GITLAB_USERNAME/network-automation-labs.git
+git remote add origin http://gitlab.lab.local:8088/ACTUAL_GITLAB_USERNAME/network_automation_project.git
 git remote -v
 git push -u origin main
 ```
@@ -617,7 +671,7 @@ docker stop gitlab-ce
 docker start gitlab-ce
 ```
 
-## Task 11: Install and Register GitLab Runner
+## Task 12: Install and Register GitLab Runner
 
 GitLab Runner executes pipeline jobs. Production guidance recommends placing it on a different host because CI jobs process repository-controlled instructions. The same-host arrangement here is accepted only to keep the learner lab self-contained.
 
@@ -718,7 +772,7 @@ git push
 Open **Build > Pipelines** and confirm that the job passes. The test proves that GitLab can schedule a job, the Runner can receive it, Docker can start the requested image, and the job log returns to GitLab.
 
 
-## Task 12: Run the Final Workstation Validation
+## Task 13: Run the Final Workstation Validation
 
 The supplied script checks commands and Python imports. It expects the course virtual environment to be active:
 
@@ -738,6 +792,7 @@ minikube status
 docker exec gitlab-ce gitlab-ctl status
 sudo systemctl is-active gitlab-runner
 curl --silent http://gitlab.lab.local:8088/-/readiness | jq
+curl --fail --silent http://127.0.0.1:8000 >/dev/null && echo "NetBox ready"
 ```
 
 `minikube status` may show `Stopped` if you followed the resource-management instruction. That is acceptable; the cluster was installed and validated earlier. Likewise, TIG and YANG Suite may be stopped while GitLab is running.
@@ -754,6 +809,7 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - TIG container status and InfluxDB health result
 - Kubernetes node and successful NGINX deployment result
 - YANG Suite login page
+- NetBox login page
 - GitLab project and passed pipeline
 - Final validation summary
 
@@ -781,6 +837,15 @@ docker compose --env-file .env -f files/compose.yaml stop
 ```bash
 cd "$HOME/lab-services/yangsuite/docker"
 docker compose up -d
+docker compose stop
+```
+
+### Start and Stop NetBox
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+# later
 docker compose stop
 ```
 
@@ -1004,7 +1069,7 @@ docker compose -f <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/gitlab-compose.yaml stop
 sudo systemctl stop gitlab-runner
 ```
 
-Do not remove Docker volumes, GitLab data, YANG Suite data, the virtual environment, or Minikube unless the instructor asks for a complete rebuild.
+Do not remove Docker volumes, GitLab data, NetBox data, YANG Suite data, the virtual environment, or Minikube unless the instructor asks for a complete rebuild.
 
 ## Key Takeaways
 
@@ -1012,6 +1077,7 @@ Do not remove Docker volumes, GitLab data, YANG Suite data, the virtual environm
 - Python virtual environments prevent course packages from interfering with Ubuntu's system Python.
 - `json` is built into Python, while `yaml` is supplied by PyYAML and the correct package names are `scrapli` and `xmltodict`.
 - Docker provides a common runtime for TIG, YANG Suite, Minikube, and CI jobs, but Docker access carries elevated privilege.
+- NetBox provides the API-driven source of truth used by the cumulative automation project.
 - Minikube supplies a realistic Kubernetes API without requiring a multi-node production cluster.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.
 - GitLab and GitLab Runner create an end-to-end local CI/CD path, from commit through isolated Docker job execution.
@@ -1039,3 +1105,4 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 - [GitLab supported Linux package platforms](https://docs.gitlab.com/install/package/)
 - [GitLab Runner installation](https://docs.gitlab.com/runner/install/)
 - [GitLab Runner Docker executor](https://docs.gitlab.com/runner/executors/docker/)
+- [NetBox Docker](https://github.com/netbox-community/netbox-docker)

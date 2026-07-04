@@ -1,368 +1,288 @@
-# Lab 7: Application Logging for Network Automation
+# Lab 7: Trigger Network Automation from NetBox with GitLab CI/CD
 
 ## Lab Introduction
 
-When network automation succeeds, the visible result may be only a changed configuration. When it fails, the operator must reconstruct which change was attempted, who initiated it, which devices were reached, where execution stopped, and whether any device was left in a partial state. Console `print()` statements rarely provide enough evidence because they lack stable structure, severity, correlation, retention, and security controls.
+Labs 4–6 introduced the components separately. NetBox stores loopback intent, Vault stores IOS XE credentials, Netmiko configures interfaces, and NETCONF configures OSPF. Lab 7 connects those components into one small CI/CD workflow.
 
-This lab treats logging as an application design feature. A simulated network-change workflow processes two routers and records operational events in JSON Lines format. A separate audit log records security- and change-relevant outcomes. Learners generate authentication, timeout, command, and verification failures; trace each run with a correlation ID; analyze events with `jq` and Python; verify secret redaction; and force file rotation. The simulation makes failure testing safe and repeatable without a Cisco sandbox.
+An administrator creates a tagged virtual loopback in NetBox and assigns one IPv4 `/32`. A NetBox event rule sends a webhook to GitLab's pipeline-trigger endpoint. A protected shell runner validates the complete NetBox source of truth, configures all managed loopbacks, adds all of them to OSPF area 0, and verifies IOS XE against NetBox. Logs are retained as GitLab artifacts.
+
+The pipeline reconciles the complete managed set rather than trusting fields in the webhook body. The webhook only means “intent may have changed”; NetBox remains authoritative.
 
 ## Learning Objectives
 
-After completing this lab, you will be able to:
-
-- Distinguish console output, operational logs, audit logs, metrics, and traces.
-- Select appropriate DEBUG, INFO, WARNING, ERROR, and CRITICAL severity.
-- Produce structured JSON logs with UTC timestamps.
-- Correlate events belonging to one automation execution.
-- Record actor, change ID, device, duration, outcome, and error type.
-- Capture exceptions and stack traces for troubleshooting.
-- Separate operational detail from audit evidence.
-- Prevent passwords, tokens, and authorization values from entering logs.
-- Rotate files to prevent unbounded disk consumption.
-- Analyze events by severity, type, device, outcome, and correlation ID.
-- Diagnose partial network-automation failures from event order.
-- Define retention and centralization requirements for production logging.
-
-## Estimated Time
-
-Allow approximately **3 to 4 hours**.
+- Explain webhook-driven automation and source-of-truth reconciliation.
+- Register a protected shell runner for local network deployment.
+- Store pipeline secrets as protected and masked variables.
+- Build validate, deploy, and verify stages.
+- Serialize access to a shared sandbox with a resource group.
+- Trigger a pipeline from a NetBox IP-address event.
+- Reuse the Python modules built in Labs 2–6.
+- Retain deployment evidence as artifacts.
+- Diagnose webhook, runner, Vault, NetBox, SSH, and NETCONF failures.
 
 ## Prerequisites
 
-- Ubuntu 26.04 workstation
-- Python virtual environment from Lab 1
-- Git and local GitLab
-- `jq`
+- Labs 1–6 completed
+- `network_automation_project` merged through Lab 6
+- NetBox, Vault, GitLab, and GitLab Runner running on the workstation
+- Active IOS XE reservable sandbox and VPN
+- A NetBox API token and GitLab project-maintainer access
+- A valid IOS XE secret at `secret/ccnpauto/iosxe`
 
-No Cisco sandbox is required. Device operations are simulated, while the event flow follows a realistic network-change application.
-
-## Logging Architecture
+## End-to-End Flow
 
 ```mermaid
-flowchart LR
-    Plan["YAML change plan"] --> App["Network automation workflow"]
-    App --> Op["Operational JSONL<br/>application.jsonl"]
-    App --> Audit["Audit JSONL<br/>audit.jsonl"]
-    Op --> Analysis["jq and Python analysis"]
-    Audit --> Analysis
-    Op --> Rotate["Size-based rotation"]
-    Audit --> Rotate
+sequenceDiagram
+    autonumber
+    participant A as NetBox administrator
+    participant N as NetBox
+    participant G as GitLab
+    participant R as Protected shell runner
+    participant V as Vault
+    participant X as IOS XE
+
+    A->>N: Create tagged Loopback and assign /32
+    N->>G: POST pipeline trigger webhook
+    G->>R: Validate stage
+    R->>N: Read complete managed loopback intent
+    G->>R: Deploy stage
+    R->>V: Read IOS XE credentials
+    R->>X: Configure loopbacks with Netmiko
+    R->>X: Configure OSPF area 0 with NETCONF
+    G->>R: Verify stage
+    R->>N: Read intended state again
+    R->>X: Read interface and OSPF state
+    R-->>G: Job logs and audit artifacts
 ```
 
-Each JSONL line is an independent JSON object. This makes files append-friendly and compatible with log collectors while remaining readable with standard command-line tools.
+## Task 1: Prepare the Existing Repository
 
-## What Should Be Logged?
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git switch -c feature/netbox-cicd
+```
 
-Useful logs answer operational questions without exposing sensitive data.
+Copy the pipeline and verification script:
 
-| Question | Suggested field |
-|---|---|
-| When did it occur? | UTC `timestamp` |
-| How serious is it? | `level` |
-| Which run? | `correlation_id` |
-| Which approved change? | `change_id` |
-| Who initiated it? | `actor` |
-| Which target? | `device`, `management_ip` |
-| What happened? | `event_type`, `message` |
-| Did it succeed? | `outcome` |
-| How long did it take? | `duration_ms` |
-| Why did it fail? | `error_type`, exception trace |
+```bash
+LAB7_FILES="/path/to/CCNPAUTO/LAB/Lab7"
+cp "$LAB7_FILES/.gitlab-ci.yml" .
+cp "$LAB7_FILES/requirements.txt" requirements.txt
+cp "$LAB7_FILES/scripts/verify_network.py" scripts/
+```
 
-Passwords, tokens, private keys, full authorization headers, session cookies, and unreviewed device payloads should not be logged. Even configuration commands may contain secrets and should be represented by a count, change ID, or protected hash unless policy explicitly allows their retention.
+Run locally before involving CI:
 
-## Project Structure
+```bash
+python -m pip install -r requirements.txt
+python -m scripts.validate_netbox
+python -m scripts.verify_network
+```
+
+Verification should pass for the loopbacks configured in Labs 4 and 6.
+
+## Task 2: Register a Dedicated Shell Runner
+
+The Docker runner from Lab 1 is suitable for ordinary tests, but a local network-deployment job needs uncomplicated access to the workstation VPN, NetBox on loopback, and Vault on loopback. Create a second project runner in GitLab:
+
+- Description: `network-deploy-runner`
+- Tag: `network-deploy`
+- Run untagged jobs: disabled
+- Protected: enabled
+- Locked to this project: enabled
+
+Register it with the shell executor using the temporary `glrt-` token shown by GitLab:
+
+```bash
+sudo gitlab-runner register \
+  --non-interactive \
+  --url "http://gitlab.lab.local:8088" \
+  --token "PASTE_GLRT_TOKEN" \
+  --executor "shell"
+
+sudo systemctl restart gitlab-runner
+sudo gitlab-runner verify
+```
+
+The shell runner executes repository code directly on the workstation. Protecting the runner and main branch is therefore essential. Do not make this runner available to untrusted projects or merge requests.
+
+## Task 3: Protect the Main Branch
+
+In GitLab, open **Settings > Repository > Branch rules** and protect `main`:
+
+- Maintainers may merge.
+- Direct pushes are not allowed for ordinary developers.
+- Force push is disabled.
+
+The deployment job runs only when `CI_COMMIT_BRANCH` is `main`. Merge requests can be reviewed without changing the router.
+
+## Task 4: Configure CI/CD Variables
+
+In **Settings > CI/CD > Variables**, create these variables. Mark secrets as masked and protected.
+
+| Variable | Example | Protection |
+|---|---|---|
+| `IOSXE_HOST` | Current reserved host | Protected |
+| `IOSXE_SSH_PORT` | `22` | Protected |
+| `IOSXE_NETCONF_PORT` | `830` | Protected |
+| `IOSXE_HTTPS_PORT` | `443` | Protected |
+| `SANDBOX_MODE` | `reserved` | Protected |
+| `ALLOW_CONFIG_CHANGES` | `true` | Protected |
+| `VERIFY_TLS` | `false` | Protected |
+| `NETBOX_URL` | `http://127.0.0.1:8000` | Protected |
+| `NETBOX_TOKEN` | NetBox token | Masked and protected |
+| `NETBOX_DEVICE` | `iosxe-sandbox` | Protected |
+| `NETBOX_TAG` | `automation-managed` | Protected |
+| `VAULT_ADDR` | `http://127.0.0.1:8200` | Protected |
+| `VAULT_TOKEN` | `lab-root-token` | Masked and protected |
+| `VAULT_MOUNT` | `secret` | Protected |
+| `VAULT_IOSXE_PATH` | `ccnpauto/iosxe` | Protected |
+| `OSPF_PROCESS_ID` | `1` | Protected |
+| `OSPF_AREA` | `0` | Protected |
+
+The Vault token authenticates the pipeline to Vault; the IOS XE username and password remain inside Vault. The root development token is accepted only in this single-user lab. Production CI should obtain a short-lived token through OIDC/JWT or AppRole with a read-only secret policy.
+
+## Task 5: Review the Pipeline
+
+The pipeline has three stages:
+
+1. `validate-netbox` rejects incomplete or inconsistent intent without touching IOS XE.
+2. `deploy-loopback-and-ospf` configures interfaces first and OSPF second.
+3. `verify-network` compares NetBox with CLI interface state and NETCONF OSPF configuration.
+
+The deployment job uses:
+
+```yaml
+resource_group: iosxe-sandbox
+```
+
+This prevents two deployment jobs using the same resource group from running concurrently. Each command writes its output through `tee` to an artifact file. Because `set -o pipefail` is enabled, `tee` does not hide a failed Python exit status.
+
+## Task 6: Commit and Test a Manual Pipeline
+
+```bash
+git add .gitlab-ci.yml requirements.txt scripts/verify_network.py
+git commit -m "Add NetBox-driven deployment pipeline"
+git push -u origin feature/netbox-cicd
+```
+
+Create a merge request. Review the YAML and confirm no secret values are present. Merge into `main`. The push to main may start a pipeline depending on project settings. Ensure the sandbox reservation, VPN, NetBox, and Vault are active before allowing deployment.
+
+Inspect all three jobs and download the artifact logs. A passing pipeline proves the cumulative project works before webhook automation is introduced.
+
+## Task 7: Create a GitLab Pipeline Trigger Token
+
+In GitLab, open **Settings > CI/CD > Pipeline trigger tokens**. Create a trigger named `netbox-loopback-trigger` and copy the token once.
+
+Record the numeric project ID from the project overview page. Build the URL locally without committing it:
 
 ```text
-lab7-application-logging/
-├── .gitignore
-├── requirements.txt
-├── app.py
-├── analyze_logs.py
-├── data/
-│   └── change_plan.yaml
-├── src/
-│   └── logging_config.py
-└── logs/
-    ├── application.jsonl
-    └── audit.jsonl
+http://gitlab.lab.local:8088/api/v4/projects/PROJECT_ID/trigger/pipeline?token=TRIGGER_TOKEN&ref=main
 ```
 
-## Task 1: Create the Project
+The trigger token can start a pipeline and must be protected. Do not place it in Git, screenshots, or ordinary logs.
 
-Create a blank GitLab project named `lab7-application-logging`, clone it, and copy the supplied files:
+## Task 8: Create the NetBox Webhook
+
+In NetBox, create a webhook named `Trigger network_automation_project`:
+
+- Method: POST
+- URL: the GitLab trigger URL
+- HTTP content type: `application/json`
+- SSL verification: not applicable to the local HTTP training endpoint
+- Additional headers: none
+
+The NetBox worker container must resolve `gitlab.lab.local` to the Docker host. The updated Lab 1 NetBox Compose override provides that mapping. Test from the worker if required:
 
 ```bash
-cd "$HOME/ccnpauto-workspace"
-git clone \
-  http://gitlab.lab.local:8088/ACTUAL_USERNAME/lab7-application-logging.git
-cd lab7-application-logging
-
-LAB7_FILES="/path/to/CCNPAUTO/LAB/Lab7"
-cp "$LAB7_FILES/.gitignore" "$LAB7_FILES/requirements.txt" .
-cp "$LAB7_FILES/app.py" "$LAB7_FILES/analyze_logs.py" .
-cp -R "$LAB7_FILES/data" "$LAB7_FILES/src" .
+cd ~/lab-services/netbox-docker
+docker compose exec netbox-worker getent hosts gitlab.lab.local
 ```
 
-Activate the environment and install dependencies:
+## Task 9: Create the NetBox Event Rule
 
-```bash
-source "$HOME/.venvs/ccnpauto/bin/activate"
-python -m pip install -r requirements.txt
+Create an event rule with:
+
+- Name: `Loopback IP change triggers GitLab`
+- Object type: IPAM > IP address
+- Events: object created and object updated
+- Action: the GitLab webhook
+
+The event fires when the administrator assigns or changes the loopback `/32`, after the interface itself exists. The pipeline ignores webhook payload fields and retrieves the complete current state from NetBox.
+
+In a shared production NetBox, add conditions or a custom event-processing service so unrelated IP changes do not start this project. The training NetBox is dedicated to the learner, so the simple rule is acceptable.
+
+## Task 10: Trigger the End-to-End Workflow
+
+In NetBox:
+
+1. Create `Loopback103` on `iosxe-sandbox`.
+2. Set type to Virtual and enabled to Yes.
+3. Add description `NETBOX_CICD_LAB7`.
+4. Add tag `automation-managed`.
+5. Create `192.0.2.103/32` and assign it to `Loopback103`.
+
+The IP-address event should trigger the pipeline. Watch **Build > Pipelines**. Do not manually start another deployment while it is running.
+
+After completion, verify:
+
+```text
+show ip interface brief | include Loopback103
+show running-config | section router ospf
+show ip ospf interface brief
 ```
 
-Commit the baseline before generating runtime logs:
+The interface should exist with `192.0.2.103`, and OSPF process 1 should include host network `192.0.2.103 0.0.0.0 area 0`.
 
-```bash
-git add .
-git commit -m "Add structured logging lab"
-git push -u origin main
-```
+## Task 11: Observe a Validation Failure
 
-## Task 2: Review the Change Plan
+Create a virtual interface tagged `automation-managed` but do not assign an address. Manually run the pipeline or cause an IP-related event elsewhere in the training NetBox. The validation stage should fail, and deployment must not start.
 
-Open `data/change_plan.yaml`. It contains an approved change ID, two simulated routers, and three intended commands. The application validates the top-level contract before execution. This prevents malformed input from reaching the device workflow.
+Correct the NetBox record by assigning one `/32`. The next pipeline should pass. This demonstrates why validation is a separate gate rather than part of a partially completed device change.
 
-The management addresses use the documentation block `192.0.2.0/24`; no connection is attempted. The actor comes from `AUTOMATION_ACTOR` or the local user, while the correlation ID is generated for every run.
+## Task 12: Audit and Troubleshoot
 
-## Task 3: Run a Successful Workflow
+Use four evidence sources:
 
-Run the default scenario:
+- NetBox change log and event-rule delivery status
+- GitLab pipeline, job, and artifact history
+- Vault audit information where enabled
+- IOS XE configuration and operational state
 
-```bash
-export AUTOMATION_ACTOR="learner@example.net"
-python app.py --scenario success
-echo $?
-```
+| Failure | First check |
+|---|---|
+| No pipeline appears | NetBox event rule and webhook delivery result |
+| Webhook cannot resolve GitLab | `getent hosts` in `netbox-worker` |
+| Job remains pending | Protected shell runner, tag, and branch eligibility |
+| NetBox validation fails | Tagged interface type, name, and assigned `/32` |
+| Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |
+| Netmiko times out | VPN, reservation hostname, and SSH port |
+| NETCONF RPC fails | YANG Suite model revision and rendered XML |
+| Verification fails | Compare NetBox intent with CLI and NETCONF output |
 
-The exit code should be zero. Inspect the files:
+## Safety and Cleanup
 
-```bash
-ls -lh logs
-head -n 2 logs/application.jsonl | jq
-cat logs/audit.jsonl | jq
-```
+When the reservation ends, disable the NetBox event rule or pause the deploy runner so later NetBox edits cannot target an expired sandbox. Set the GitLab variable `ALLOW_CONFIG_CHANGES=false`, revoke the pipeline trigger token if the lab is complete, and stop development Vault.
 
-Operational logs contain connection and verification events. The audit log contains submitted and completed change outcomes but not raw credentials or command text.
-
-## Task 4: Understand Severity
-
-The standard levels convey increasing urgency:
-
-- **DEBUG** contains detailed diagnostic state useful during development.
-- **INFO** records normal lifecycle milestones.
-- **WARNING** indicates an abnormal condition from which the application recovered.
-- **ERROR** records a failed operation requiring attention.
-- **CRITICAL** indicates that the application or service cannot continue safely.
-
-Severity must describe operational impact rather than developer emotion. A successful device connection is INFO, while invalid credentials are ERROR. Logging every normal event as ERROR produces alert fatigue and hides genuine incidents.
-
-Run with an ERROR threshold and compare output:
-
-```bash
-python app.py --scenario success --log-level ERROR
-```
-
-The operational logger suppresses lower-severity events, but the audit logger remains at INFO because audit retention is policy-driven rather than a troubleshooting verbosity switch.
-
-## Task 5: Generate an Authentication Failure
-
-```bash
-python app.py --scenario auth || true
-tail -n 6 logs/application.jsonl | jq
-tail -n 4 logs/audit.jsonl | jq
-```
-
-The first router records `AuthenticationFailure`, while the workflow continues to the second router and ends as `partial_failure`. This event order tells an operator that no configuration was submitted to the first device but the second device completed.
-
-Search only authentication failures:
-
-```bash
-jq 'select(.error_type == "AuthenticationFailure")' logs/application.jsonl
-```
-
-## Task 6: Generate Timeout and Command Failures
-
-Run two more scenarios:
-
-```bash
-python app.py --scenario timeout || true
-python app.py --scenario partial || true
-```
-
-Compare their failure points:
-
-```bash
-jq -r '
-  select(.outcome == "failure") |
-  [.timestamp, .correlation_id, .device, .error_type, .message] |
-  @tsv
-' logs/application.jsonl
-```
-
-A timeout occurs before configuration submission. The partial scenario connects successfully but fails during the configuration method on `branch-r2`. That distinction materially changes rollback and incident response.
-
-## Task 7: Generate a Verification Failure
-
-```bash
-python app.py --scenario verify || true
-```
-
-The audit log shows that the change was submitted before verification failed. This is more serious than a pre-change authentication failure because actual state may differ from intent. A real application should collect evidence, stop dependent changes, and invoke an approved rollback or escalation policy.
-
-## Task 8: Trace One Run by Correlation ID
-
-List workflow completion events:
-
-```bash
-jq -r 'select(.event_type == "workflow_completed") |
-  [.correlation_id, .outcome, .duration_ms] | @tsv' \
-  logs/application.jsonl
-```
-
-Copy one correlation ID and reconstruct its timeline:
-
-```bash
-CORRELATION_ID="PASTE_ONE_ID"
-jq --arg id "$CORRELATION_ID" \
-  'select(.correlation_id == $id)' \
-  logs/application.jsonl
-```
-
-Correlation IDs become especially valuable when concurrent workers interleave events from many devices and changes.
-
-## Task 9: Use the Python Log Analyzer
-
-```bash
-python analyze_logs.py logs/application.jsonl
-python analyze_logs.py logs/audit.jsonl
-```
-
-The analyzer validates every JSON line, counts levels, event types and outcomes, and reconstructs each correlation timeline. A malformed line causes a clear error rather than silently dropping evidence.
-
-Extend the analyzer to report average device duration or failure counts by device. Commit the enhancement on a feature branch.
-
-## Task 10: Verify Secret Redaction
-
-The formatter redacts sensitive dictionary keys and common `password=value` or `token: value` text patterns. Test it without using a real secret:
-
-```bash
-python - <<'PY'
-from src.logging_config import configure_logging
-
-logger, _ = configure_logging()
-logger.warning(
-    "Test password=NOT-A-REAL-PASSWORD token:NOT-A-REAL-TOKEN",
-    extra={"event_type": "redaction_test", "correlation_id": "test-only"},
-)
-PY
-
-tail -n 1 logs/application.jsonl | jq
-```
-
-The values should appear as `***REDACTED***`. Redaction is defense in depth, not permission to pass secrets into log messages. Novel formats can bypass patterns, and exception text from third-party libraries may contain unexpected data.
-
-## Task 11: Force and Observe Log Rotation
-
-Production applications must prevent logs from consuming unlimited disk space. The supplied handler rotates after a configurable number of bytes and retains three backups.
-
-Use an intentionally small threshold and produce several runs:
-
-```bash
-for run in $(seq 1 8); do
-  python app.py --scenario partial --max-log-bytes 1500 || true
-done
-ls -lh logs
-```
-
-Expected files include `application.jsonl`, `application.jsonl.1`, and additional numbered backups. Rotation limits local storage, but retention policy must also address central copies, legal requirements, privacy, deletion, and incident holds.
-
-## Task 12: Diagnose an Initialization Failure
-
-Create a temporary invalid plan by copying the YAML and removing the `commands` key. Run it:
-
-```bash
-cp data/change_plan.yaml /tmp/invalid-change-plan.yaml
-code /tmp/invalid-change-plan.yaml
-set +e
-python app.py --plan /tmp/invalid-change-plan.yaml
-RETURN_CODE=$?
-set -e
-echo "$RETURN_CODE"
-```
-
-Initialization failures use exit code 2, while completed workflows containing device failures use exit code 1. Distinct exit codes help schedulers and CI/CD systems classify failures.
-
-## Task 13: Design a Production Logging Strategy
-
-Document answers for the following scenario: a controller manages 5,000 devices through parallel workers.
-
-- Which events remain INFO, and which move to DEBUG?
-- Which fields become searchable labels?
-- How are logs shipped if the worker crashes?
-- How long are operational and audit records retained?
-- Who may read device addresses and change details?
-- How are clocks synchronized?
-- How are duplicate events handled during retry?
-- How are correlation IDs propagated into API and device tasks?
-- Which events create alerts rather than merely logs?
-
-Avoid high-cardinality labels such as raw exception messages in a metrics system. Logs preserve detailed events; metrics summarize rates and distributions; traces represent causal work across components.
-
-## Task 14: Commit and Clean Up
-
-Confirm generated logs are ignored:
-
-```bash
-git status --short --ignored
-git check-ignore -v logs/application.jsonl logs/audit.jsonl
-```
-
-Commit only source changes and learner documentation:
-
-```bash
-git add .
-git diff --staged
-git commit -m "Complete application logging lab"
-git push
-```
-
-Remove local simulated logs when they are no longer required. Do not delete audit evidence from a real system outside its approved retention process.
-
-## Troubleshooting
-
-### The log file is empty
-
-Confirm the working directory, selected severity, and whether the application reached `configure_logging()`. The relative `logs` directory is created beneath the directory from which the command runs.
-
-### `jq` reports an invalid value
-
-JSONL contains one object per line, not one enclosing array. Use `jq` directly against the file without array assumptions. The analyzer identifies the exact malformed line.
-
-### A correlation ID appears in only one event
-
-Check whether initialization failed before workflow construction or whether a logger call omitted the shared context. Centralized middleware or `LoggerAdapter` can enforce context in larger applications.
-
-### Rotation makes an event difficult to find
-
-Search the active file and backups. Production systems should ship events centrally before local retention expires.
+Do not delete NetBox records merely because the disposable sandbox resets. NetBox represents intended lab state and can be reused with the next reservation after credentials and host variables are updated.
 
 ## Key Takeaways
 
-- Logs are operational evidence, not decorative console output.
-- Structured events are easier to search, aggregate and validate than free-form text.
-- UTC timestamps and correlation IDs reconstruct distributed workflow order.
-- Operational and audit logs serve related but different purposes.
-- Failure location determines whether device state may have changed.
-- Exception traces accelerate troubleshooting but require redaction review.
-- Secrets should never be intentionally logged; redaction is only a safety net.
-- Rotation controls local disk use, while retention and centralization require policy.
-- Logs, metrics and traces answer different observability questions.
+- Labs 2–7 form one evolving `network_automation_project`.
+- NetBox events trigger reconciliation but do not supply trusted configuration directly.
+- Validation must complete before device changes begin.
+- Vault separates device credentials from GitLab repository content.
+- Netmiko creates loopbacks before NETCONF adds their addresses to OSPF area 0.
+- Protected branches, protected runners, resource groups, and artifacts make deployment safer and auditable.
+- CI success means little without independent verification against intended and observed state.
 
-The next lab uses Vault-backed Ansible and Terraform, where the logging principles established here can record declarative changes without exposing device credentials.
+## References
 
-## Further Reading
+- [GitLab pipeline triggers](https://docs.gitlab.com/ci/triggers/)
+- [GitLab protected runners](https://docs.gitlab.com/ci/runners/configure_runners/)
+- [GitLab resource groups](https://docs.gitlab.com/ci/resource_groups/)
+- [NetBox webhooks](https://netboxlabs.com/docs/netbox/integrations/webhooks/)
+- [NetBox event rules](https://netboxlabs.com/docs/netbox/features/event-rules/)
 
-- [Python logging documentation](https://docs.python.org/3/library/logging.html)
-- [Python logging cookbook](https://docs.python.org/3/howto/logging-cookbook.html)
-- [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
-- [OpenTelemetry logs](https://opentelemetry.io/docs/specs/otel/logs/)

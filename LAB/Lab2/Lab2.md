@@ -689,14 +689,7 @@ Retain the following evidence without including passwords, tokens, VPN credentia
 
 ### SSH times out
 
-For a reserved sandbox, confirm that the VPN is connected and that the route to the sandbox subnet exists:
-
-```bash
-ip route
-nc -vz <IOSXE_HOST> <SSH_PORT>
-```
-
-Re-read the reservation because the router may use a private address or a nondefault port. A timeout is different from an authentication failure.
+For a reserved sandbox, confirm that the VPN is connected.
 
 ### Netmiko reports authentication failure
 
@@ -722,29 +715,6 @@ SANDBOX_MODE=reserved
 ALLOW_CONFIG_CHANGES=true
 ```
 
-Do not change these values merely to remove the error. First verify that the reservation belongs to the learner and configuration is permitted.
-
-### The loopback exists but verification fails
-
-Check for an existing interface with the same ID, a conflicting IP address, or an unexpected shutdown state:
-
-```text
-show running-config interface Loopback101
-show ip interface brief | include Loopback101
-```
-
-If the lab does not own the existing interface, stop and choose an instructor-approved ID. Do not overwrite it.
-
-### Source-of-truth validation fails
-
-Read the item number and field in the error. Use YAML `true` or `false` without quotation marks, keep IDs and prefix lengths as integers, and use only the five documented keys. Duplicate IDs and addresses are also rejected.
-
-Run the validator again after correcting the reported field:
-
-```bash
-python -m scripts.validate_source_of_truth
-```
-
 ### RESTCONF returns HTTP 401 or 403
 
 `401` normally indicates missing or invalid authentication. `403` indicates that the authenticated account is not authorized for the resource. Confirm reservation credentials and privilege rather than retrying repeatedly.
@@ -756,10 +726,6 @@ The specific YANG model or resource path may not be available on that IOS XE ima
 ### RESTCONF certificate validation fails
 
 The lab may use a self-signed certificate or an address that does not match its certificate. `VERIFY_TLS=false` suppresses validation only for this controlled sandbox. In a production environment, install the issuing CA and connect using the certificate's correct hostname; do not normalize `verify=False` as standard practice.
-
-### CLI and RESTCONF tables differ
-
-Compare timestamps and raw sources. The CLI command and operational model may represent internal interfaces, protocol state, absent addresses, and enum values differently. Treat the difference as a data-model investigation rather than automatically declaring one source wrong.
 
 ## Cleanup and Reservation End
 
@@ -778,7 +744,6 @@ Then return `ALLOW_CONFIG_CHANGES=false`, disconnect the VPN, and end the reserv
 
 ## Key Takeaways
 
-- Reservable sandboxes provide the controlled ownership boundary required for configuration exercises.
 - GitLab is the course's system of record, while `.env` keeps sandbox credentials outside version control.
 - Netmiko simplifies CLI transport, and TextFSM can turn supported commands into dictionaries, but parser success must be checked explicitly.
 - Reusable modules keep connection, collection, presentation, and validation logic consistent across scripts.

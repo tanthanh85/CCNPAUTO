@@ -118,36 +118,18 @@ Record these values privately:
 
 Connect the VPN if the reservable sandbox requires it. Do not proceed to the configuration task until the router address is reachable through the expected path.
 
-### Verify Network Reachability
-
-Install a TCP test utility if it is missing:
-
-```bash
-command -v nc >/dev/null || sudo apt install -y netcat-openbsd
-```
-
-Test the exact host and ports shown by the reservation:
-
-```bash
-nc -vz <IOSXE_HOST> <SSH_PORT>
-nc -vz <IOSXE_HOST> <HTTPS_PORT>
-```
-
-A successful TCP test proves that a service accepted the connection. It does not prove that credentials, authorization, or RESTCONF media types are correct.
-
 ### Sandbox Safety Boundaries
 
 During this lab:
 
-- Do not modify the management interface, default route, AAA, local users, SSH, HTTPS, RESTCONF, or VPN-related configuration.
+- Do not modify the management interface (GigabitEthernet1), default route, AAA, local users, SSH, HTTPS, RESTCONF, or VPN-related configuration.
 - Do not erase configuration, reload the device, or save changes with `write memory` unless the reservation explicitly requires it.
 - Create only the loopback allocated by the lab.
-- Do not run configuration code against any device outside the active learner reservation.
-- Assume the reservation will be reset when it expires.
+- Assume the reservation will be reset when it expires (default 8 hours, max 3 days or so). The instance is shared so just reserve enough time to allow other users can reserve and do their labs!!!
 
 ## Task 2: Create and Clone the GitLab Repository
 
-Open the learner's local GitLab at `http://gitlab.lab.local:8088`. Create a **private** project with these settings:
+Open the learner's local GitLab at `http://gitlab.lab.local:8088`. Create a **private** (production recommended) or **public** (good for lab time) project with these settings:
 
 - Project name: `lab2-iosxe-warmup`
 - Project slug: `lab2-iosxe-warmup`

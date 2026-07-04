@@ -1,0 +1,31 @@
+---
+- name: Remove only the three Lab 8 routes
+  hosts: iosxe_sandbox
+  gather_facts: false
+  vars:
+    vault_secret: >-
+      {{ lookup('community.hashi_vault.hashi_vault',
+      'secret=secret/data/ccnpauto/iosxe token=' ~ lookup('env', 'VAULT_TOKEN') ~
+      ' url=' ~ lookup('env', 'VAULT_ADDR')) }}
+    ansible_user: "{{ vault_secret.username }}"
+    ansible_password: "{{ vault_secret.password }}"
+  tasks:
+    - name: Delete the lab-owned static routes
+      cisco.ios.ios_static_routes:
+        config:
+          - address_families:
+              - afi: ipv4
+                routes:
+                  - dest: 198.51.100.0/24
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_1
+                  - dest: 203.0.113.0/24
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_2
+                  - dest: 192.0.2.128/25
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_3
+        state: deleted

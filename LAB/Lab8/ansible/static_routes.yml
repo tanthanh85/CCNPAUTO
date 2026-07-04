@@ -1,0 +1,46 @@
+---
+- name: Manage three training static routes
+  hosts: iosxe_sandbox
+  gather_facts: false
+  vars:
+    vault_secret: >-
+      {{ lookup('community.hashi_vault.hashi_vault',
+      'secret=secret/data/ccnpauto/iosxe token=' ~ lookup('env', 'VAULT_TOKEN') ~
+      ' url=' ~ lookup('env', 'VAULT_ADDR')) }}
+    ansible_user: "{{ vault_secret.username }}"
+    ansible_password: "{{ vault_secret.password }}"
+  tasks:
+    - name: Merge three Null0 routes without replacing unrelated routes
+      cisco.ios.ios_static_routes:
+        config:
+          - address_families:
+              - afi: ipv4
+                routes:
+                  - dest: 198.51.100.0/24
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_1
+                  - dest: 203.0.113.0/24
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_2
+                  - dest: 192.0.2.128/25
+                    next_hops:
+                      - interface: Null0
+                        name: LAB8_ROUTE_3
+        state: merged
+      register: route_result
+
+    - name: Display commands and changed state
+      ansible.builtin.debug:
+        var: route_result
+
+    - name: Retrieve the resulting static route configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config | include ^ip route
+      register: route_show
+
+    - name: Display route verification
+      ansible.builtin.debug:
+        var: route_show.stdout_lines

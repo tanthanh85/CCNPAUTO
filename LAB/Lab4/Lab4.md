@@ -76,7 +76,113 @@ Open `http://127.0.0.1:8000` and sign in with the administrator created in Lab 1
 
 ## Task 3: Model the Cisco IOS XE Sandbox Router
 
-Create these objects through the NetBox interface. Existing equivalent objects may be reused.
+NetBox objects depend on one another. A device requires a device type, role, and site, while a device type requires a manufacturer. Create the supporting objects in the following order. In NetBox 4.x, use the left navigation menu; if the browser window is narrow, select the menu icon first.
+
+### 3.1 Create the Site
+
+1. Select **Organization > Sites**.
+2. Select **Add** in the upper-right corner.
+3. Enter:
+
+   | Field | Value |
+   |---|---|
+   | Name | `DEVNET-SANDBOX` |
+   | Slug | `devnet-sandbox` |
+   | Status | Active |
+
+4. Leave region, tenant, facility, ASN, and physical-address fields empty unless the instructor supplies values.
+5. Select **Create**.
+
+Return to **Organization > Sites** and confirm that `DEVNET-SANDBOX` appears.
+
+### 3.2 Create the Manufacturer
+
+1. Select **Devices > Manufacturers**.
+2. Select **Add**.
+3. Enter name `Cisco` and slug `cisco`.
+4. Select **Create**.
+
+If `Cisco` already exists, reuse it rather than creating a duplicate with different capitalization.
+
+### 3.3 Create the Device Type
+
+1. Select **Devices > Device Types**.
+2. Select **Add**.
+3. Enter:
+
+   | Field | Value |
+   |---|---|
+   | Manufacturer | Cisco |
+   | Model | `IOS-XE-SANDBOX` |
+   | Slug | `ios-xe-sandbox` |
+   | Default platform | Leave blank for now if the platform has not been created |
+
+4. Leave part number, height, airflow, and physical chassis properties at their defaults. This object represents a logical sandbox router, not a rack installation.
+5. Select **Create**.
+
+### 3.4 Create the Device Role
+
+1. Select **Devices > Device Roles**.
+2. Select **Add**.
+3. Enter name `Router` and slug `router`.
+4. Choose any visible color, such as blue.
+5. Leave **VM role** disabled because this role is being assigned to a NetBox device object.
+6. Select **Create**.
+
+### 3.5 Create the Platform
+
+1. Select **Devices > Platforms**.
+2. Select **Add**.
+3. Enter:
+
+   | Field | Value |
+   |---|---|
+   | Name | `Cisco IOS XE` |
+   | Slug | `cisco-ios-xe` |
+   | Manufacturer | Cisco |
+
+4. Leave NAPALM driver fields empty; this project communicates through its own Python adapters.
+5. Select **Create**.
+
+### 3.6 Create the Automation Tag
+
+1. Select **Customization > Tags**. On some layouts this menu appears under **Other** or can be located with NetBox's navigation search.
+2. Select **Add**.
+3. Enter:
+
+   | Field | Value |
+   |---|---|
+   | Name | `Automation Managed` |
+   | Slug | `automation-managed` |
+   | Color | Choose a noticeable color |
+   | Description | `Objects managed by network_automation_project` |
+
+4. Select **Create**.
+
+The Python client filters interfaces using the slug, so it must be exactly `automation-managed`.
+
+### 3.7 Create the Router Device
+
+1. Select **Devices > Devices**.
+2. Select **Add**.
+3. Complete the form:
+
+   | Field | Value |
+   |---|---|
+   | Name | `iosxe-sandbox` |
+   | Device type | Cisco / IOS-XE-SANDBOX |
+   | Role | Router |
+   | Platform | Cisco IOS XE |
+   | Site | DEVNET-SANDBOX |
+   | Status | Active |
+
+4. Leave location, rack, position, tenant, cluster, and serial number empty.
+5. Do not place the changing DevNet hostname or password in comments or configuration context.
+6. Select **Create**.
+
+Open **Devices > Devices > iosxe-sandbox** and confirm that its summary shows the expected site, role, type, platform, and Active status.
+
+The completed object set should be:
 
 | NetBox object | Value |
 |---|---|
@@ -92,7 +198,79 @@ The NetBox device represents the reserved router logically. The connection hostn
 
 ## Task 4: Move the Existing Loopbacks into NetBox
 
-For every loopback currently defined in `data/loopbacks.yaml`, create a NetBox interface on `iosxe-sandbox`:
+First, inspect the current source data in the project:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+cat data/loopbacks.yaml
+```
+
+For each YAML item, create one interface and one assigned address. Do not delete the YAML file yet; it provides the migration checklist and remains historical evidence after NetBox becomes authoritative.
+
+### 4.1 Create the First Virtual Interface
+
+1. Select **Devices > Devices**.
+2. Select `iosxe-sandbox`.
+3. Open the **Interfaces** tab.
+4. Select **Add Interfaces**. Depending on the NetBox layout, this may appear under **Add Components > Interfaces**. The equivalent global path is **Devices > Interfaces > Add**.
+5. Enter the values from the first YAML item:
+
+   | Field | Required value |
+   |---|---|
+   | Device | `iosxe-sandbox` if the global form asks for it |
+   | Name | `Loopback<number>`, for example `Loopback101` |
+   | Type | Virtual |
+   | Enabled | Selected when YAML says `enabled: true` |
+   | Description | The YAML description, on one line |
+   | Tags | Automation Managed |
+
+6. Leave parent interface, bridge, LAG, VRF, VLAN, MAC address, speed, duplex, and wireless fields empty.
+7. Select **Create**.
+
+The name is case-sensitive for this lab and must match the regular expression `Loopback<number>`. Do not use `Lo101`, `loopback101`, or a name containing spaces.
+
+### 4.2 Create and Assign the IPv4 Address
+
+NetBox assigns an IP address to an interface, not directly to a device.
+
+1. Select **IPAM > IP Addresses**.
+2. Select **Add**.
+3. Enter the YAML address with `/32`, for example `192.0.2.101/32`.
+4. Set **Status** to Active.
+5. Locate **Assignment** or **Assigned object**.
+6. Select object type **DCIM > Interface** when the form requests an object type.
+7. Select device `iosxe-sandbox` and interface `Loopback101`.
+8. Leave VRF empty for the global routing table.
+9. Optionally enter description `Managed loopback address`.
+10. Select **Create**.
+
+A parent prefix does not need to be created for this isolated lab address. The important relationship is the `/32` IP address assigned to the correct interface.
+
+### 4.3 Verify the Relationship
+
+1. Return to **Devices > Devices > iosxe-sandbox**.
+2. Open **Interfaces** and select `Loopback101`.
+3. Confirm:
+
+   - Type is Virtual.
+   - Enabled state matches YAML.
+   - Tag is Automation Managed.
+   - The intended `/32` appears under assigned IP addresses.
+
+4. Select the IP address link and confirm its assigned object is `iosxe-sandbox / Loopback101`.
+
+### 4.4 Repeat for Every YAML Loopback
+
+Repeat interface creation, address assignment, and verification for every item in `data/loopbacks.yaml`. Use this worksheet:
+
+| YAML interface | NetBox interface created | `/32` assigned | Tag applied | Verified |
+|---|---|---|---|---|
+| Loopback101 | | | | |
+| Loopback102, if present | | | | |
+
+When finished, open **Devices > Interfaces**, filter by device `iosxe-sandbox`, and then filter by tag `automation-managed`. The result should contain only project-owned loopbacks.
+
+Each interface must meet this contract:
 
 | Field | Required value |
 |---|---|
@@ -102,18 +280,71 @@ For every loopback currently defined in `data/loopbacks.yaml`, create a NetBox i
 | Description | One-line IOS XE description |
 | Tag | `automation-managed` |
 
-Then create one IPv4 address with `/32` prefix length and assign it to the interface. NetBox stores the relationship between address and interface; the script does not infer an address from the interface number.
+NetBox stores the relationship between address and interface; the script does not infer an address from the interface number.
 
 Do not tag the management interface or any interface not owned by this project. The tag defines the automation boundary.
 
 ## Task 5: Create a NetBox API Token
 
-Create a token for the learner or a dedicated automation user. It requires read access to:
+For this single-user training installation, create a read-only token under the administrator account. The account can view all objects, but disabling writes on the token prevents the Python client from changing NetBox.
+
+### 5.1 Create the Token
+
+1. Select the username or user icon in the upper-right corner.
+2. Select **API Tokens**. If it is not shown directly, open **Profile**, then select the **API Tokens** tab.
+3. Select **Add a Token**.
+4. Complete the form:
+
+   | Field | Value |
+   |---|---|
+   | Name or description | `network_automation_project read only` |
+   | Write enabled | **Disabled / not selected** |
+   | Expires | Optional for the lab; use an instructor-defined date when provided |
+
+5. Select **Create**.
+6. Copy the token immediately and store it temporarily in an approved password manager. NetBox may not display the complete token again.
+
+The client needs to read:
 
 - DCIM devices
 - DCIM interfaces
 - IPAM IP addresses
 - Extras tags
+
+For a production design, create a dedicated automation user and an object permission granting only the `view` action for those object types. Do not run production automation with a superuser-owned token.
+
+### 5.2 Test the Token Before Editing Python
+
+In a terminal, enter the token without saving it in shell history when possible:
+
+```bash
+read -rsp "NetBox token: " NETBOX_TOKEN
+echo
+
+curl --fail --silent \
+  -H "Authorization: Token $NETBOX_TOKEN" \
+  "http://127.0.0.1:8000/api/dcim/devices/?name=iosxe-sandbox" \
+  | python -m json.tool
+```
+
+The response should contain one result named `iosxe-sandbox`. Test the managed-interface filter:
+
+```bash
+curl --fail --silent \
+  -H "Authorization: Token $NETBOX_TOKEN" \
+  "http://127.0.0.1:8000/api/dcim/interfaces/?device=iosxe-sandbox&tag=automation-managed" \
+  | python -m json.tool
+```
+
+Confirm that the result count equals the number of migrated loopbacks. Then remove the temporary shell variable:
+
+```bash
+unset NETBOX_TOKEN
+```
+
+HTTP 401 means the token is incorrect or malformed. HTTP 403 means the authenticated token's user lacks permission. A successful response with zero results usually means the device name, interface tag, or filter value does not match the created objects.
+
+### 5.3 Add the Token to the Untracked Project Environment
 
 Copy `.env.additions.example` values into the repository's untracked `.env`:
 
@@ -129,6 +360,8 @@ Never commit the token. Confirm:
 ```bash
 git check-ignore -v .env
 ```
+
+Finally, run `git status --short` and verify that `.env` does not appear. The token must not be placed in `requirements.txt`, a Python source file, a GitLab issue, or a screenshot.
 
 ## Task 6: Extend the Shared Settings Class
 

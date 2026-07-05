@@ -9,7 +9,7 @@ This short lab helps learners confirm that the workstation, local GitLab, Python
 
 - Create and clone a GitLab repository.
 - Work in a Python virtual environment.
-- Protect sandbox credentials with an untracked `.env` file.
+- Protect credentials with an untracked `.env` file.
 - Connect to a reserved IOS XE sandbox with Netmiko.
 - Parse common operational commands with TextFSM.
 - Iterate through structured records and print tables.
@@ -25,8 +25,8 @@ Allow approximately **90 minutes to 2 hours**.
 - Lab 1 completed
 - Local GitLab available at `http://gitlab.lab.local:8088`
 - Python virtual environment from Lab 1
-- Active IOS XE reservable sandbox and VPN
-- GitLab learner account and repository token
+- Active IOS XE reservable sandbox and VPN connection
+- GitLab learner account (not admin or root account) and repository token
 
 ## Lab Flow
 
@@ -66,12 +66,12 @@ lab2_warm_up/
 
 ## Task 1: Reserve IOS XE
 
-Reserve a private IOS XE sandbox, start the VPN, and record the current hostname, SSH port, HTTPS port, username, and password. Do not use a shared always-on router for configuration experiments, although this warm-up performs only read operations.
+Reserve a private IOS XE sandbox, connect the VPN the sandbox environment, and record the current hostname, SSH port, HTTPS port, username, and password. Do not change any configuration on the sandbox router.
 
 
 ## Task 2: Create `lab2_warm_up` in GitLab
 
-Create a blank private project:
+Create a blank private project on Gilab at `http://gitlab.lab.local:8088`
 
 - Project name: `lab2_warm_up`
 - Project slug: `lab2_warm_up`
@@ -79,6 +79,8 @@ Create a blank private project:
 - Do not initialize with a README
 
 Clone it:
+
+REMEMBER TO CHANGE TO THE ACTUAL USERNAME IN THE BELOW URL
 
 ```bash
 mkdir -p ~/ccnpauto-workspace
@@ -88,7 +90,7 @@ git clone \
 cd lab2_warm_up
 ```
 
-Copy the supplied files:
+Copy the supplied files (use Linux cp command or simply copy and paste):
 
 ```bash
 LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
@@ -108,6 +110,7 @@ python -m pip check
 Commit the baseline:
 
 ```bash
+git status
 git add .
 git commit -m "Add IOS XE warm-up scripts"
 git push -u origin main
@@ -130,7 +133,7 @@ git check-ignore -v .env
 
 ## Task 5: Collect and Parse CLI Data
 
-Run:
+In the lab 1 folder, run:
 
 ```bash
 python -m scripts.collect_cli
@@ -163,7 +166,7 @@ source .env
 set +a
 ```
 
-Retrieve interface state:
+Retrieve interface state  uring curl command.
 
 ```bash
 curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" \

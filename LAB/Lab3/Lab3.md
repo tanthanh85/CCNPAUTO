@@ -26,7 +26,7 @@ Allow approximately **3 hours**.
 ## Prerequisites
 
 - Labs 1 and 2 completed
-- Local GitLab and learner account
+- GitLab.com learner account with SSH authentication configured in Lab 1
 - Active IOS XE reservable sandbox and VPN
 - Python virtual environment from Lab 1
 
@@ -72,7 +72,7 @@ network_automation_project/
 
 ## Task 1: Create the Main GitLab Repository
 
-In GitLab, create a blank private project:
+In [GitLab.com](https://gitlab.com), create a blank private project in your personal namespace:
 
 - Project name: `network_automation_project`
 - Project slug: `network_automation_project`
@@ -94,7 +94,7 @@ Clone it:
 ```bash
 cd ~/ccnpauto-workspace
 git clone \
-  http://gitlab.lab.local:8088/YOUR_USERNAME/network_automation_project.git
+  git@gitlab.com:YOUR_USERNAME/network_automation_project.git
 cd network_automation_project
 ```
 

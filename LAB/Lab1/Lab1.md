@@ -2,9 +2,9 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, source-of-truth server, secrets laboratory, and CI/CD system. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, NetBox, Git, Visual Studio Code, GitLab Community Edition, and GitLab Runner.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, source-of-truth server, secrets laboratory, and CI/CD runner. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, NetBox, Git, Visual Studio Code, and GitLab Runner. Source repositories and pipeline coordination are hosted by GitLab.com.
 
-This is deliberately an **all-in-one learning environment**. It makes the course portable because every learner has the same tools, but it is not a recommended production architecture. GitLab Runner should normally be isolated from the GitLab server; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
+This is deliberately an **all-in-one learning environment** for local tools. It makes the course portable because every learner has the same runtime, but it is not a recommended production architecture. GitLab Runner should be isolated from ordinary user workloads; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
 
 ## Learning Objectives
@@ -20,12 +20,12 @@ After completing this lab, you will be able to:
 - Install Terraform and use Vault safely in training development mode.
 - Deploy Cisco YANG Suite with Docker.
 - Deploy NetBox as the source of truth used from Lab 4 onward.
-- Install Git, Visual Studio Code, GitLab CE, and a local GitLab Runner.
+- Install Git, Visual Studio Code, and a local GitLab Runner for GitLab.com projects.
 - Validate the complete workstation and collect evidence for troubleshooting.
 
 ## Estimated Time
 
-Allow **4 to 6 hours**, depending on Internet speed and workstation resources. Container image downloads and the GitLab and NetBox installations account for much of the time.
+Allow **4 to 6 hours**, depending on Internet speed and workstation resources. Container image downloads and the NetBox, YANG Suite, and observability deployments account for much of the time.
 
 ## Workstation Requirements
 
@@ -39,7 +39,7 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
-GitLab, NetBox, Minikube, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has only 16 GB of RAM, stop services that are not needed before starting Minikube.
+NetBox, Minikube, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has only 16 GB of RAM, stop services that are not needed before starting Minikube. GitLab.com does not consume workstation resources; only the lightweight local Runner service remains installed.
 
 ## Lab Architecture
 
@@ -49,8 +49,8 @@ flowchart TB
     VSCode --> Python["Python virtual environment<br/>Netmiko, Scrapli, ncclient"]
     VSCode --> Ansible["Ansible and Cisco collections"]
     VSCode --> IaC["Terraform"]
-    VSCode --> GitLab["GitLab CE :8088"]
-    GitLab --> Runner["GitLab Runner<br/>Docker executor"]
+    VSCode --> GitLab["GitLab.com<br/>remote repositories"]
+    GitLab --> Runner["Local GitLab Runner<br/>registered in Lab 7"]
 
     Docker["Docker Engine"] --> TIG["TIG stack<br/>Grafana :3000 / InfluxDB :8086"]
     Docker --> YANG["Cisco YANG Suite<br/>HTTPS :8443"]
@@ -72,7 +72,7 @@ flowchart TB
 | InfluxDB | `http://127.0.0.1:8086` | Time-series storage and API |
 | Vault | `http://127.0.0.1:8200` | Training-only secret service |
 | YANG Suite | `https://localhost:8443` | YANG, NETCONF, RESTCONF, and telemetry tools |
-| GitLab CE | `http://gitlab.lab.local:8088` | Source control and CI/CD |
+| GitLab.com | `https://gitlab.com` | Hosted source control and CI/CD control plane |
 | NetBox | `http://127.0.0.1:8000` | Network source of truth |
 | SSH | TCP `22` | Host access and Git over SSH |
 
@@ -414,7 +414,7 @@ sudo install "minikube-linux-${ARCH}" /usr/local/bin/minikube
 minikube version
 ```
 
-If the workstation has limited memory, stop GitLab, YANG Suite, and TIG before creating the cluster. Then start Minikube as the normal learner account, not as root:
+If the workstation has limited memory, stop NetBox, YANG Suite, and TIG before creating the cluster. Then start Minikube as the normal learner account, not as root:
 
 ```bash
 minikube config set driver docker
@@ -565,7 +565,7 @@ cp /path/to/CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml \
   docker-compose.override.yml
 ```
 
-The override publishes NetBox only on workstation loopback port 8000. It also lets the NetBox worker resolve `gitlab.lab.local` through Docker's host gateway; Lab 7 needs that path when an event rule triggers a GitLab pipeline.
+The override publishes NetBox only on workstation loopback port 8000. In Lab 7, the NetBox worker reaches GitLab.com through the workstation's normal outbound Internet connection.
 
 Pull and start NetBox:
 
@@ -597,58 +597,29 @@ Restart it before Lab 4:
 docker compose up -d
 ```
 
-## Task 11: Install GitLab Community Edition
+## Task 11: Prepare the GitLab.com Account
 
-GitLab CE provides the local Git remote, merge-request workflow, package and artifact functions, and CI/CD control plane. It is the heaviest component in this lab. As of July 2026, GitLab's Linux package matrix supports Ubuntu 22.04 and 24.04 but does not yet publish GitLab CE packages for Ubuntu 26.04 (`resolute`). Therefore, this lab runs the official GitLab CE container instead of adding an unsupported host package repository. The container includes GitLab services such as PostgreSQL, Redis, and Sidekiq, while named Docker volumes preserve their state.
+GitLab.com provides the remote repositories, merge requests, pipeline control plane, and artifact interface for this course. No GitLab server is installed on the learner workstation.
 
-Map a training hostname to the workstation's primary address. If learners use only the workstation browser, `127.0.0.1` is sufficient:
+1. Open `https://gitlab.com` and sign in to the learner account.
+2. Verify the email address if GitLab requests verification.
+3. Enable multifactor authentication when required by the learner's organization or instructor.
+4. Open **Edit profile > Access > SSH keys** and confirm that the workstation SSH key is present. If no key exists, generate and add one:
 
-```bash
-echo "127.0.0.1 gitlab.lab.local" | sudo tee -a /etc/hosts
-getent hosts gitlab.lab.local
-```
+   ```bash
+   ssh-keygen -t ed25519 -C "YOUR_GITLAB_EMAIL"
+   cat ~/.ssh/id_ed25519.pub
+   ```
 
-If a previous attempt added the unsupported `resolute` GitLab CE repository, locate and remove that source before the next `apt update`:
+5. Test GitLab.com SSH authentication:
 
-```bash
-grep -Ril "packages.gitlab.com/gitlab/gitlab-ce" /etc/apt/sources.list.d/ || true
-sudo rm -f /etc/apt/sources.list.d/gitlab_gitlab-ce.list
-sudo apt update
-```
+   ```bash
+   ssh -T git@gitlab.com
+   ```
 
-Review the supplied Compose file, then start GitLab on port `8088`. SSH-based Git operations use host port `2222`, leaving port 22 for the workstation itself:
+GitLab uses the SSH transport user `git`; the learner's GitLab username appears in repository paths, not before the hostname. Lab 2 will create `lab2_warm_up`, while Lab 3 will create `network_automation_project`.
 
-```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-less files/gitlab-compose.yaml
-docker compose -f files/gitlab-compose.yaml pull
-docker compose -f files/gitlab-compose.yaml up -d
-docker compose -f files/gitlab-compose.yaml ps
-```
-
-The initial startup can take several minutes. Follow the logs until the service becomes ready, then retrieve the one-time password from inside the container:
-
-```bash
-docker logs -f gitlab-ce
-# Press Ctrl+C after startup settles, then run:
-docker exec gitlab-ce cat /etc/gitlab/initial_root_password
-```
-
-Open `http://gitlab.lab.local:8088`, sign in as `root`, and change the initial password. Create a normal learner account for everyday work instead of using `root` for source changes. Do not use `admin` as the learner username because `/admin` is reserved for GitLab's administrative web routes.
-
-Sign in with the normal learner account and confirm that the **New project** page is available. Lab 2 will create the disposable `lab2_warm_up` repository, while Lab 3 will create the durable `network_automation_project`. Deferring project creation keeps the purpose of each repository inside its own lab.
-
-GitLab normally requires a personal access token rather than the web password for Git over HTTP. Create a narrowly scoped token with `write_repository` permission in the learner account and store it in an approved credential manager. Do not place the token in a URL, command, script, screenshot, or repository.
-
-Useful service commands are:
-
-```bash
-docker exec gitlab-ce gitlab-ctl status
-docker logs --tail=200 gitlab-ce
-docker restart gitlab-ce
-docker stop gitlab-ce
-docker start gitlab-ce
-```
+Learners who use HTTPS instead of SSH must create a narrowly scoped personal access token with `write_repository` permission. Do not place a token in a clone URL, command, source file, screenshot, or repository.
 
 ## Task 12: Install GitLab Runner
 
@@ -666,91 +637,14 @@ sudo apt install -y gitlab-runner
 gitlab-runner --version
 ```
 
-Installation is the required Lab 1 outcome. Lab 7 will register the protected shell runner used by `network_automation_project`. If the instructor also wants an early Docker-executor test, complete the remainder of this section only after Lab 2 creates `lab2_warm_up`; register the optional Docker runner against that disposable project.
+Installation is the required Lab 1 outcome. Do not register the Runner yet. Lab 7 creates a protected project runner on GitLab.com and registers this workstation with the shell executor after the network-deployment security boundary has been explained.
 
-In GitLab, open `lab2_warm_up` and go to **Settings > CI/CD > Runners**, then select **Create project runner**. Choose Linux, enter the `docker` tag, clear **Run untagged**, add the description `ubuntu26-docker-runner`, and create the runner. GitLab then opens a registration-instructions page that displays a runner authentication token beginning with `glrt-`. Copy it immediately because GitLab displays it only briefly and does not reveal it again after leaving that page. If the page was closed before the token was copied, delete that unregistered runner and create a new one.
-
-With the current authentication-token workflow, settings such as tags, protection, locking, and untagged-job behavior belong to the runner object created in the UI. Register the runner manager with the Docker executor using only the connection and executor arguments:
+Confirm only that the binary and service are installed:
 
 ```bash
-sudo gitlab-runner register \
-  --non-interactive \
-  --url "http://gitlab.lab.local:8088" \
-  --token "PASTE_TEMPORARY_GLRT_TOKEN_HERE" \
-  --executor "docker" \
-  --docker-image "python:3.13-slim"
-```
-
-Do not save the registration command with a real token in shell scripts or course notes. Clear the shell line from history if organizational policy requires it.
-
-Ensure the service can reach Docker, then restart it:
-
-```bash
-sudo usermod -aG docker gitlab-runner
-sudo systemctl restart gitlab-runner
+gitlab-runner --version
 sudo systemctl status gitlab-runner --no-pager
-sudo gitlab-runner verify
 ```
-
-The Runner service can resolve `gitlab.lab.local` through the host's `/etc/hosts`, but containers created by the Docker executor do not automatically inherit that entry. Edit `/etc/gitlab-runner/config.toml` and add `extra_hosts` inside the registered runner's `[runners.docker]` section:
-
-```toml
-[[runners]]
-  name = "ubuntu26-docker-runner"
-  url = "http://gitlab.lab.local:8088"
-  executor = "docker"
-
-  [runners.docker]
-    image = "python:3.13-slim"
-    extra_hosts = ["gitlab.lab.local:host-gateway"]
-```
-
-Do not replace the complete file with this abbreviated example because the existing runner token and generated settings must remain. After saving the one added line, restart and verify the runner:
-
-```bash
-sudo grep -n "extra_hosts" /etc/gitlab-runner/config.toml
-sudo systemctl restart gitlab-runner
-sudo gitlab-runner verify
-```
-
-Before starting a pipeline, reproduce the helper container's network path with a disposable container:
-
-```bash
-docker run --rm \
-  --add-host gitlab.lab.local:host-gateway \
-  curlimages/curl:8.12.1 \
-  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
-  http://gitlab.lab.local:8088/users/sign_in
-```
-
-An HTTP response such as `200` proves that a container can resolve `gitlab.lab.local`, reach the workstation through Docker's host gateway, and connect to GitLab on port 8088. A connection response is the goal; this check does not authenticate a user.
-
-In the GitLab project, add `.gitlab-ci.yml`:
-
-```yaml
-stages:
-  - test
-
-python-environment:
-  stage: test
-  tags:
-    - docker
-  image: python:3.13-slim
-  script:
-    - python --version
-    - python -m pip --version
-    - python -c "import json; print('CI runner is ready')"
-```
-
-Commit and push the file:
-
-```bash
-git add .gitlab-ci.yml
-git commit -m "Add workstation validation pipeline"
-git push
-```
-
-Open **Build > Pipelines** and confirm that the job passes. The test proves that GitLab can schedule a job, the Runner can receive it, Docker can start the requested image, and the job log returns to GitLab.
 
 
 ## Task 13: Run the Final Workstation Validation
@@ -770,13 +664,12 @@ Then collect service evidence:
 docker version --format '{{.Server.Version}}'
 docker compose version
 minikube status
-docker exec gitlab-ce gitlab-ctl status
 sudo systemctl is-active gitlab-runner
-curl --silent http://gitlab.lab.local:8088/-/readiness | jq
+curl --fail --silent https://gitlab.com/users/sign_in >/dev/null && echo "GitLab.com reachable"
 curl --fail --silent http://127.0.0.1:8000 >/dev/null && echo "NetBox ready"
 ```
 
-`minikube status` may show `Stopped` if you followed the resource-management instruction. That is acceptable; the cluster was installed and validated earlier. Likewise, TIG and YANG Suite may be stopped while GitLab is running.
+`minikube status` may show `Stopped` if you followed the resource-management instruction. That is acceptable; the cluster was installed and validated earlier. Likewise, TIG and YANG Suite may be stopped when they are not required.
 
 ### Completion Evidence
 
@@ -791,7 +684,7 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - Kubernetes node and successful NGINX deployment result
 - YANG Suite login page
 - NetBox login page
-- GitLab login and installed Runner service; the optional `lab2_warm_up` test pipeline if completed
+- Successful GitLab.com SSH authentication and the installed, unregistered Runner service
 - Final validation summary
 
 ## Operating the All-in-One Workstation
@@ -837,15 +730,7 @@ minikube start
 minikube stop
 ```
 
-### Start and Stop GitLab
-
-```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-docker compose -f files/gitlab-compose.yaml start
-docker compose -f files/gitlab-compose.yaml stop
-```
-
-GitLab Runner can be stopped separately:
+### Start and Stop GitLab Runner
 
 ```bash
 sudo systemctl stop gitlab-runner
@@ -922,36 +807,22 @@ sudo ss -lntp | grep -E ':80|:443|:8443'
 
 Self-signed certificate warnings are expected in the lab. A connection refusal is not a certificate warning; it indicates that the container is not listening or a port is occupied.
 
-### GitLab returns HTTP 502 after installation
-
-GitLab services may still be initializing. Check service state, memory, and logs:
-
-```bash
-docker ps --filter name=gitlab-ce
-docker exec gitlab-ce gitlab-ctl status
-docker logs --tail=200 gitlab-ce
-free -h
-df -h /
-```
-
-If configuration changed, run `docker exec gitlab-ce gitlab-ctl reconfigure`. Avoid repeatedly restarting while PostgreSQL migrations are still running.
-
 ### A pipeline remains pending
 
 Open the pending job first and read the status message displayed by GitLab. If the runner is online but the job remains pending, GitLab normally considers the runner ineligible rather than unreachable. In **Project > Settings > CI/CD > Runners**, open the runner and confirm all of the following:
 
 - The runner appears under **Assigned project runners** for this project.
 - **Paused** is disabled.
-- The runner tag is exactly `docker`, using the same lowercase spelling as `.gitlab-ci.yml`.
-- **Protected** is disabled for this introductory test. A protected runner accepts jobs only from protected branches or tags.
+- The runner tag is exactly `network-deploy`, matching the Lab 7 `.gitlab-ci.yml`.
+- **Protected** is enabled and the pipeline runs from the protected `main` branch.
 - The runner has not been locked or assigned exclusively to a different project.
 
 The job definition must contain the matching tag:
 
 ```yaml
-python-environment:
+validate-netbox:
   tags:
-    - docker
+    - network-deploy
 ```
 
 After correcting a runner setting, select **Retry** on the existing job or run a new pipeline. On the workstation, confirm that the registered runner manager is valid and polling GitLab:
@@ -963,76 +834,21 @@ sudo gitlab-runner verify
 sudo journalctl -u gitlab-runner -n 100 --no-pager
 ```
 
-If the log repeatedly shows successful job polling but no assignment, return to the UI eligibility checks. If the job changes from pending to running and then fails, scheduling is fixed; investigate the Docker executor, image pull, or GitLab hostname shown in the job log instead.
+If the log repeatedly shows successful job polling but no assignment, return to the UI eligibility checks. If the job changes from pending to running and then fails, scheduling is fixed; investigate the shell job, Python environment, VPN, or service named in the job log.
 
-### The Docker helper cannot resolve gitlab.lab.local
+### The Runner cannot reach GitLab.com
 
-Repository checkout happens in a GitLab Runner helper container before the CI script starts. Consequently, adding `gitlab.lab.local` only to the Ubuntu host's `/etc/hosts` is insufficient. Confirm that the following line is inside `[runners.docker]` in `/etc/gitlab-runner/config.toml`, not above that table and not under a different runner:
-
-```toml
-[runners.docker]
-  extra_hosts = ["gitlab.lab.local:host-gateway"]
-```
-
-Apply the configuration and test the same mapping independently:
+Verify DNS, HTTPS, system time, and the Runner service:
 
 ```bash
-sudo grep -n "extra_hosts" /etc/gitlab-runner/config.toml
-sudo systemctl restart gitlab-runner
-sudo journalctl -u gitlab-runner -n 50 --no-pager
-
-docker run --rm \
-  --add-host gitlab.lab.local:host-gateway \
-  curlimages/curl:8.12.1 \
-  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
-  http://gitlab.lab.local:8088/users/sign_in
+getent hosts gitlab.com
+curl -I https://gitlab.com/users/sign_in
+timedatectl status
+sudo systemctl status gitlab-runner --no-pager
+sudo journalctl -u gitlab-runner -n 100 --no-pager
 ```
 
-If the disposable container succeeds, retry the pipeline. If it fails, confirm that GitLab is running and port 8088 is published:
-
-```bash
-docker ps --filter name=gitlab-ce
-sudo ss -lntp | grep ':8088'
-curl -I http://gitlab.lab.local:8088/users/sign_in
-```
-
-If the disposable container succeeds but the Runner helper still reports `Could not resolve host`, configure a DNS-independent clone URL. First, discover Docker's default bridge gateway and prove that it reaches GitLab's published port:
-
-```bash
-DOCKER_GATEWAY=$(docker network inspect bridge \
-  --format '{{(index .IPAM.Config 0).Gateway}}')
-echo "$DOCKER_GATEWAY"
-
-docker run --rm curlimages/curl:8.12.1 \
-  -sS -o /dev/null -w 'HTTP %{http_code}\n' \
-  "http://${DOCKER_GATEWAY}:8088/users/sign_in"
-```
-
-After the test returns an HTTP response, edit the system-mode file `/etc/gitlab-runner/config.toml`. Do not edit `$HOME/.gitlab-runner/config.toml`; the systemd service does not read that user-mode file. Add only the `clone_url` line inside the affected `[[runners]]` block, at the same level as `url`, `token`, and `executor`. Replace the sample address with the gateway printed by the preceding command. The comments below represent existing lines and must not be copied over them:
-
-```toml
-[[runners]]
-  # Keep the existing name, URL, and nonempty token unchanged.
-  clone_url = "http://172.17.0.1:8088"
-```
-
-Before restarting, validate that every configured runner token is nonempty without printing the secret itself:
-
-```bash
-sudo awk -F'"' '/^[[:space:]]*token =/ {
-  print "runner token length:", length($2)
-}' /etc/gitlab-runner/config.toml
-```
-
-A token length of zero means the runner cannot authenticate. Recreate the runner in GitLab and register it again rather than inventing or reusing a placeholder. When the token length is nonzero, restart the service and retry the job:
-
-```bash
-sudo systemctl restart gitlab-runner
-sudo gitlab-runner verify
-sudo journalctl -u gitlab-runner -n 50 --no-pager
-```
-
-The runner continues to poll GitLab through its configured `url`, while repository checkout uses `clone_url`. Seeing the Docker gateway address in the next job's **Getting source from Git repository** stage confirms that the helper no longer depends on local DNS.
+Do not disable TLS verification. Correct DNS, the workstation clock, the trusted CA bundle, or the organization's approved HTTPS-proxy configuration.
 
 ## Lab Cleanup
 
@@ -1046,11 +862,10 @@ cd "$HOME/lab-services/yangsuite/docker"
 docker compose stop
 
 minikube stop
-docker compose -f <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/gitlab-compose.yaml stop
 sudo systemctl stop gitlab-runner
 ```
 
-Do not remove Docker volumes, GitLab data, NetBox data, YANG Suite data, the virtual environment, or Minikube unless the instructor asks for a complete rebuild.
+Do not remove Docker volumes, NetBox data, YANG Suite data, the virtual environment, or Minikube unless the instructor asks for a complete rebuild.
 
 ## Key Takeaways
 
@@ -1061,7 +876,7 @@ Do not remove Docker volumes, GitLab data, NetBox data, YANG Suite data, the vir
 - NetBox provides the API-driven source of truth used by the cumulative automation project.
 - Minikube supplies a realistic Kubernetes API without requiring a multi-node production cluster.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.
-- GitLab and GitLab Runner create an end-to-end local CI/CD path, from commit through isolated Docker job execution.
+- GitLab.com provides hosted repositories and pipeline coordination, while the local Runner executes the network deployment introduced in Lab 7.
 - Version checks, import tests, service health endpoints, and a passing pipeline provide better evidence than assuming that package installation succeeded.
 
 The workstation is now ready for Lab 2, where learners can begin using Python and API clients to interact with a controlled Cisco network environment.
@@ -1082,8 +897,7 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 - [Cisco YANG Suite documentation](https://developer.cisco.com/docs/yangsuite/)
 - [Cisco YANG Suite source repository](https://github.com/CiscoDevNet/yangsuite)
 - [Visual Studio Code on Linux](https://code.visualstudio.com/docs/setup/linux)
-- [GitLab installation with Docker](https://docs.gitlab.com/install/docker/installation/)
-- [GitLab supported Linux package platforms](https://docs.gitlab.com/install/package/)
 - [GitLab Runner installation](https://docs.gitlab.com/runner/install/)
-- [GitLab Runner Docker executor](https://docs.gitlab.com/runner/executors/docker/)
+- [GitLab Runner shell executor](https://docs.gitlab.com/runner/executors/shell/)
+- [GitLab SSH keys](https://docs.gitlab.com/user/ssh/)
 - [NetBox Docker](https://github.com/netbox-community/netbox-docker)

@@ -24,7 +24,9 @@ The pipeline reconciles the complete managed set rather than trusting fields in 
 
 - Labs 1–6 completed
 - `network_automation_project` merged through Lab 6
-- NetBox, Vault, GitLab, and GitLab Runner running on the workstation
+- NetBox and Vault running on the workstation
+- GitLab.com reachable from the workstation and NetBox containers
+- GitLab Runner installed on the workstation
 - Active IOS XE reservable sandbox and VPN
 - A NetBox API token and GitLab project-maintainer access
 - A valid IOS XE secret at `secret/ccnpauto/iosxe`
@@ -85,7 +87,7 @@ Verification should pass for the loopbacks configured in Labs 4 and 6.
 
 ## Task 2: Register a Dedicated Shell Runner
 
-The Docker runner from Lab 1 is suitable for ordinary tests, but a local network-deployment job needs uncomplicated access to the workstation VPN, NetBox on loopback, and Vault on loopback. Create a second project runner in GitLab:
+The Runner package was installed but deliberately left unregistered in Lab 1. This network-deployment job needs direct access to the workstation VPN, NetBox on loopback, and Vault on loopback, so create a project runner in the GitLab.com project under **Settings > CI/CD > Runners > Create project runner**:
 
 - Description: `network-deploy-runner`
 - Tag: `network-deploy`
@@ -98,7 +100,7 @@ Register it with the shell executor using the temporary `glrt-` token shown by G
 ```bash
 sudo gitlab-runner register \
   --non-interactive \
-  --url "http://gitlab.lab.local:8088" \
+  --url "https://gitlab.com" \
   --token "PASTE_GLRT_TOKEN" \
   --executor "shell"
 
@@ -179,7 +181,7 @@ In GitLab, open **Settings > CI/CD > Pipeline trigger tokens**. Create a trigger
 Record the numeric project ID from the project overview page. Build the URL locally without committing it:
 
 ```text
-http://gitlab.lab.local:8088/api/v4/projects/PROJECT_ID/trigger/pipeline?token=TRIGGER_TOKEN&ref=main
+https://gitlab.com/api/v4/projects/PROJECT_ID/trigger/pipeline?token=TRIGGER_TOKEN&ref=main
 ```
 
 The trigger token can start a pipeline and must be protected. Do not place it in Git, screenshots, or ordinary logs.
@@ -191,15 +193,19 @@ In NetBox, create a webhook named `Trigger network_automation_project`:
 - Method: POST
 - URL: the GitLab trigger URL
 - HTTP content type: `application/json`
-- SSL verification: not applicable to the local HTTP training endpoint
+- SSL verification: enabled
 - Additional headers: none
 
-The NetBox worker container must resolve `gitlab.lab.local` to the Docker host. The updated Lab 1 NetBox Compose override provides that mapping. Test from the worker if required:
+The NetBox worker sends the webhook directly to GitLab.com over HTTPS. Confirm that the container has working DNS and outbound Internet access before creating the event rule:
 
 ```bash
 cd ~/lab-services/netbox-docker
-docker compose exec netbox-worker getent hosts gitlab.lab.local
+docker compose exec netbox-worker getent hosts gitlab.com
+docker compose exec netbox-worker python -c \
+  "import urllib.request; print(urllib.request.urlopen('https://gitlab.com/users/sign_in', timeout=10).status)"
 ```
+
+A resolved address followed by an HTTP status confirms both DNS and HTTPS connectivity. If the HTTPS test fails, correct the workstation or organizational proxy and CA configuration; do not disable certificate verification.
 
 ## Task 9: Create the NetBox Event Rule
 
@@ -254,7 +260,7 @@ Use four evidence sources:
 | Failure | First check |
 |---|---|
 | No pipeline appears | NetBox event rule and webhook delivery result |
-| Webhook cannot resolve GitLab | `getent hosts` in `netbox-worker` |
+| Webhook cannot reach GitLab.com | Test DNS and HTTPS from `netbox-worker` |
 | Job remains pending | Protected shell runner, tag, and branch eligibility |
 | NetBox validation fails | Tagged interface type, name, and assigned `/32` |
 | Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |

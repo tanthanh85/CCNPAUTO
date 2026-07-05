@@ -39,7 +39,7 @@ flowchart LR
 
 ## Task 1: Continue the Existing Repository
 
-Do not create another GitLab project. Update the existing clone and create a focused branch:
+Do not create another GitLab.com project. Update the existing clone and create a focused branch:
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project

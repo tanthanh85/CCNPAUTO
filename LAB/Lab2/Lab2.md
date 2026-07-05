@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-This short lab helps learners confirm that the workstation, local GitLab, Python environment, DevNet VPN, and IOS XE sandbox work together before the main project begins. Learners create a disposable GitLab repository named `lab2_warm_up`, connect to a reserved IOS XE router with Netmiko, run `show version` and `show ip interface brief`, parse the output with TextFSM, and display tables. They then retrieve structured YANG JSON interface data through RESTCONF.
+This short lab helps learners confirm that the workstation, GitLab.com account, Python environment, DevNet VPN, and IOS XE sandbox work together before the main project begins. Learners create a disposable GitLab.com repository named `lab2_warm_up`, connect to a reserved IOS XE router with Netmiko, run `show version` and `show ip interface brief`, parse the output with TextFSM, and display tables. They then retrieve structured YANG JSON interface data through RESTCONF.
 
 
 ## Learning Objectives
@@ -22,10 +22,10 @@ Allow approximately **90 minutes to 2 hours**.
 ## Prerequisites
 
 - Lab 1 completed
-- Local GitLab available at `http://gitlab.lab.local:8088`
+- GitLab.com learner account with the Lab 1 SSH key added
 - Python virtual environment from Lab 1
 - Active IOS XE reservable sandbox and VPN connection
-- GitLab learner account (not admin or root account) and repository token
+- Permission to create a private project in the learner's GitLab.com namespace
 
 ## Lab Flow
 
@@ -70,7 +70,7 @@ Reserve a private IOS XE sandbox, connect the VPN the sandbox environment, and r
 
 ## Task 2: Create `lab2_warm_up` in GitLab
 
-Create a blank private project on Gilab at `http://gitlab.lab.local:8088`
+Sign in to [GitLab.com](https://gitlab.com) and create a blank private project in your personal namespace:
 
 - Project name: `lab2_warm_up`
 - Project slug: `lab2_warm_up`
@@ -87,7 +87,7 @@ REMEMBER TO CHANGE TO THE ACTUAL USERNAME IN THE BELOW URL
 mkdir -p ~/ccnpauto-workspace
 cd ~/ccnpauto-workspace
 git clone \
-  http://gitlab.lab.local:8088/YOUR_USERNAME/lab2_warm_up.git
+  git@gitlab.com:YOUR_USERNAME/lab2_warm_up.git
 cd lab2_warm_up
 ```
 

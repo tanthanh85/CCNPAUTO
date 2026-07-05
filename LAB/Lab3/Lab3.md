@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Lab 2 confirmed that the workstation can retrieve IOS XE information. Lab 3 now begins the durable project that learners will extend through Lab 7. Learners create a separate GitLab repository named `network_automation_project`, define one or more loopback interfaces in YAML, validate the data, render IOS XE commands with a Jinja2 template, configure a reserved router with Netmiko, and verify the resulting interface state.
+Lab 2 confirmed that the workstation can retrieve Cisco sandbox IOS XE router information. Lab 3 now begins the durable project that learners will extend through Lab 7. Learners create a separate GitLab repository named `network_automation_project`, define one or more loopback interfaces in YAML, validate the data, render IOS XE commands with a Jinja2 template, configure a reserved router with Netmiko, and verify the resulting interface state.
 
 This first version uses `data/loopbacks.yaml` as a small source of truth. Lab 4 will replace that file as the active data source with NetBox. Lab 5 will replace environment-file device credentials with Vault. Lab 6 will add NETCONF-based OSPF configuration, and Lab 7 will place the complete workflow into GitLab CI/CD.
 
@@ -29,7 +29,6 @@ Allow approximately **3 hours**.
 - Local GitLab and learner account
 - Active IOS XE reservable sandbox and VPN
 - Python virtual environment from Lab 1
-- Permission to create lab-owned loopback interfaces
 
 ## Project Architecture
 

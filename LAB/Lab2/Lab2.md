@@ -14,7 +14,6 @@ This short lab helps learners confirm that the workstation, local GitLab, Python
 - Parse common operational commands with TextFSM.
 - Iterate through structured records and print tables.
 - Retrieve YANG-modeled interface state through RESTCONF.
-- Compare CLI parsing with a structured API response.
 
 ## Estimated Time
 

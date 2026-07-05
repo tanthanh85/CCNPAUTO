@@ -576,6 +576,33 @@ docker compose ps
 docker compose logs --tail=100 netbox
 ```
 
+The first start creates and migrates the complete PostgreSQL schema. On a resource-constrained learner VM this can take more than the upstream health check's default grace period. The supplied override extends `start_period` to 300 seconds. Follow startup rather than repeating `docker compose up`:
+
+```bash
+docker compose logs --follow netbox
+# Press Ctrl+C after the application reports that it is serving requests.
+docker compose ps
+```
+
+If Compose still reports that `netbox` is unhealthy, inspect the application log and the individual health-check attempts:
+
+```bash
+docker compose logs --tail=250 netbox postgres
+docker inspect netbox-docker-netbox-1 \
+  --format '{{range .State.Health.Log}}{{println .End .ExitCode .Output}}{{end}}'
+```
+
+Do not run `docker compose down -v`; `-v` deletes the database. If the log shows migrations progressing without a Python traceback, apply the current override and recreate only the application containers while preserving all volumes:
+
+```bash
+cp /path/to/CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml \
+  docker-compose.override.yml
+docker compose up -d --force-recreate netbox netbox-worker
+docker compose logs --follow netbox
+```
+
+If the log contains a traceback or database error, diagnose that message instead of masking it with a longer health timeout.
+
 Create the administrator account:
 
 ```bash

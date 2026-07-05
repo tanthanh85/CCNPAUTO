@@ -2,10 +2,14 @@ services:
   netbox:
     ports:
       - "127.0.0.1:8000:8080"
+    # Initial database migrations can exceed the upstream 90-second grace
+    # period on a resource-constrained learner VM, especially on ARM64.
+    healthcheck:
+      start_period: 300s
+      retries: 5
     extra_hosts:
       - "gitlab.lab.local:host-gateway"
 
   netbox-worker:
     extra_hosts:
       - "gitlab.lab.local:host-gateway"
-

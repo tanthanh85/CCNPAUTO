@@ -77,6 +77,8 @@ Create a blank private project on Gilab at `http://gitlab.lab.local:8088`
 - Default branch: `main`
 - Do not initialize with a README
 
+Open **Settings > CI/CD > Auto DevOps**, clear **Default to Auto DevOps pipeline**, and save. The warm-up repository does not define a pipeline unless the instructor explicitly performs the optional Runner exercise from Lab 1.
+
 Clone it:
 
 REMEMBER TO CHANGE TO THE ACTUAL USERNAME IN THE BELOW URL
@@ -227,4 +229,3 @@ Lab 3 creates a new repository named `network_automation_project` and introduces
 - [ntc-templates](https://github.com/networktocode/ntc-templates)
 - [RESTCONF RFC 8040](https://www.rfc-editor.org/rfc/rfc8040)
 - [Cisco IOS XE programmability](https://developer.cisco.com/iosxe/)
-

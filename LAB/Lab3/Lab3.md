@@ -79,6 +79,16 @@ In GitLab, create a blank private project:
 - Default branch: `main`
 - Do not initialize with a README
 
+Before the first push, disable GitLab's automatically generated pipeline for this project:
+
+1. Open `network_automation_project` in GitLab.
+2. Select **Settings > CI/CD**.
+3. Expand **Auto DevOps**.
+4. Clear **Default to Auto DevOps pipeline**.
+5. Select **Save changes**.
+
+Do not disable the entire CI/CD project feature. Lab 7 will add the project's intentional `.gitlab-ci.yml`; only Auto DevOps should be disabled. Without this change, GitLab can synthesize build, code-quality, container-scanning, secret-detection, and SAST jobs even though the repository has no CI file.
+
 Clone it:
 
 ```bash
@@ -298,6 +308,8 @@ The repository now contains the first version of the cumulative automation proje
 | Safety check stops change | Write flag false or sandbox mode incorrect | Confirm reservation, then enable changes deliberately |
 | SSH timeout | VPN, hostname, port, or reservation expired | Test reachability and reservation details |
 | Verification finds wrong address | Existing interface conflict or unintended state | Stop and compare YAML with router configuration |
+| A pipeline appears without `.gitlab-ci.yml` | Auto DevOps is enabled for the project, group, or instance | Disable Auto DevOps under **Settings > CI/CD**, then cancel the generated pipeline |
+| Auto DevOps jobs remain pending | No runner is eligible for the generated jobs | Cancel them; Lab 3 does not require a runner, and Lab 7 registers the intended runner |
 
 ## Key Takeaways
 
@@ -316,4 +328,3 @@ Lab 4 moves the loopback source of truth from YAML to NetBox while retaining thi
 - [PyYAML documentation](https://pyyaml.org/wiki/PyYAMLDocumentation)
 - [Netmiko documentation](https://ktbyers.github.io/netmiko/docs/netmiko/)
 - [GitLab merge requests](https://docs.gitlab.com/user/project/merge_requests/)
-

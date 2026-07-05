@@ -1,10 +1,10 @@
-# Lab 4: Move the Loopback Source of Truth to NetBox
+# Lab 4: Move the Source of Truth to NetBox
 
 ## Lab Introduction
 
-Lab 3 stored loopback intent in `data/loopbacks.yaml`. That approach made the first automation workflow easy to understand, but a flat file provides few relationships, limited search, and no built-in API or object history. In this lab, learners keep the same `network_automation_project` repository and move the authoritative loopback data to NetBox.
+Lab 3 stored intent for loopback management in `data/loopbacks.yaml`. That approach made the first automation workflow easy to understand, but a flat file provides few relationships, limited search, and no built-in API or object history. In this lab, learners keep the same `network_automation_project` repository and move the authoritative loopback data to NetBox.
 
-NetBox will model the IOS XE sandbox as a device. Each managed loopback will be a virtual interface with exactly one IPv4 `/32` address and the tag `automation-managed`. The Python project will query those objects through the NetBox REST API, validate them, render the existing Jinja2 template, configure IOS XE with the existing Netmiko class, and verify the result.
+NetBox will model the Cisco IOS XE sandbox as a device. Each managed loopback will be a virtual interface with exactly one IPv4 `/32` address and the tag `automation-managed`. The Python project will query those objects through the NetBox REST API, validate them, render the existing Jinja2 template, configure Cisco IOS XE router with the existing Netmiko class, and verify the result.
 
 The YAML file remains in Git as evidence of Lab 3, but it is no longer the active source of truth after this lab.
 
@@ -14,15 +14,13 @@ The YAML file remains in Git as evidence of Lab 3, but it is no longer the activ
 - Model a router, virtual interfaces, tags, and IP assignments in NetBox.
 - Create a restricted NetBox API token.
 - Retrieve and validate loopback intent with `pynetbox`.
-- Preserve the normalized loopback contract created in Lab 3.
 - Reuse the existing Jinja2 and Netmiko workflow.
-- Distinguish intended NetBox state from observed IOS XE state.
 
 ## Prerequisites
 
 - Labs 1–3 completed
 - NetBox installed and running from the updated Lab 1
-- Active IOS XE reservable sandbox and VPN
+- Active Cisco IOS XE reservable sandbox and VPN connection
 - Existing local clone at `~/ccnpauto-workspace/network_automation_project`
 - Loopback automation from Lab 3 working successfully
 
@@ -76,7 +74,7 @@ curl -I http://127.0.0.1:8000
 
 Open `http://127.0.0.1:8000` and sign in with the administrator created in Lab 1.
 
-## Task 3: Model the IOS XE Sandbox
+## Task 3: Model the Cisco IOS XE Sandbox Router
 
 Create these objects through the NetBox interface. Existing equivalent objects may be reused.
 
@@ -163,7 +161,7 @@ The new source adapter returns the same normalized keys used in Lab 3: `id`, `de
 
 Temporarily keep `ALLOW_CONFIG_CHANGES=false` and run the validation again. Then inspect `scripts/sync_loopbacks_from_netbox.py`. It loads all managed intent once, renders one command list, and reuses `IOSXEDevice` for configuration and verification.
 
-## Task 9: Reconcile NetBox to IOS XE
+## Task 9: Reconcile NetBox to Cisco IOS XE sandbox router
 
 Enable changes only for the active reservation:
 

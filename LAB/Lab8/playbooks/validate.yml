@@ -1,0 +1,7 @@
+---
+- name: Validate NetBox loopback intent
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load and validate the source of truth
+      ansible.builtin.include_tasks: ../tasks/load_intent.yml

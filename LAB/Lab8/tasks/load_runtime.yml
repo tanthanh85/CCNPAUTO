@@ -1,0 +1,39 @@
+---
+- name: Read runtime and Vault settings
+  ansible.builtin.set_fact:
+    iosxe_host: "{{ lookup('ansible.builtin.env', 'IOSXE_HOST') }}"
+    iosxe_ssh_port: "{{ lookup('ansible.builtin.env', 'IOSXE_SSH_PORT') | default('22', true) | int }}"
+    iosxe_netconf_port: "{{ lookup('ansible.builtin.env', 'IOSXE_NETCONF_PORT') | default('830', true) | int }}"
+    sandbox_mode: "{{ lookup('ansible.builtin.env', 'SANDBOX_MODE') }}"
+    allow_config_changes: "{{ lookup('ansible.builtin.env', 'ALLOW_CONFIG_CHANGES') | default('false', true) | bool }}"
+    vault_addr: "{{ lookup('ansible.builtin.env', 'VAULT_ADDR') | default('http://127.0.0.1:8200', true) }}"
+    vault_token: "{{ lookup('ansible.builtin.env', 'VAULT_TOKEN') }}"
+    vault_mount: "{{ lookup('ansible.builtin.env', 'VAULT_MOUNT') | default('secret', true) }}"
+    vault_path: "{{ lookup('ansible.builtin.env', 'VAULT_IOSXE_PATH') | default('ccnpauto/iosxe', true) }}"
+    ospf_process_id: "{{ lookup('ansible.builtin.env', 'OSPF_PROCESS_ID') | default('1', true) | int }}"
+    ospf_area: "{{ lookup('ansible.builtin.env', 'OSPF_AREA') | default('0', true) | int }}"
+  no_log: true
+
+- name: Enforce the reserved-sandbox change guard
+  ansible.builtin.assert:
+    that:
+      - iosxe_host | length > 0
+      - sandbox_mode == 'reserved'
+      - not (require_change_approval | default(false) | bool) or (allow_config_changes | bool)
+    fail_msg: Set a valid IOSXE_HOST and SANDBOX_MODE=reserved. Deployment also requires ALLOW_CONFIG_CHANGES=true.
+
+- name: Read IOS XE credentials from Vault KV version 2
+  ansible.builtin.set_fact:
+    iosxe_secret: >-
+      {{ lookup('community.hashi_vault.vault_kv2_get', vault_path,
+                engine_mount_point=vault_mount, url=vault_addr,
+                token=vault_token).secret }}
+  no_log: true
+
+- name: Require both credential fields
+  ansible.builtin.assert:
+    that:
+      - iosxe_secret.username | default('') | length > 0
+      - iosxe_secret.password | default('') | length > 0
+    fail_msg: Vault must return username and password fields.
+  no_log: true

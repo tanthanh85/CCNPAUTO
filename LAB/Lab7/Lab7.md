@@ -276,13 +276,15 @@ Do not delete NetBox records merely because the disposable sandbox resets. NetBo
 
 ## Key Takeaways
 
-- Labs 3–7 form one evolving `network_automation_project`.
+- Labs 3–7 form one evolving Python-based `network_automation_project`.
 - NetBox events trigger reconciliation but do not supply trusted configuration directly.
 - Validation must complete before device changes begin.
 - Vault separates device credentials from GitLab repository content.
 - Netmiko creates loopbacks before NETCONF adds their addresses to OSPF area 0.
 - Protected branches, protected runners, resource groups, and artifacts make deployment safer and auditable.
 - CI success means little without independent verification against intended and observed state.
+
+Lab 8 continues in the same repository and migrates the orchestration layer from Python to Ansible while preserving NetBox, Vault, NETCONF, GitLab CI/CD, and the existing webhook workflow.
 
 ## References
 

@@ -1,0 +1,105 @@
+---
+- name: Read project settings from the environment
+  ansible.builtin.set_fact:
+    netbox_url: "{{ lookup('ansible.builtin.env', 'NETBOX_URL') | default('http://127.0.0.1:8000', true) | regex_replace('/+$', '') }}"
+    netbox_token: "{{ lookup('ansible.builtin.env', 'NETBOX_TOKEN') }}"
+    netbox_device: "{{ lookup('ansible.builtin.env', 'NETBOX_DEVICE') | default('iosxe-sandbox', true) }}"
+    netbox_tag: "{{ lookup('ansible.builtin.env', 'NETBOX_TAG') | default('automation-managed', true) }}"
+  no_log: true
+
+- name: Require the NetBox API token
+  ansible.builtin.assert:
+    that:
+      - netbox_token | length > 0
+    fail_msg: NETBOX_TOKEN is required.
+
+- name: Retrieve managed virtual interfaces from NetBox
+  ansible.builtin.uri:
+    url: "{{ netbox_url }}/api/dcim/interfaces/?device={{ netbox_device | urlencode }}&tag={{ netbox_tag | urlencode }}&type=virtual&limit=0"
+    method: GET
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+      Accept: application/json
+    return_content: true
+    status_code: 200
+  register: netbox_interfaces
+  no_log: true
+
+- name: Require at least one managed loopback
+  ansible.builtin.assert:
+    that:
+      - netbox_interfaces.json.results | length > 0
+    fail_msg: "NetBox returned no tagged virtual interfaces for {{ netbox_device }}."
+
+- name: Retrieve each interface's assigned IP addresses
+  ansible.builtin.uri:
+    url: "{{ netbox_url }}/api/ipam/ip-addresses/?interface_id={{ item.id }}&limit=0"
+    method: GET
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+      Accept: application/json
+    return_content: true
+    status_code: 200
+  loop: "{{ netbox_interfaces.json.results }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: netbox_address_queries
+  no_log: true
+
+- name: Start the normalized intent list
+  ansible.builtin.set_fact:
+    managed_loopbacks: []
+
+- name: Require the loopback naming convention and one assigned address
+  vars:
+    interface: "{{ item.item }}"
+    addresses: "{{ item.json.results }}"
+  ansible.builtin.assert:
+    that:
+      - interface.name is match('^Loopback[0-9]+$')
+      - addresses | length == 1
+    fail_msg: "{{ interface.name }} must use the Loopback<number> form and have exactly one assigned address."
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Require every assigned address to be a valid IPv4 host prefix
+  vars:
+    interface: "{{ item.item }}"
+    address: "{{ item.json.results[0].address }}"
+  ansible.builtin.assert:
+    that:
+      - address is match('^[0-9.]+/32$')
+      - address | ansible.utils.ipaddr('address')
+    fail_msg: "{{ interface.name }} must have one valid IPv4 /32."
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Validate and normalize every NetBox loopback
+  vars:
+    interface: "{{ item.item }}"
+    addresses: "{{ item.json.results }}"
+  ansible.builtin.set_fact:
+    managed_loopbacks: >-
+      {{ managed_loopbacks + [{
+        'name': interface.name,
+        'description': interface.description | default('', true),
+        'enabled': interface.enabled | bool,
+        'prefix': addresses[0].address,
+        'ipv4': addresses[0].address.split('/')[0]
+      }] }}
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Reject duplicate interface names or IPv4 addresses
+  ansible.builtin.assert:
+    that:
+      - managed_loopbacks | map(attribute='name') | unique | length == managed_loopbacks | length
+      - managed_loopbacks | map(attribute='ipv4') | unique | length == managed_loopbacks | length
+    fail_msg: Managed loopback names and IPv4 addresses must be unique.
+
+- name: Show validated intent without secrets
+  ansible.builtin.debug:
+    msg: "Validated {{ managed_loopbacks | length }} NetBox loopback(s): {{ managed_loopbacks | map(attribute='name') | join(', ') }}"

@@ -1,0 +1,73 @@
+---
+- name: Prepare intent, credentials, and runtime hosts
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load and validate NetBox intent
+      ansible.builtin.include_tasks: ../tasks/load_intent.yml
+
+    - name: Load the protected runtime settings
+      ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: true
+
+    - name: Create the temporary CLI inventory host
+      ansible.builtin.add_host:
+        name: iosxe_cli
+        groups: runtime_cli
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+      no_log: true
+
+    - name: Create the temporary NETCONF inventory host
+      ansible.builtin.add_host:
+        name: iosxe_netconf
+        groups: runtime_netconf
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_netconf_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.netconf
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+        ospf_process_id: "{{ ospf_process_id }}"
+        ospf_area: "{{ ospf_area }}"
+      no_log: true
+
+- name: Reconcile loopback interfaces through IOS CLI
+  hosts: runtime_cli
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Configure every NetBox-managed loopback
+      cisco.ios.ios_config:
+        parents: "interface {{ item.name }}"
+        lines:
+          - "description {{ item.description | default('NETBOX_MANAGED', true) }}"
+          - "ip address {{ item.ipv4 }} 255.255.255.255"
+          - "{{ 'no shutdown' if item.enabled else 'shutdown' }}"
+        match: line
+        save_when: never
+      loop: "{{ managed_loopbacks }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Reconcile OSPF through NETCONF
+  hosts: runtime_netconf
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Render the Cisco IOS XE native-YANG payload
+      ansible.builtin.set_fact:
+        ospf_payload: "{{ lookup('ansible.builtin.template', '../templates/ospf_native.xml.j2') }}"
+
+    - name: Merge all managed loopbacks into OSPF area 0
+      ansible.netcommon.netconf_config:
+        content: "{{ ospf_payload }}"
+        target: running
+        commit: false

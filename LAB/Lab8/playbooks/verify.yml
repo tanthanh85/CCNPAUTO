@@ -1,0 +1,51 @@
+---
+- name: Prepare intended state and read-only runtime hosts
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load and validate NetBox intent
+      ansible.builtin.include_tasks: ../tasks/load_intent.yml
+
+    - name: Load runtime settings and credentials
+      ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: false
+
+    - name: Create temporary CLI verification host
+      ansible.builtin.add_host:
+        name: iosxe_cli
+        groups: verify_cli
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+      no_log: true
+
+- name: Verify interfaces and OSPF operational state
+  hosts: verify_cli
+  gather_facts: false
+  tasks:
+    - name: Retrieve interface and OSPF state
+      cisco.ios.ios_command:
+        commands:
+          - show ip interface brief
+          - show running-config | section router ospf
+      register: observed_state
+
+    - name: Confirm every intended loopback and address is present
+      ansible.builtin.assert:
+        that:
+          - item.name in observed_state.stdout[0]
+          - item.ipv4 in observed_state.stdout[0]
+          - item.ipv4 in observed_state.stdout[1]
+        fail_msg: "Observed IOS XE state does not match NetBox for {{ item.name }}."
+      loop: "{{ managed_loopbacks }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Summarize successful verification
+      ansible.builtin.debug:
+        msg: "Verified {{ managed_loopbacks | length }} loopback(s) and their OSPF area 0 network statements."

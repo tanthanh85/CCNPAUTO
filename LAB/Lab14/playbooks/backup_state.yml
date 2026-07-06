@@ -1,0 +1,45 @@
+---
+- name: Prepare backup host
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/load_intent.yml
+    - ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: false
+    - ansible.builtin.add_host:
+        name: iosxe_backup
+        groups: backup_cli
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+      no_log: true
+
+- name: Capture scoped pre-change state
+  hosts: backup_cli
+  gather_facts: false
+  tasks:
+    - cisco.ios.ios_command:
+        commands:
+          - show running-config | section ^interface Loopback
+          - show running-config | section ^router ospf
+      register: before
+
+    - name: Save raw pre-change evidence
+      ansible.builtin.copy:
+        content: "{{ before.stdout[0] }}\n{{ before.stdout[1] }}\n"
+        dest: artifacts/pre-change-running-config.txt
+        mode: "0600"
+      delegate_to: localhost
+
+    - name: Save structured rollback state
+      ansible.builtin.copy:
+        content: >-
+          {{ {'loopbacks': (before.stdout[0] | parse_loopbacks),
+              'ospf_networks': (before.stdout[1] | parse_ospf_networks)} | to_nice_json }}
+        dest: artifacts/pre-change-state.json
+        mode: "0600"
+      delegate_to: localhost

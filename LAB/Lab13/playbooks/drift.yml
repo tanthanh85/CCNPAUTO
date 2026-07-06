@@ -1,0 +1,52 @@
+---
+- name: Load intent and create a read-only audit host
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/load_intent.yml
+    - ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: false
+    - name: Create temporary drift-audit host
+      ansible.builtin.add_host:
+        name: iosxe_drift
+        groups: drift_audit
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+      no_log: true
+
+- name: Compare observed IOS XE state with NetBox
+  hosts: drift_audit
+  gather_facts: false
+  tasks:
+    - name: Retrieve loopback and OSPF configuration
+      cisco.ios.ios_command:
+        commands:
+          - show running-config | section ^interface Loopback
+          - show running-config | section ^router ospf
+      register: observed
+
+    - name: Build structured drift report
+      ansible.builtin.set_fact:
+        drift_report: "{{ managed_loopbacks | build_drift_report(observed.stdout[0], observed.stdout[1]) }}"
+
+    - name: Save JSON compliance evidence
+      ansible.builtin.copy:
+        content: "{{ drift_report | to_nice_json }}"
+        dest: artifacts/drift-report.json
+        mode: "0600"
+      delegate_to: localhost
+
+    - name: Display compliance summary
+      ansible.builtin.debug:
+        var: drift_report
+
+    - name: Fail when observed state differs from intent
+      ansible.builtin.assert:
+        that: drift_report.compliant | bool
+        fail_msg: Configuration drift was detected. Review artifacts/drift-report.json.

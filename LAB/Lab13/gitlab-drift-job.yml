@@ -1,0 +1,19 @@
+drift-compliance:
+  stage: assess
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+    - when: never
+  script:
+    - mkdir -p artifacts
+    - export AUTOMATION_IMAGE="network-automation-runtime:stable"
+    - export ANSIBLE_AUDIT_LOG="artifacts/drift-audit.jsonl"
+    - bash ci/run_playbook_container.sh playbooks/drift.yml artifacts/drift-audit.log
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - artifacts/drift-report.json
+      - artifacts/drift-audit.jsonl
+      - artifacts/drift-audit.log

@@ -1,0 +1,53 @@
+---
+- name: Prepare change-plan host
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/load_intent.yml
+    - ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: false
+    - ansible.builtin.add_host:
+        name: iosxe_plan
+        groups: plan_cli
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+      no_log: true
+
+- name: Generate a non-changing interface plan
+  hosts: plan_cli
+  gather_facts: false
+  tasks:
+    - name: Preview loopback changes with check mode
+      cisco.ios.ios_config:
+        parents: "interface {{ item.name }}"
+        lines:
+          - "description {{ item.description | default('NETBOX_MANAGED', true) }}"
+          - "ip address {{ item.ipv4 }} 255.255.255.255"
+          - "{{ 'no shutdown' if item.enabled else 'shutdown' }}"
+        match: line
+      loop: "{{ managed_loopbacks }}"
+      loop_control:
+        label: "{{ item.name }}"
+      check_mode: true
+      diff: true
+      register: interface_plan
+
+    - name: Save machine-readable plan
+      ansible.builtin.copy:
+        content: "{{ interface_plan.results | to_nice_json }}"
+        dest: artifacts/change-plan.json
+        mode: "0600"
+      delegate_to: localhost
+
+    - name: Render reviewed OSPF payload without sending it
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.template', '../templates/ospf_native.xml.j2') }}"
+        dest: artifacts/ospf-plan.xml
+        mode: "0600"
+      delegate_to: localhost

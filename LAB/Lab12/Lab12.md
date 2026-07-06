@@ -173,6 +173,8 @@ Treat receiver addresses and model paths as configuration, not secrets. Credenti
 - CPU, memory, and interface counters require different sampling and visualization choices.
 - Application and network telemetry together provide stronger operational context.
 
+Lab 13 adds scheduled, read-only configuration drift detection and compliance evidence to the same project.
+
 ## References
 
 - [Cisco IOS XE model-driven telemetry](https://developer.cisco.com/docs/ios-xe/#!model-driven-telemetry)

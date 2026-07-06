@@ -1,0 +1,32 @@
+plan-change:
+  stage: plan
+  script:
+    - mkdir -p artifacts
+    - bash ci/run_playbook_container.sh playbooks/plan_change.yml artifacts/change-plan.log
+
+approve-change:
+  stage: approve
+  when: manual
+  allow_failure: false
+  environment:
+    name: iosxe-reserved
+  script:
+    - echo "Protected change approved by ${GITLAB_USER_LOGIN}" | tee artifacts/approval.txt
+
+backup-state:
+  stage: backup
+  script:
+    - bash ci/run_playbook_container.sh playbooks/backup_state.yml artifacts/backup.log
+
+rollback-on-failure:
+  stage: rollback
+  when: on_failure
+  resource_group: iosxe-sandbox
+  script:
+    - test -f artifacts/pre-change-state.json || { echo "No successful backup artifact exists; rollback is not safe to attempt."; exit 0; }
+    - bash ci/run_playbook_container.sh playbooks/rollback.yml artifacts/rollback.log
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - artifacts/

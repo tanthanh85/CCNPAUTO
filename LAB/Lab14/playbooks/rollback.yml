@@ -1,0 +1,60 @@
+---
+- name: Prepare scoped rollback
+  hosts: localhost
+  gather_facts: false
+  vars:
+    pre_state: "{{ lookup('ansible.builtin.file', 'artifacts/pre-change-state.json') | from_json }}"
+  tasks:
+    - ansible.builtin.include_tasks: ../tasks/load_intent.yml
+    - ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: true
+    - ansible.builtin.add_host:
+        name: iosxe_rollback
+        groups: rollback_cli
+        ansible_host: "{{ iosxe_host }}"
+        ansible_port: "{{ iosxe_ssh_port }}"
+        ansible_user: "{{ iosxe_secret.username }}"
+        ansible_password: "{{ iosxe_secret.password }}"
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_os: cisco.ios.ios
+        managed_loopbacks: "{{ managed_loopbacks }}"
+        pre_state: "{{ pre_state }}"
+      no_log: true
+
+- name: Apply compensating rollback within project scope
+  hosts: rollback_cli
+  gather_facts: false
+  tasks:
+    - name: Remove managed loopbacks created by the failed change
+      cisco.ios.ios_config:
+        lines:
+          - "no interface {{ item }}"
+      loop: "{{ managed_loopbacks | map(attribute='name') | difference(pre_state.loopbacks.keys() | list) }}"
+
+    - name: Restore loopbacks that existed before the change
+      cisco.ios.ios_config:
+        parents: "interface {{ item.key }}"
+        lines:
+          - "{{ 'description ' + item.value.description if item.value.description else 'no description' }}"
+          - "ip address {{ item.value.ipv4 }} 255.255.255.255"
+          - "{{ 'no shutdown' if item.value.enabled else 'shutdown' }}"
+        match: line
+      loop: "{{ pre_state.loopbacks | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: item.key in (managed_loopbacks | map(attribute='name') | list)
+
+    - name: Remove new OSPF statements absent from the backup
+      cisco.ios.ios_config:
+        parents: "router ospf {{ lookup('ansible.builtin.env', 'OSPF_PROCESS_ID') | default('1', true) }}"
+        lines:
+          - "no network {{ item }} 0.0.0.0 area 0"
+      loop: "{{ managed_loopbacks | map(attribute='ipv4') | difference(pre_state.ospf_networks) }}"
+
+    - name: Record rollback completion
+      ansible.builtin.copy:
+        content: "Scoped compensating rollback completed for pipeline {{ lookup('ansible.builtin.env', 'CI_PIPELINE_ID') | default('local', true) }}\n"
+        dest: artifacts/rollback-result.txt
+        mode: "0600"
+      delegate_to: localhost

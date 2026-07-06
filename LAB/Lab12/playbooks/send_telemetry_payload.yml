@@ -1,0 +1,36 @@
+---
+- name: Configure IOS XE dial-out telemetry through RESTCONF
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Load Vault-backed runtime settings
+      ansible.builtin.include_tasks: ../tasks/load_runtime.yml
+      vars:
+        require_change_approval: true
+
+    - name: Require the YANG Suite payload file
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../telemetry/telemetry_payload.json"
+      register: payload_file
+
+    - name: Stop when the reviewed payload is absent
+      ansible.builtin.assert:
+        that: payload_file.stat.exists
+        fail_msg: Export and review telemetry/telemetry_payload.json from YANG Suite first.
+
+    - name: Send the reviewed telemetry configuration
+      ansible.builtin.uri:
+        url: "https://{{ iosxe_host }}:{{ lookup('ansible.builtin.env', 'IOSXE_HTTPS_PORT') | default('443', true) }}/restconf/data/Cisco-IOS-XE-mdt-cfg:mdt-config-data"
+        method: PATCH
+        user: "{{ iosxe_secret.username }}"
+        password: "{{ iosxe_secret.password }}"
+        force_basic_auth: true
+        validate_certs: false
+        headers:
+          Accept: application/yang-data+json
+          Content-Type: application/yang-data+json
+        body: "{{ lookup('ansible.builtin.file', playbook_dir + '/../telemetry/telemetry_payload.json') }}"
+        body_format: json
+        status_code: [200, 201, 204]
+        timeout: 30
+      no_log: true

@@ -1,0 +1,52 @@
+stages: [build, validate, deploy, test, observe]
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+
+variables:
+  AUTOMATION_IMAGE: "network-automation-runtime:${CI_COMMIT_SHA}"
+
+default:
+  tags: [network-deploy]
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths: [artifacts/]
+
+build-runtime:
+  stage: build
+  script:
+    - mkdir -p artifacts
+    - set -o pipefail; docker build --pull -t "$AUTOMATION_IMAGE" . 2>&1 | tee artifacts/container-build.log
+    - docker image inspect "$AUTOMATION_IMAGE" --format '{{json .RepoDigests}} {{.Id}}' | tee artifacts/image-identity.log
+
+validate-netbox:
+  stage: validate
+  script:
+    - export ANSIBLE_AUDIT_LOG="artifacts/${CI_JOB_NAME}.jsonl"
+    - bash ci/run_playbook_container.sh playbooks/validate.yml artifacts/ansible-validate.log
+
+deploy-network:
+  stage: deploy
+  resource_group: iosxe-sandbox
+  script:
+    - export ANSIBLE_AUDIT_LOG="artifacts/${CI_JOB_NAME}.jsonl"
+    - bash ci/run_playbook_container.sh playbooks/deploy.yml artifacts/ansible-deploy.log
+
+test-network:
+  stage: test
+  script:
+    - export ANSIBLE_AUDIT_LOG="artifacts/${CI_JOB_NAME}.jsonl"
+    - bash ci/run_playbook_container.sh playbooks/test.yml artifacts/ansible-test.log
+
+observe-automation:
+  stage: observe
+  script:
+    - >-
+      docker run --rm --network host
+      --volume "$CI_PROJECT_DIR:/workspace" --workdir /workspace
+      --env INFLUX_URL --env INFLUX_ORG --env INFLUX_BUCKET --env INFLUX_TOKEN
+      --entrypoint python "$AUTOMATION_IMAGE"
+      scripts/publish_audit_metrics.py 2>&1 | tee artifacts/metrics-publish.log

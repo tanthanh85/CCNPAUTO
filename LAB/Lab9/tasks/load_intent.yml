@@ -1,0 +1,78 @@
+---
+- name: Read project settings from the environment
+  ansible.builtin.set_fact:
+    netbox_url: "{{ lookup('ansible.builtin.env', 'NETBOX_URL') | default('http://127.0.0.1:8000', true) | regex_replace('/+$', '') }}"
+    netbox_token: "{{ lookup('ansible.builtin.env', 'NETBOX_TOKEN') }}"
+    netbox_device: "{{ lookup('ansible.builtin.env', 'NETBOX_DEVICE') | default('iosxe-sandbox', true) }}"
+    netbox_tag: "{{ lookup('ansible.builtin.env', 'NETBOX_TAG') | default('automation-managed', true) }}"
+  no_log: true
+
+- name: Require the NetBox token
+  ansible.builtin.assert:
+    that: netbox_token | length > 0
+
+- name: Retrieve interfaces with bounded retries
+  resilient_http:
+    url: "{{ netbox_url }}/api/dcim/interfaces/?device={{ netbox_device | urlencode }}&tag={{ netbox_tag | urlencode }}&type=virtual&limit=0"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+      Accept: application/json
+    timeout: 10
+    max_attempts: 5
+  register: netbox_interfaces
+  no_log: true
+
+- name: Require managed interfaces
+  ansible.builtin.assert:
+    that: netbox_interfaces.json.results | length > 0
+
+- name: Retrieve assigned addresses with bounded retries
+  resilient_http:
+    url: "{{ netbox_url }}/api/ipam/ip-addresses/?interface_id={{ item.id }}&limit=0"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+      Accept: application/json
+    timeout: 10
+    max_attempts: 5
+  loop: "{{ netbox_interfaces.json.results }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: netbox_address_queries
+  no_log: true
+
+- name: Validate names and address counts
+  ansible.builtin.assert:
+    that:
+      - item.item.name is match('^Loopback[0-9]+$')
+      - item.json.results | length == 1
+    fail_msg: "{{ item.item.name }} requires the Loopback<number> form and exactly one address."
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Validate IPv4 host prefixes
+  ansible.builtin.assert:
+    that:
+      - item.json.results[0].address is match('^[0-9.]+/32$')
+      - item.json.results[0].address | ansible.utils.ipaddr('address')
+    fail_msg: "{{ item.item.name }} requires one valid IPv4 /32."
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Normalize managed loopbacks
+  ansible.builtin.set_fact:
+    managed_loopbacks: "{{ (managed_loopbacks | default([])) + [{'name': item.item.name, 'description': item.item.description | default('', true), 'enabled': item.item.enabled | bool, 'prefix': item.json.results[0].address, 'ipv4': item.json.results[0].address.split('/')[0]}] }}"
+  loop: "{{ netbox_address_queries.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Reject duplicate names and addresses
+  ansible.builtin.assert:
+    that:
+      - managed_loopbacks | map(attribute='name') | unique | length == managed_loopbacks | length
+      - managed_loopbacks | map(attribute='ipv4') | unique | length == managed_loopbacks | length
+
+- name: Report validated intent
+  ansible.builtin.debug:
+    msg: "Validated {{ managed_loopbacks | length }} loopback(s) through the resilient API client."

@@ -1,0 +1,9 @@
+.git
+.ci-venv
+.venv
+artifacts
+__pycache__
+*.pyc
+.env
+*.pem
+*.key

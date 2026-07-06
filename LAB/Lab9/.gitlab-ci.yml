@@ -1,0 +1,41 @@
+stages: [resilience-test, validate, deploy, test]
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+
+default:
+  tags: [network-deploy]
+  before_script:
+    - python3 -m venv .ci-venv
+    - . .ci-venv/bin/activate
+    - python -m pip install --quiet --upgrade pip
+    - python -m pip install --quiet -r requirements.txt
+    - ansible-galaxy collection install -r collections/requirements.yml
+    - mkdir -p artifacts
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths: [artifacts/]
+
+resilience-unit-tests:
+  stage: resilience-test
+  script:
+    - pytest -q tests/test_resilient_http_helpers.py | tee artifacts/resilience-tests.log
+
+validate-netbox:
+  stage: validate
+  script:
+    - set -o pipefail; ansible-playbook playbooks/validate.yml 2>&1 | tee artifacts/ansible-validate.log
+
+deploy-network:
+  stage: deploy
+  resource_group: iosxe-sandbox
+  script:
+    - set -o pipefail; ansible-playbook playbooks/deploy.yml 2>&1 | tee artifacts/ansible-deploy.log
+
+test-network:
+  stage: test
+  script:
+    - set -o pipefail; ansible-playbook playbooks/test.yml 2>&1 | tee artifacts/ansible-test.log

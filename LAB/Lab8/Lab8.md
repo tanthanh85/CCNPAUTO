@@ -495,6 +495,8 @@ Vault development mode remains training-only. Stop it when the lab is complete, 
 
 The cumulative project now demonstrates two complete implementation styles and shows how an automation platform can evolve without replacing its source of truth, secret store, transport models, or delivery controls.
 
+Lab 9 keeps the Ansible event flow and adds timeout handling, rate-limit awareness, bounded retries, and exponential backoff to API access.
+
 ## References
 
 - [Ansible network getting started](https://docs.ansible.com/ansible/latest/network/getting_started/index.html)

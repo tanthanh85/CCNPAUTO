@@ -2,9 +2,9 @@
 
 ## Lab Introduction
 
-Labs 3–7 developed a complete Python-based automation workflow. NetBox holds the intended loopback interfaces, Vault protects IOS XE credentials, Netmiko configures the interfaces, NETCONF and Cisco native YANG configure OSPF area 0, and GitLab CI/CD runs validation, deployment, and verification after a NetBox event. Lab 8 keeps that architecture but moves orchestration from custom Python entry-point scripts to Ansible playbooks and supported network collections.
+Labs 3–7 developed a complete Python-based automation workflow. NetBox holds the intended loopback interfaces, Vault protects IOS XE credentials, and a NetBox event triggers the GitLab CI/CD pipeline. Lab 8 keeps exactly that operating model while replacing the Python orchestration jobs with Ansible playbooks and supported network collections.
 
-This is a migration rather than a new project. Learners continue using the GitLab.com repository named `network_automation_project`, the existing NetBox objects, the same Vault path, the protected local Runner, the NetBox webhook, and the reserved IOS XE sandbox. Ansible becomes the active workflow engine. The earlier Python files remain in the repository and Git history so that the two approaches can be compared, but the revised pipeline no longer invokes them.
+This is a migration rather than a new project. Learners continue using the GitLab.com repository named `network_automation_project`, the existing NetBox objects, the same Vault path, the protected local Runner, the NetBox webhook, and the reserved IOS XE sandbox. After the migration, a learner creates one or more loopbacks and IPv4 addresses in NetBox. NetBox triggers GitLab.com, the local Runner executes Ansible, Ansible retrieves the current network intent from NetBox and credentials from Vault, the router is configured, tests compare observed state with NetBox, and GitLab stores the job logs as artifacts.
 
 The migration demonstrates an important engineering tradeoff. Python offers precise control and is often the better choice for specialized application logic. Ansible provides a declarative task model, mature network modules, standardized inventories, secret lookups, check and diff capabilities, and readable execution reports. Neither tool automatically makes automation safe. The source of truth, validation rules, credential boundary, change guard, idempotence, serialization, and post-change verification must still be designed deliberately.
 
@@ -19,7 +19,7 @@ After completing this lab, learners will be able to:
 - Build temporary in-memory inventory hosts for CLI and NETCONF connections.
 - Configure loopback interfaces with `cisco.ios.ios_config`.
 - Render Cisco IOS XE native-YANG XML and send it with `ansible.netcommon.netconf_config`.
-- Verify observed interface and OSPF state with `cisco.ios.ios_command` and assertions.
+- Test observed interface and OSPF state against NetBox with `cisco.ios.ios_command` and assertions.
 - Replace the Python jobs in the existing GitLab pipeline with Ansible playbooks.
 - Preserve the existing NetBox-triggered reconciliation workflow and audit artifacts.
 
@@ -40,7 +40,7 @@ Allow approximately **3 to 4 hours**. The lab assumes the cumulative project fro
 - NETCONF enabled on the reserved router
 - GitLab CI/CD variables created in Lab 7
 
-## Migration Architecture
+## Event-Driven Lab Flow
 
 ```mermaid
 flowchart LR
@@ -54,9 +54,39 @@ flowchart LR
     D --> X["netconf_config with native-YANG XML"]
     C --> I["Cisco IOS XE sandbox"]
     X --> I
-    I --> Q["Ansible verification playbook"]
+    I --> Q["Ansible test playbook"]
     Q --> G
 ```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant L as Learner
+    participant N as NetBox
+    participant G as GitLab.com
+    participant R as Local GitLab Runner
+    participant V as Vault
+    participant X as IOS XE router
+
+    L->>N: Create Loopback and assign IPv4 /32
+    N->>G: Trigger main-branch pipeline
+    G->>R: Schedule validate job
+    R->>N: Retrieve complete managed intent
+    R->>R: Validate names, /32 addresses, uniqueness
+    G->>R: Schedule deploy job
+    R->>V: Retrieve IOS XE credentials
+    R->>N: Retrieve complete intent again
+    R->>X: Configure loopbacks with ios_config
+    R->>X: Configure OSPF area 0 with NETCONF
+    G->>R: Schedule test job
+    R->>V: Retrieve credentials
+    R->>N: Retrieve expected state
+    R->>X: Retrieve interface and OSPF state
+    R->>R: Assert observed state equals intent
+    R-->>G: Upload validate, deploy, and test logs
+```
+
+The webhook is only a notification that intent changed. It does not pass trusted configuration directly to the router. Every stage retrieves the complete current managed set from NetBox, which remains the authoritative source of truth.
 
 The functional responsibilities remain the same, but their implementations change:
 
@@ -68,7 +98,7 @@ The functional responsibilities remain the same, but their implementations chang
 | Runtime inventory | Python settings object | `add_host` with in-memory groups |
 | Configure loopbacks | Netmiko and Jinja2 CLI | `cisco.ios.ios_config` |
 | Configure OSPF | `ncclient` and XML template | `ansible.netcommon.netconf_config` and the same YANG hierarchy |
-| Verify state | Python comparison script | `ios_command` plus Ansible assertions |
+| Test state | Python comparison script | `ios_command` plus Ansible assertions |
 | Pipeline entry points | `python -m scripts...` | `ansible-playbook playbooks/...` |
 
 ## Supplied Project Additions
@@ -85,7 +115,7 @@ network_automation_project/
 ├── playbooks/
 │   ├── validate.yml
 │   ├── deploy.yml
-│   └── verify.yml
+│   └── test.yml
 ├── tasks/
 │   ├── load_intent.yml
 │   └── load_runtime.yml
@@ -149,10 +179,10 @@ Run static syntax checks before contacting any service:
 ansible-inventory --graph
 ansible-playbook --syntax-check playbooks/validate.yml
 ansible-playbook --syntax-check playbooks/deploy.yml
-ansible-playbook --syntax-check playbooks/verify.yml
+ansible-playbook --syntax-check playbooks/test.yml
 ```
 
-The inventory graph should show only `localhost`. Runtime device groups do not exist until `add_host` executes inside the playbook.
+The inventory graph should show `localhost` and empty runtime groups. Those groups contain no router hostname or credential until `add_host` executes inside a playbook.
 
 ## Task 3: Export the Existing Nonsecret Settings
 
@@ -244,7 +274,7 @@ The runtime task also enforces three safeguards before configuration:
 2. `SANDBOX_MODE` must equal `reserved`.
 3. Deployment requires `ALLOW_CONFIG_CHANGES=true`.
 
-The verification play does not require change approval because it is read-only, although it still requires the explicit reserved-sandbox context.
+The test play does not require change approval because it is read-only, although it still requires the explicit reserved-sandbox context.
 
 ## Task 6: Preview the OSPF Native-YANG Template
 
@@ -289,15 +319,15 @@ Return the local guard to its safe value when deployment is complete:
 export ALLOW_CONFIG_CHANGES="false"
 ```
 
-## Task 8: Verify the Result with Ansible
+## Task 8: Run the Ansible Tests Locally
 
-Run the independent read-only verification playbook:
+Run the independent read-only test playbook:
 
 ```bash
-ansible-playbook playbooks/verify.yml
+ansible-playbook playbooks/test.yml
 ```
 
-The play retrieves `show ip interface brief` and the OSPF section of the running configuration. For each NetBox record, assertions require the interface name and address in interface output and the same address in the OSPF configuration. A green deployment followed by a failed verification remains an automation failure.
+The play retrieves `show ip interface brief` and the OSPF section of the running configuration. For each NetBox record, separate assertions test the interface name, interface address, and OSPF network statement. A successful deploy job followed by a failed test job remains a failed pipeline.
 
 Compare Ansible's result with direct read-only CLI commands:
 
@@ -317,7 +347,7 @@ The replacement `.gitlab-ci.yml` keeps the three-stage design from Lab 7:
 |---|---|---|
 | Validate | `ansible-playbook playbooks/validate.yml` | Reject bad NetBox intent before device access |
 | Deploy | `ansible-playbook playbooks/deploy.yml` | Configure interfaces, then OSPF |
-| Verify | `ansible-playbook playbooks/verify.yml` | Compare IOS XE with NetBox intent |
+| Test | `ansible-playbook playbooks/test.yml` | Test IOS XE interface and OSPF state against NetBox intent |
 
 The pipeline continues to use:
 
@@ -356,7 +386,7 @@ git diff -- .gitlab-ci.yml ansible.cfg requirements.txt \
 
 Confirm that the diff contains no NetBox token, Vault token, IOS XE credential, private SSH key, or real password.
 
-## Task 10: Commit, Merge, and Exercise the Existing Trigger
+## Task 10: Commit and Activate the Ansible Pipeline
 
 Commit the migration:
 
@@ -369,11 +399,57 @@ git push -u origin feature/ansible-migration
 
 Create a merge request on GitLab.com. Review the playbooks, native-YANG template, collection versions, pipeline rules, and protected variables. The feature branch intentionally creates no pipeline because the protected secrets and deployment Runner are reserved for the protected default branch. Merge into `main` only while the reserved sandbox, VPN, NetBox, Vault, and Runner are ready. The resulting main-branch pipeline should run the Ansible jobs.
 
-The NetBox webhook from Lab 7 does not need to change because it triggers the GitLab pipeline, not a Python script. To test the complete event path, create another tagged virtual interface such as `Loopback104`, assign an unused `/32`, and watch **Build > Pipelines**. The event should trigger the revised pipeline, and its logs should contain Ansible play recaps rather than Python module commands.
+The first main-branch pipeline reconciles the loopbacks already held in NetBox. Confirm that all three jobs pass and that their logs contain Ansible play recaps rather than Python entry-point commands. This proves the migration before new intent is introduced.
 
-After the pipeline passes, verify the new interface and OSPF network statement on IOS XE. Download the three artifact logs and confirm that secrets are absent.
+## Task 11: Add a New Loopback and Trigger Ansible Automatically
 
-## Task 11: Compare the Python and Ansible Implementations
+The NetBox webhook from Lab 7 remains unchanged because it triggers the GitLab pipeline rather than calling a particular implementation. Add a complete new intent record through NetBox:
+
+1. Open **Devices > Devices > iosxe-sandbox**.
+2. Select the **Interfaces** tab.
+3. Select **Add Interfaces**.
+4. Enter an unused interface name such as `Loopback104`.
+5. Select **Virtual** as the interface type.
+6. Enable the interface.
+7. Enter a useful description such as `ANSIBLE_CICD_LAB8`.
+8. Assign the `automation-managed` tag.
+9. Select **Create**.
+10. Open **IPAM > IP Addresses** and select **Add**.
+11. Enter an unused address such as `192.0.2.104/32`.
+12. Set the assigned object type to **DCIM > Interface**.
+13. Select device `iosxe-sandbox` and interface `Loopback104`.
+14. Select **Create**.
+
+The IP-address creation event should cause NetBox to call the existing GitLab pipeline-trigger URL. Open **Build > Pipelines** in `network_automation_project` and observe the complete sequence:
+
+1. `validate-netbox-with-ansible` retrieves all tagged loopbacks and validates the complete intended set.
+2. `deploy-with-ansible` retrieves the IOS XE username and password from Vault, reads the current intent from NetBox again, creates the loopback through `ios_config`, and adds its `/32` to OSPF area 0 through NETCONF.
+3. `test-with-ansible` retrieves credentials and intent again, collects IOS XE interface and OSPF state, and fails if any intended loopback is missing.
+4. Each job uploads its log under **Job artifacts**, even when the job fails.
+
+Do not manually start another pipeline while the event-driven pipeline is running. The `resource_group` serializes deploy jobs, but avoiding unnecessary concurrent runs makes the outcome easier to interpret.
+
+After the pipeline passes, verify operational state:
+
+```text
+show ip interface brief | include Loopback104
+show running-config | section router ospf
+show ip ospf interface brief
+```
+
+The output should contain `Loopback104`, `192.0.2.104`, and an OSPF host network statement for `192.0.2.104` in area 0. Download `ansible-validate.log`, `ansible-deploy.log`, and `ansible-test.log`; confirm that they contain useful task evidence but no credentials or tokens.
+
+## Task 12: Add Multiple Loopbacks
+
+Repeat the same NetBox workflow for additional interfaces such as `Loopback105` and `Loopback106`, using unique IPv4 `/32` addresses. Complete one interface and its address before beginning the next, then allow its pipeline to finish. This sequence matters because the source-of-truth validator correctly rejects a tagged interface that has not yet received its required `/32`.
+
+Every NetBox address event starts a pipeline, and every pipeline retrieves the complete managed set. The second pipeline therefore reconciles both new loopbacks, while the third reconciles all three. Existing configuration should remain unchanged because the Ansible tasks are designed to be repeatable.
+
+For a larger production batch, an approval or change-set mechanism would be preferable to launching one pipeline per object. In this lab, sequential changes keep the event behavior visible and ensure that each NetBox object is complete before automation consumes it.
+
+Inspect the artifact from the final pipeline. Its validation, deployment, and test summaries should report the complete number of NetBox-managed loopbacks rather than only the last interface that caused the event.
+
+## Task 13: Compare the Python and Ansible Implementations
 
 Review the old Python entry points without running them from CI. The comparison should focus on design rather than line count.
 
@@ -396,7 +472,7 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 | `rpc-error` mentions an unknown element | Template differs from the advertised IOS XE YANG revision | Rebuild and test the payload in YANG Suite |
 | Pipeline job remains pending | Runner offline or `network-deploy` tag/protection mismatch | Review the project Runner and protected branch eligibility |
 | Pipeline reaches NetBox but not IOS XE | Runner lacks VPN route | Test reachability as the `gitlab-runner` service account |
-| Deploy job passes but verify fails | Requested and observed state differ | Treat the pipeline as failed and compare NetBox, CLI, and OSPF output |
+| Deploy job passes but test fails | Requested and observed state differ | Treat the pipeline as failed and compare NetBox, CLI, and OSPF output |
 
 ## Safety and Cleanup
 
@@ -413,7 +489,7 @@ Vault development mode remains training-only. Stop it when the lab is complete, 
 - Vault credentials are loaded into memory and never stored in static inventory.
 - Separate runtime hosts allow CLI and NETCONF connection plugins to address the same router cleanly.
 - `ios_config` manages loopback CLI configuration, while `netconf_config` sends the YANG-modeled OSPF payload.
-- Validation, a deliberate change guard, serialized deployment, and independent verification remain essential after changing tools.
+- Validation, a deliberate change guard, serialized deployment, and independent testing remain essential after changing tools.
 - GitLab.com, the protected local Runner, webhook, CI variables, and artifacts continue to operate as before.
 - Python and Ansible are complementary tools; the best choice depends on workflow complexity, team skills, testing needs, and long-term maintainability.
 

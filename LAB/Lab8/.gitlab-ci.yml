@@ -1,7 +1,7 @@
 stages:
   - validate
   - deploy
-  - verify
+  - test
 
 workflow:
   rules:
@@ -37,8 +37,8 @@ deploy-with-ansible:
     - set -o pipefail
     - ansible-playbook playbooks/deploy.yml 2>&1 | tee artifacts/ansible-deploy.log
 
-verify-with-ansible:
-  stage: verify
+test-with-ansible:
+  stage: test
   script:
     - set -o pipefail
-    - ansible-playbook playbooks/verify.yml 2>&1 | tee artifacts/ansible-verify.log
+    - ansible-playbook playbooks/test.yml 2>&1 | tee artifacts/ansible-test.log

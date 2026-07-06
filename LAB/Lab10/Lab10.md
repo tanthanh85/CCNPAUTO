@@ -47,6 +47,15 @@ Each line is an independent JSON document. This makes partial files recoverable 
 
 ## Task 3: Extend the Pipeline
 
+Start the TIG services from their standard Lab 1 location and confirm InfluxDB is healthy:
+
+```bash
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml up -d
+curl --fail --silent http://127.0.0.1:8086/health | jq
+cd ~/ccnpauto-workspace/network_automation_project
+```
+
 Add an `observe` stage after `test`. Before each Ansible invocation, set a unique audit filename:
 
 ```yaml

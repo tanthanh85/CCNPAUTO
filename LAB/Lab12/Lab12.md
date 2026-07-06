@@ -33,13 +33,13 @@ flowchart LR
 cd ~/lab-services/tig
 cp /path/to/CCNPAUTO/LAB/Lab12/telegraf-mdt.conf .
 cp /path/to/CCNPAUTO/LAB/Lab12/telemetry-compose.override.yml \
-  docker-compose.override.yml
+  compose.override.yaml
 docker compose up -d
 docker compose logs --tail=100 telegraf
 sudo ss -lntp | grep 57000
 ```
 
-The override publishes the Telegraf receiver on the workstation. Allow TCP 57000 only from the lab network where host firewall policy is in use.
+Docker Compose automatically combines `compose.yaml` from Lab 1 with `compose.override.yaml` from this lab. The override publishes the Telegraf receiver on the workstation and replaces the original Telegraf configuration mount with the MDT-enabled file. Allow TCP 57000 only from the lab network where host firewall policy is in use.
 
 Determine the workstation address reachable from the sandbox. It is normally the VPN interface address, not `127.0.0.1`, the Docker bridge address, or the workstation's home-LAN address.
 

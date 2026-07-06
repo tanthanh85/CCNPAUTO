@@ -65,6 +65,14 @@ The wrapper copies the Runner's public host-key database to a temporary read-onl
 
 The build job creates a commit-specific local image. Subsequent jobs on the same protected shell Runner use that exact tag. The source repository is mounted at `/workspace`, so the image does not need rebuilding for a playbook-only comparison outside CI; however, the pipeline deliberately builds per commit to produce clear provenance.
 
+Because the final observe job publishes the Lab 10 metrics, ensure TIG is running from its standard service directory:
+
+```bash
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml up -d
+cd ~/ccnpauto-workspace/network_automation_project
+```
+
 ```bash
 git add Dockerfile .dockerignore ci .gitlab-ci.yml
 git commit -m "Run network automation in a containerized runtime"

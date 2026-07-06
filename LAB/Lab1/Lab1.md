@@ -328,14 +328,33 @@ TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, In
 
 The supplied Compose file pins explicit application versions rather than using `latest`. This is particularly important for InfluxDB because its maintainers announced that the `latest` image tag would move from InfluxDB 2 to InfluxDB 3 Core. A silent major-version change would invalidate the initialization variables and Flux configuration used in this lab.
 
-Copy the example environment file and replace every placeholder. Do not commit the resulting `.env` file to Git.
+The Compose project is explicitly named `ccnpauto-tig`, so Docker resource names remain predictable even when commands are issued from different directories. Nevertheless, learners should operate it from `~/lab-services/tig` throughout the course.
+
+Keep long-running lab platforms under `~/lab-services`. Create a dedicated TIG directory and copy the supplied deployment files into it. This gives TIG the same predictable service layout used by YANG Suite and NetBox while keeping runtime data and credentials outside the course-content directory.
 
 ```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-cp .env.example .env
+mkdir -p "$HOME/lab-services/tig"
+cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/compose.yaml \
+  "$HOME/lab-services/tig/compose.yaml"
+cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/telegraf.conf \
+  "$HOME/lab-services/tig/telegraf.conf"
+cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/.env.example \
+  "$HOME/lab-services/tig/.env"
+cd "$HOME/lab-services/tig"
 chmod 600 .env
 nano .env
 ```
+
+The resulting service directory is:
+
+```text
+~/lab-services/tig/
+├── .env
+├── compose.yaml
+└── telegraf.conf
+```
+
+Do not commit `.env` or copy it back into the course repository.
 
 Generate strong training values if necessary:
 
@@ -347,15 +366,16 @@ openssl rand -hex 32
 Review the resolved Compose model without printing it into a public screenshot or shared log:
 
 ```bash
-docker compose --env-file .env -f files/compose.yaml config --services
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml config --services
 ```
 
 Start the stack and inspect its state:
 
 ```bash
-docker compose --env-file .env -f files/compose.yaml up -d
-docker compose --env-file .env -f files/compose.yaml ps
-docker compose --env-file .env -f files/compose.yaml logs --tail=50 telegraf
+docker compose --env-file .env -f compose.yaml up -d
+docker compose --env-file .env -f compose.yaml ps
+docker compose --env-file .env -f compose.yaml logs --tail=50 telegraf
 ```
 
 Open InfluxDB at `http://127.0.0.1:8086` and sign in with the values from `.env`. Open Grafana at `http://127.0.0.1:3000` and use the Grafana credentials.
@@ -374,17 +394,18 @@ The host metrics shown by Telegraf are container-visible metrics in this starter
 Verify that Telegraf is writing:
 
 ```bash
-docker compose --env-file .env -f files/compose.yaml logs --tail=100 telegraf
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml logs --tail=100 telegraf
 curl --silent http://127.0.0.1:8086/health | jq
 ```
 
 Stop without deleting data:
 
 ```bash
-docker compose --env-file .env -f files/compose.yaml stop
+docker compose --env-file .env -f compose.yaml stop
 ```
 
-Start it again with `docker compose ... start`. Avoid `down -v` unless the instructor explicitly asks you to erase the InfluxDB and Grafana volumes.
+Start it again from `~/lab-services/tig` with `docker compose --env-file .env -f compose.yaml start`. Avoid `down -v` unless the instructor explicitly asks you to erase the InfluxDB and Grafana volumes.
 
 ## Task 7: Install kubectl and Minikube
 
@@ -667,6 +688,9 @@ minikube status
 sudo systemctl is-active gitlab-runner
 curl --fail --silent https://gitlab.com/users/sign_in >/dev/null && echo "GitLab.com reachable"
 curl --fail --silent http://127.0.0.1:8000 >/dev/null && echo "NetBox ready"
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml ps
+curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
 `minikube status` may show `Stopped` if you followed the resource-management instruction. That is acceptable; the cluster was installed and validated earlier. Likewise, TIG and YANG Suite may be stopped when they are not required.
@@ -701,9 +725,9 @@ code "$HOME/ccnpauto-workspace"
 ### Start and Stop TIG
 
 ```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-docker compose --env-file .env -f files/compose.yaml start
-docker compose --env-file .env -f files/compose.yaml stop
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml start
+docker compose --env-file .env -f compose.yaml stop
 ```
 
 ### Start and Stop YANG Suite
@@ -780,7 +804,8 @@ This lab assigns separate ports, so a conflict often indicates an earlier manual
 From the Docker network, Grafana must use `http://influxdb:8086`, not `http://127.0.0.1:8086`. Inside the Grafana container, loopback refers to Grafana itself. Inspect logs and the Compose network:
 
 ```bash
-docker compose --env-file .env -f files/compose.yaml logs influxdb telegraf grafana
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml logs influxdb telegraf grafana
 docker network ls
 ```
 
@@ -855,8 +880,8 @@ Do not disable TLS verification. Correct DNS, the workstation clock, the trusted
 Ordinary cleanup should stop services without deleting persistent state:
 
 ```bash
-cd <COURSE_ROOT>/CCNPAUTO/LAB/Lab1
-docker compose --env-file .env -f files/compose.yaml stop
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml stop
 
 cd "$HOME/lab-services/yangsuite/docker"
 docker compose stop

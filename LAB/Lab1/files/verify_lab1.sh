@@ -39,7 +39,6 @@ check_command "Vault" vault
 check_command "Docker" docker
 check_command "Docker Compose" docker
 check_command "kubectl" kubectl
-check_command "Minikube" minikube
 check_command "VS Code" code
 check_command "GitLab Runner" gitlab-runner
 

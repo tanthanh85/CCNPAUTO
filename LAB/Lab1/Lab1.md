@@ -2,9 +2,9 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, local Kubernetes cluster, observability server, source-of-truth server, secrets laboratory, and CI/CD runner. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, Minikube, the TIG observability stack, Cisco YANG Suite, NetBox, Git, Visual Studio Code, and GitLab Runner. Source repositories and pipeline coordination are hosted by GitLab.com.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, observability server, source-of-truth server, secrets laboratory, and CI/CD runner. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, `kubectl`, the TIG observability stack, Cisco YANG Suite, NetBox, Git, Visual Studio Code, and GitLab Runner. Source repositories and pipeline coordination are hosted by GitLab.com.
 
-This is deliberately an **all-in-one learning environment** for local tools. It makes the course portable because every learner has the same runtime, but it is not a recommended production architecture. GitLab Runner should be isolated from ordinary user workloads; Vault should use persistent encrypted storage and TLS; Kubernetes should run on dedicated nodes; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
+This is deliberately an **all-in-one learning environment** for local tools. It makes the course portable because every learner has the same runtime, but it is not a recommended production architecture. GitLab Runner should be isolated from ordinary user workloads; Vault should use persistent encrypted storage and TLS; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
 
 ## Learning Objectives
@@ -16,7 +16,7 @@ After completing this lab, you will be able to:
 - Explain why `scrapli`, `xmltodict`, `PyYAML`, and Python's built-in `json` module are installed differently.
 - Install and verify Ansible and common Cisco collections.
 - Install Docker Engine and use Docker Compose to operate a TIG stack.
-- Install `kubectl` and run a local Kubernetes cluster with Minikube.
+- Install the `kubectl` client for optional use with an instructor-provided or external Kubernetes cluster.
 - Install Terraform and use Vault safely in training development mode.
 - Deploy Cisco YANG Suite with Docker.
 - Deploy NetBox as the source of truth used from Lab 4 onward.
@@ -39,7 +39,7 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
-NetBox, Minikube, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has only 16 GB of RAM, stop services that are not needed before starting Minikube. GitLab.com does not consume workstation resources; only the lightweight local Runner service remains installed.
+NetBox, YANG Suite, and the TIG stack do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com does not consume workstation resources; only the lightweight local Runner service remains installed.
 
 ## Lab Architecture
 
@@ -55,7 +55,6 @@ flowchart TB
     Docker["Docker Engine"] --> TIG["TIG stack<br/>Grafana :3000 / InfluxDB :8086"]
     Docker --> YANG["Cisco YANG Suite<br/>HTTPS :8443"]
     Docker --> NetBox["NetBox<br/>HTTP :8000"]
-    Docker --> K8s["Minikube Kubernetes"]
     Runner --> Docker
     Python --> Devices["Cisco labs, controllers, and APIs"]
     Ansible --> Devices
@@ -280,7 +279,7 @@ Open the course workspace with `code "$HOME/ccnpauto-workspace"`. In VS Code, se
 
 ## Task 5: Install Docker Engine and Docker Compose
 
-Docker will host the observability stack, YANG Suite, CI jobs, and the Minikube node. Install the official Docker packages rather than the older `docker.io` package from Ubuntu.
+Docker will host the observability stack, YANG Suite, NetBox, and containerized CI jobs. Install the official Docker packages rather than the older `docker.io` package from Ubuntu.
 
 ```bash
 sudo install -m 0755 -d /etc/apt/keyrings
@@ -407,9 +406,9 @@ docker compose --env-file .env -f compose.yaml stop
 
 Start it again from `~/lab-services/tig` with `docker compose --env-file .env -f compose.yaml start`. Avoid `down -v` unless the instructor explicitly asks you to erase the InfluxDB and Grafana volumes.
 
-## Task 7: Install kubectl and Minikube
+## Task 7: Install kubectl
 
-`kubectl` is the Kubernetes client. Minikube creates a local learning cluster and, on Linux, can use Docker as its driver. This avoids installing a full multi-node cluster on the workstation while preserving the Kubernetes API and resource model used in later labs.
+`kubectl` is the Kubernetes command-line client. This course does not create a local Kubernetes cluster on the learner workstation. Keeping the client available allows an instructor to provide an optional external-cluster exercise without adding local-cluster CPU, memory, storage, and operational overhead.
 
 Install and verify `kubectl`:
 
@@ -425,46 +424,7 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 kubectl version --client
 ```
 
-Install Minikube:
-
-```bash
-cd /tmp
-ARCH=$(dpkg --print-architecture)
-curl -LO "https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-${ARCH}"
-sudo install "minikube-linux-${ARCH}" /usr/local/bin/minikube
-minikube version
-```
-
-If the workstation has limited memory, stop NetBox, YANG Suite, and TIG before creating the cluster. Then start Minikube as the normal learner account, not as root:
-
-```bash
-minikube config set driver docker
-minikube start --driver=docker --cpus=4 --memory=6144
-kubectl cluster-info
-kubectl get nodes -o wide
-kubectl get pods --all-namespaces
-```
-
-Deploy a small application to prove that scheduling and service access work:
-
-```bash
-kubectl create deployment hello-lab --image=nginx:stable
-kubectl expose deployment hello-lab --type=NodePort --port=80
-kubectl rollout status deployment/hello-lab
-kubectl get deployment,pod,service
-minikube service hello-lab --url
-```
-
-Use the printed URL with `curl`. Then remove the test workload and stop the cluster:
-
-```bash
-curl "$(minikube service hello-lab --url)"
-kubectl delete service hello-lab
-kubectl delete deployment hello-lab
-minikube stop
-```
-
-`minikube stop` preserves the cluster. `minikube delete` removes it and should be used only when rebuilding the environment.
+Running `kubectl get nodes` without a configured context will fail, which is expected. Do not create an insecure placeholder context. Configure a context only when an instructor or authorized platform administrator supplies a cluster endpoint and credentials.
 
 ## Task 8: Install Terraform and HashiCorp Vault
 
@@ -684,7 +644,6 @@ Then collect service evidence:
 ```bash
 docker version --format '{{.Server.Version}}'
 docker compose version
-minikube status
 sudo systemctl is-active gitlab-runner
 curl --fail --silent https://gitlab.com/users/sign_in >/dev/null && echo "GitLab.com reachable"
 curl --fail --silent http://127.0.0.1:8000 >/dev/null && echo "NetBox ready"
@@ -693,19 +652,18 @@ docker compose --env-file .env -f compose.yaml ps
 curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
-`minikube status` may show `Stopped` if you followed the resource-management instruction. That is acceptable; the cluster was installed and validated earlier. Likewise, TIG and YANG Suite may be stopped when they are not required.
+TIG and YANG Suite may be stopped when they are not required. Start only the services needed for the current exercise.
 
 ### Completion Evidence
 
 Record the following without exposing tokens, passwords, private keys, or full environment files:
 
 - Ubuntu release and architecture
-- Python, pip, Ansible, Terraform, Vault, Docker, `kubectl`, Minikube, Git, VS Code, and Runner versions
+- Python, pip, Ansible, Terraform, Vault, Docker, `kubectl`, Git, VS Code, and Runner versions
 - Successful Python import validation
 - Successful `ansible.builtin.ping` result
 - Docker `hello-world` result
 - TIG container status and InfluxDB health result
-- Kubernetes node and successful NGINX deployment result
 - YANG Suite login page
 - NetBox login page
 - Successful GitLab.com SSH authentication and the installed, unregistered Runner service
@@ -745,13 +703,6 @@ cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
 # later
 docker compose stop
-```
-
-### Start and Stop Kubernetes
-
-```bash
-minikube start
-minikube stop
 ```
 
 ### Start and Stop GitLab Runner
@@ -808,18 +759,6 @@ cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs influxdb telegraf grafana
 docker network ls
 ```
-
-### Minikube cannot start with the Docker driver
-
-Confirm that Docker works without `sudo`, then inspect Minikube diagnostics:
-
-```bash
-docker info
-minikube delete
-minikube start --driver=docker --alsologtostderr -v=2
-```
-
-Delete the cluster only when its previous state is not needed. Low memory and stale Docker group membership are frequent causes.
 
 ### YANG Suite does not open
 
@@ -886,20 +825,19 @@ docker compose --env-file .env -f compose.yaml stop
 cd "$HOME/lab-services/yangsuite/docker"
 docker compose stop
 
-minikube stop
 sudo systemctl stop gitlab-runner
 ```
 
-Do not remove Docker volumes, NetBox data, YANG Suite data, the virtual environment, or Minikube unless the instructor asks for a complete rebuild.
+Do not remove Docker volumes, NetBox data, YANG Suite data, or the virtual environment unless the instructor asks for a complete rebuild.
 
 ## Key Takeaways
 
 - The workstation is an all-in-one training platform; production systems require stronger isolation, availability, and secret management.
 - Python virtual environments prevent course packages from interfering with Ubuntu's system Python.
 - `json` is built into Python, while `yaml` is supplied by PyYAML and the correct package names are `scrapli` and `xmltodict`.
-- Docker provides a common runtime for TIG, YANG Suite, Minikube, and CI jobs, but Docker access carries elevated privilege.
+- Docker provides a common runtime for TIG, YANG Suite, NetBox, and containerized CI jobs, but Docker access carries elevated privilege.
 - NetBox provides the API-driven source of truth used by the cumulative automation project.
-- Minikube supplies a realistic Kubernetes API without requiring a multi-node production cluster.
+- `kubectl` remains available for optional authorized external-cluster exercises, but no local Kubernetes cluster is installed.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.
 - GitLab.com provides hosted repositories and pipeline coordination, while the local Runner executes the network deployment introduced in Lab 7.
 - Version checks, import tests, service health endpoints, and a passing pipeline provide better evidence than assuming that package installation succeeded.
@@ -913,7 +851,6 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 - [Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
 - [Docker post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
-- [Minikube getting started](https://minikube.sigs.k8s.io/docs/start/)
 - [Terraform installation](https://developer.hashicorp.com/terraform/install)
 - [Vault installation](https://developer.hashicorp.com/vault/docs/install)
 - [InfluxDB Docker Compose installation](https://docs.influxdata.com/influxdb/v2/install/use-docker-compose/)

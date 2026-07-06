@@ -1,4 +1,4 @@
-# Lab 5: Manage IOS XE Credentials with HashiCorp Vault
+# Lab 5: Manage Credentials with HashiCorp Vault
 
 ## Lab Introduction
 

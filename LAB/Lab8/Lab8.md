@@ -1,4 +1,4 @@
-# Lab 8: Migrate the Network Automation Project to Ansible
+# Lab 8: Migrate the Network Automation Project Orchestration layer from Python to Ansible
 
 ## Lab Introduction
 

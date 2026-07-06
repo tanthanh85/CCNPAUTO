@@ -1,4 +1,4 @@
-# Lab 7: Trigger Network Automation from NetBox with GitLab CI/CD
+# Lab 7: Trigger Network Automation from NetBox with GitLab CI/CD Pipeline
 
 ## Lab Introduction
 

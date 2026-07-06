@@ -1,4 +1,4 @@
-# Lab 6: Configure OSPF with NETCONF and Native YANG
+# Lab 6: Configure Network Device Using NETCONF with YANG Payload
 
 ## Lab Introduction
 

@@ -1,4 +1,4 @@
-# Lab 9: Add API Resilience
+# Lab 9: Add API Resilience to your network automation project
 
 ## Lab Introduction
 

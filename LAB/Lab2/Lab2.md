@@ -14,6 +14,7 @@ This short lab helps learners confirm that the workstation, GitLab.com account, 
 - Parse common operational commands with TextFSM.
 - Iterate through structured records and print tables.
 - Retrieve YANG-modeled interface state through RESTCONF.
+- Locate Cisco DevNet self-paced learning for the platforms used throughout the course.
 
 ## Estimated Time
 
@@ -204,7 +205,39 @@ Test one error at a time:
 
 Restore the correct value after each test. The scripts should display controlled authentication, timeout, HTTP, or response-processing errors rather than a long unhandled traceback.
 
-## Task 10: Finish the Warm-Up
+## Task 10: Begin Cisco DevNet Self-Paced Platform Learning
+
+The practical project focuses first on IOS XE so that learners can build a dependable automation workflow before adding more platforms. However, professional Cisco developers must also become comfortable locating current platform documentation, API learning material, sandboxes, authentication guidance, and request examples.
+
+Open the [Cisco DevNet Learning search page](https://developer.cisco.com/learning/search/) and sign in with the Cisco account used for DevNet Sandboxes. Use the search and available filters to locate self-paced learning for the following subjects:
+
+| Search theme | What to concentrate on |
+|---|---|
+| Webex API | Authentication, people and rooms, messages, webhooks, and bot workflows |
+| Catalyst Center API | Inventory, device health, assurance, command execution, tasks, and asynchronous responses |
+| DNA Center API | Earlier `DNAC` terminology and learning material that may still use the former product name |
+| Cisco Intersight API | API keys, signed requests, managed objects, pagination, and server inventory |
+| Meraki Dashboard API | Organizations, networks, devices, pagination, rate limits, and action batches |
+| Cisco UCS API | UCS Manager objects, service profiles, XML API operations, and server provisioning |
+| Cisco FMC API | Access-control policy objects, network and host objects, deployment, and task monitoring |
+| Application hosting | Packaging, installing, activating, and troubleshooting applications hosted on supported Cisco platforms |
+| Catalyst switching | IOS XE programmability, RESTCONF, NETCONF, YANG models, and model-driven telemetry |
+| Nexus and NX-OS switching | NX-API, NX-OS REST and CLI operations, YANG interfaces, and platform-specific automation behavior |
+
+Cisco DNA Center is now commonly presented as **Cisco Catalyst Center**, but learners should search both names because older learning resources and API examples may still use `DNA Center` or `DNAC`. Likewise, search `Nexus`, `NX-OS`, and `NX-API` separately because they can return different platform material.
+
+Choose at least two learning items that complement your present experience and record the following in personal study notes:
+
+- Learning item title and URL
+- Cisco platform and API covered
+- Authentication method used by the platform
+- Availability of a corresponding DevNet Sandbox
+- One API operation you would like to automate
+- One difference from the IOS XE interfaces used in this warm-up lab
+
+These courses are self-paced enrichment rather than additional Lab 2 configuration tasks. Do not enter sandbox passwords, API keys, access tokens, or organization identifiers in the Git repository. As the main project develops, return to this learning catalog when a lab introduces a new Cisco platform or API.
+
+## Task 11: Finish the Warm-Up
 
 ```bash
 git status --short
@@ -220,6 +253,7 @@ Do not commit `.env` or generated artifacts. This repository can remain as compl
 - RESTCONF returns structured YANG-modeled data over HTTP.
 - `.env` protects credentials from ordinary Git commits but is not a production secret manager.
 - Lab 2 is deliberately read-only and independent from the main project.
+- Cisco DevNet self-paced learning provides a continuing path into Webex, Catalyst Center, Intersight, Meraki, UCS, FMC, application hosting, Catalyst, and NX-OS automation.
 
 Lab 3 creates a new repository named `network_automation_project` and introduces the first configuration workflow: YAML-driven loopback management with Jinja2 and Netmiko.
 
@@ -229,3 +263,4 @@ Lab 3 creates a new repository named `network_automation_project` and introduces
 - [ntc-templates](https://github.com/networktocode/ntc-templates)
 - [RESTCONF RFC 8040](https://www.rfc-editor.org/rfc/rfc8040)
 - [Cisco IOS XE programmability](https://developer.cisco.com/iosxe/)
+- [Cisco DevNet self-paced learning search](https://developer.cisco.com/learning/search/)

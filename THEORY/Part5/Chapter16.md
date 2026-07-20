@@ -898,7 +898,7 @@ Before releasing a Cisco platform integration, confirm that the team can answer 
 - Cisco APIs can support chatbots, firewall policy, cloud-managed networking, server provisioning, wireless assurance, application measurement, and consolidated dashboards.
 - Least privilege, protected secrets, TLS validation, bounded retries, version-aware testing, and operational evidence apply across every platform.
 
-This completes the chapter sequence; learners can now use the blueprint as a revision map and combine these platform exercises into an end-to-end DEVCOR lab portfolio.
+The next chapter extends this platform foundation into AI-assisted network automation. Learners will examine where AI belongs in controller-based operations, how to use AI-assisted code development responsibly, and how to expose network information safely through an MCP server.
 
 ## Further Reading and References
 
@@ -908,4 +908,4 @@ This completes the chapter sequence; learners can now use the blueprint as a rev
 - [Cisco Catalyst Center APIs](https://developer.cisco.com/docs/dna-center/) - intent, inventory, automation, and assurance APIs.
 - [Cisco DevNet documentation](https://developer.cisco.com/docs/) - UCS, Secure Firewall, AppDynamics, and other Cisco platform resources.
 
-**Course navigation:** [Return to the course README](../README.md)
+**Course navigation:** [Continue to Chapter 17: AI for Network Automation](../Part6/Chapter17.md) | [Return to the course README](../README.md)

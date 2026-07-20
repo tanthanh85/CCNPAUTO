@@ -19,6 +19,7 @@ After completing the course, learners should be able to:
 - Automate Cisco infrastructure with controllers, RESTCONF, NETCONF, YANG, model-driven telemetry, Ansible, and Terraform.
 - Host and operate suitable containerized applications on supported Cisco network and IOx platforms.
 - Integrate Webex, Cisco Secure Firewall, Meraki, Intersight, UCS Manager, Catalyst Center, and AppDynamics APIs.
+- Explain where AI fits in controller-based platforms, evaluate AI-assisted automation risks, and construct a read-only MCP server for network information retrieval.
 
 ## Course Structure
 
@@ -52,6 +53,10 @@ After completing the course, learners should be able to:
 ### Part 5: Cisco Platform APIs
 
 16. [Cisco Platform APIs](Part5/Chapter16.md) provides integrated explanations and practical workflows for Webex, Cisco Secure Firewall FMC and FDM, Meraki, Intersight, UCS Manager, Catalyst Center, AppDynamics, and custom dashboards.
+
+### Part 6: AI for Network Automation
+
+17. [AI for Network Automation](Part6/Chapter17.md) explains AI in controller-based platforms, AI-assisted code development, AI-specific automation security risks, and a Python FastMCP server that provides controlled network information to an AI agent.
 
 ## Recommended Prerequisites
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CCNPAUTO Route Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Cisco IOS XE · RESTCONF · FastMCP · Ollama</p>
+        <h1>AI Network Route Assistant</h1>
+        <p class="subtitle">
+          Ask route-focused questions and let the assistant explain live routing data
+          from your Cisco IOS XE reservable sandbox.
+        </p>
+      </div>
+      <div class="status-card">
+        <span class="status-dot"></span>
+        <div>
+          <p class="status-label">Local model</p>
+          <p class="status-value">{{ model }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <aside class="panel">
+        <h2>Try questions like</h2>
+        <button class="prompt">How many routes are in the routing table?</button>
+        <button class="prompt">Show me the static routes and next hops.</button>
+        <button class="prompt">List connected routes with their metrics.</button>
+        <button class="prompt">Explain the route for 10.10.10.0/24.</button>
+        <div class="divider"></div>
+        <h2>Live summary</h2>
+        <pre id="summary">Loading route summary from the MCP tool layer...</pre>
+      </aside>
+
+      <section class="chat panel">
+        <div id="messages" class="messages">
+          <div class="message assistant">
+            <div class="bubble">
+              Hello. I can answer questions about route count, route protocols,
+              static routes, connected routes, next hops, and metrics from the
+              IOS XE sandbox.
+            </div>
+          </div>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <textarea id="question" rows="3" placeholder="Ask about the IOS XE routing table..."></textarea>
+          <button type="submit">Ask</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

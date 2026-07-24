@@ -1,4 +1,4 @@
-# Project 1: Automate Legacy Equipment
+# Project 1: CLI automation for legacy devices
 
 ## Business Scenario
 

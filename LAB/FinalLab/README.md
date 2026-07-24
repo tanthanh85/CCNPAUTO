@@ -66,7 +66,7 @@ Keep the virtual environment active while working on both projects:
 source ~/ccnpauto-workspace/final_assessment/final_lab/bin/activate
 ```
 
-## Project 1 Overview: NX-OS CLI VLAN Automation
+## Project 1 Overview: CLI automation for legacy devices
 
 Project 1 represents a legacy data-center automation task. The Nexus switch does not use NETCONF or RESTCONF in this project. Your automation must use SSH CLI through Netmiko and create VLANs from YAML intent.
 
@@ -86,7 +86,7 @@ python scripts/grade_project1.py
 
 Project 1 is worth **30 points**.
 
-## Project 2 Overview: IOS XE Model-Driven Automation and Monitoring
+## Project 2 Overview: Model-Driven Automation and Monitoring
 
 Project 2 represents a newer programmable network platform. The IOS XE router supports NETCONF and RESTCONF. The project includes static-route automation, Vault credential retrieval, and a small management portal that monitors CPU, memory, and GigabitEthernet1 utilization.
 

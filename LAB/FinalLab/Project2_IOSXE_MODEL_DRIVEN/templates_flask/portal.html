@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IOS XE Management Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='portal.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Apex Global Services · IOS XE Operations</p>
+      <h1>Router Management Portal</h1>
+      <p>Live RESTCONF monitoring for CPU, memory, and GigabitEthernet1.</p>
+    </section>
+
+    <section class="cards">
+      <article class="card">
+        <span>CPU</span>
+        <strong id="cpu">Loading...</strong>
+      </article>
+      <article class="card">
+        <span>Memory</span>
+        <strong id="memory">Loading...</strong>
+      </article>
+      <article class="card">
+        <span>GigabitEthernet1</span>
+        <strong id="interface">Loading...</strong>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Raw RESTCONF Snapshot</h2>
+      <pre id="raw">Waiting for data...</pre>
+    </section>
+  </main>
+
+  <script>
+    async function refreshMetrics() {
+      const raw = document.querySelector("#raw");
+      try {
+        const response = await fetch("/api/metrics");
+        const payload = await response.json();
+        raw.textContent = JSON.stringify(payload, null, 2);
+        if (payload.ok) {
+          document.querySelector("#cpu").textContent = payload.data.cpu.value ?? "No numeric value";
+          document.querySelector("#memory").textContent = payload.data.memory.value ?? "No numeric value";
+          document.querySelector("#interface").textContent = payload.data.gigabit_ethernet_1.value ?? "No numeric value";
+        }
+      } catch (error) {
+        raw.textContent = `Failed to refresh metrics: ${error}`;
+      }
+    }
+
+    refreshMetrics();
+    setInterval(refreshMetrics, 5000);
+  </script>
+</body>
+</html>
+

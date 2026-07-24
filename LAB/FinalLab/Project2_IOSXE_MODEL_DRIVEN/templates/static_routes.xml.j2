@@ -1,0 +1,9 @@
+<config>
+  {# Use Cisco YANG Suite and choose Cisco-IOS-XE-native. #}
+  {# Build the IOS XE Native YANG static route payload inside this loop. #}
+  {# Do not use the generic IETF routing model for this task. #}
+{% for route in static_routes %}
+  {# Replace this comment with the Cisco-IOS-XE-native XML elements for one static route. #}
+  {# Required values are available as route.prefix, route.mask, and route.next_hop. #}
+{% endfor %}
+</config>

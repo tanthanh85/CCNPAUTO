@@ -28,6 +28,7 @@ flowchart TD
     L12 --> L13["Lab 13<br/>Drift and compliance"]
     L13 --> L14["Lab 14<br/>Plan, approve, rollback"]
     L14 --> L15["Lab 15<br/>AI route assistant"]
+    L15 --> F["Final Assessment<br/>Two practical projects"]
 ```
 
 ## Repository Flow
@@ -191,6 +192,12 @@ flowchart LR
 ```
 
 The AI model answers questions from MCP-provided route context. It does not receive router credentials, does not connect directly to IOS XE, and does not execute configuration. This reinforces the Chapter 17 principle that AI belongs behind narrow, controlled, auditable tools.
+
+### Final Assessment Lab: Enterprise Network Automation Delivery
+
+[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
+
+The assessment is worth 100 points and includes self-grading scripts so learners can check their completion before submission.
 
 ## Main Project Evolution
 

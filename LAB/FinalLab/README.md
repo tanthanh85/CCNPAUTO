@@ -84,7 +84,7 @@ You need to complete four tasks:
 1. Add the Nexus switch login credentials to `.env`.
 2. Construct the Jinja2 template that renders VLAN configuration from YAML.
 3. Complete the Netmiko `device` dictionary used by `ConnectHandler(**device)`.
-4. Handle `NetmikoAuthenticationException` and `NetmikoTimeoutException` with clear messages and distinct exit codes.
+4. Handle `NetmikoAuthenticationException` and `NetmikoTimeoutException` with clear, failure-specific messages.
 
 The 30 points are weighted by effort: credentials 5 points, Jinja2 logic 10 points, the device dictionary 5 points, and exception handling 10 points.
 

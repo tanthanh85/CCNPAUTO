@@ -101,12 +101,12 @@ Open [scripts/apply_vlans.py](scripts/apply_vlans.py). At present, an authentica
 
 Import both exception classes from `netmiko.exceptions`. The program must behave as follows:
 
-| Failure | Required message | Exit code |
-|---|---|---:|
-| `NetmikoAuthenticationException` | A clear message containing the word `authentication` | 2 |
-| `NetmikoTimeoutException` | A clear message containing `timeout` or `timed out` | 3 |
+| Failure | Required message |
+|---|---|
+| `NetmikoAuthenticationException` | A clear message containing the word `authentication` |
+| `NetmikoTimeoutException` | A clear message containing `timeout` or `timed out` |
 
-Return `0` after a successful dry run or successful device operation. Do not use a broad `except Exception` in place of the two specific Netmiko handlers. A timeout suggests that the host, port, VPN, routing, firewall, or SSH service is unreachable; it does not prove that the password is wrong. Conversely, an authentication exception proves that a session reached the SSH service but the presented identity was rejected.
+The exception handlers only need to display clear messages; they do not need to return special exit codes. Do not use a broad `except Exception` in place of the two specific Netmiko handlers. A timeout suggests that the host, port, VPN, routing, firewall, or SSH service is unreachable; it does not prove that the password is wrong. Conversely, an authentication exception proves that a session reached the SSH service but the presented identity was rejected.
 
 ## Run the Automation
 
@@ -127,14 +127,6 @@ Apply the VLANs:
 ```bash
 python scripts/apply_vlans.py
 ```
-
-The shell can display the program's exit code:
-
-```bash
-echo $?
-```
-
-Exit code `0` indicates success, `2` identifies authentication failure, and `3` identifies a connection timeout.
 
 Verify on the Nexus switch:
 

@@ -22,7 +22,7 @@ def render_vlan_config() -> str:
     return template.render(vlans=vlans)
 
 
-def main() -> int:
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Render configuration without connecting")
     args = parser.parse_args()
@@ -34,7 +34,7 @@ def main() -> int:
     print("-" * 60)
 
     if args.dry_run:
-        return 0
+        return
 
     commands = [line for line in rendered.splitlines() if line.strip()]
 
@@ -45,8 +45,5 @@ def main() -> int:
         print(output)
         print(connection.send_command("show vlan brief"))
 
-    return 0
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

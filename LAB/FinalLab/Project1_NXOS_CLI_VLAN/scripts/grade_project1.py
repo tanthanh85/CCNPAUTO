@@ -121,7 +121,6 @@ def _exception_names(node: ast.expr | None) -> set[str]:
 
 def _simulate_connection_failure(
     exception: Exception,
-    expected_exit_code: int,
     expected_words: tuple[str, ...],
 ) -> tuple[bool, str]:
     module = importlib.import_module("scripts.apply_vlans")
@@ -140,10 +139,7 @@ def _simulate_connection_failure(
 
     try:
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
-            try:
-                result = module.main()
-            except SystemExit as exc:
-                result = exc.code
+            module.main()
     except Exception as exc:
         return False, f"exception escaped from main(): {type(exc).__name__}: {exc}"
     finally:
@@ -152,11 +148,9 @@ def _simulate_connection_failure(
         sys.argv = original_argv
 
     message = output.getvalue().lower()
-    if result != expected_exit_code:
-        return False, f"expected exit code {expected_exit_code}, received {result!r}"
     if not any(word in message for word in expected_words):
         return False, f"message must contain one of {expected_words}"
-    return True, f"clear message and exit code {expected_exit_code}"
+    return True, "exception handled with a clear message"
 
 
 def grade_exception_handling() -> int:
@@ -176,25 +170,23 @@ def grade_exception_handling() -> int:
         (
             "NetmikoAuthenticationException",
             NetmikoAuthenticationException("simulated authentication failure"),
-            2,
             ("authentication",),
         ),
         (
             "NetmikoTimeoutException",
             NetmikoTimeoutException("simulated connection timeout"),
-            3,
             ("timeout", "timed out"),
         ),
     ]
 
     score = 0
     details = []
-    for class_name, exception, exit_code, words in checks:
+    for class_name, exception, words in checks:
         if class_name not in handled:
             details.append(f"{class_name} handler missing")
             continue
 
-        passed, detail = _simulate_connection_failure(exception, exit_code, words)
+        passed, detail = _simulate_connection_failure(exception, words)
         if passed:
             score += 5
         details.append(f"{class_name}: {detail}")

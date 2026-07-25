@@ -39,7 +39,7 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
-NetBox, the TIG stack, and a local YANG Suite installation do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com, Cisco DevNet Sandbox Grafana, and Cisco DevNet Sandbox YANG Suite do not consume workstation resources; only the lightweight local Runner service remains installed.
+NetBox, the TIG stack, and a local YANG Suite installation do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com, Cisco DevNet Sandbox TIG, and Cisco DevNet Sandbox YANG Suite do not consume workstation resources; only the lightweight local Runner service remains installed.
 
 ## Lab Architecture
 
@@ -61,7 +61,7 @@ flowchart TB
     SandboxYANG["Cisco DevNet Sandbox YANG Suite<br/>http://10.10.20.50:8480"] --> Devices
     Learner --> SandboxYANG
     LocalYANG --> Devices
-    SandboxGrafana["Cisco DevNet Sandbox Grafana<br/>http://10.10.20.50:3000"] --> Learner
+    SandboxTIG["Cisco DevNet Sandbox TIG<br/>Telegraf :57500 / Grafana :3000"] --> Learner
     Vault["Vault dev server :8200"] --> Python
     Vault --> Ansible
 ```
@@ -71,7 +71,7 @@ flowchart TB
 | Component | Port or endpoint | Purpose |
 |---|---|---|
 | Grafana | `http://127.0.0.1:3000` | Dashboards |
-| Cisco DevNet Sandbox Grafana | `http://10.10.20.50:3000` | Sandbox dashboard service |
+| Cisco DevNet Sandbox TIG | Telegraf `10.10.20.50:57500`; Grafana `http://10.10.20.50:3000` | Integrated telemetry receiver, time-series database, and dashboards for the Catalyst C8KV sandbox |
 | InfluxDB | `http://127.0.0.1:8086` | Time-series storage and API |
 | Vault | `http://127.0.0.1:8200` | Training-only secret service |
 | Local YANG Suite | `https://localhost:8443` | Learner-operated YANG, NETCONF, RESTCONF, and telemetry tools |
@@ -328,11 +328,11 @@ All course containers use Linux host networking so that they follow the learner 
 
 ## Task 6: Select a TIG and Grafana Option
 
-TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, InfluxDB stores time-series data, and Grafana queries data sources to build dashboards. Learners can deploy the complete stack locally or use Cisco DevNet Sandbox Grafana when the sandbox provides the necessary data source and dashboard permissions.
+TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, InfluxDB stores time-series data, and Grafana queries data sources to build dashboards. Learners can deploy the complete stack locally for a locally hosted Catalyst C8KV or use the integrated TIG stack supplied with the Cisco Catalyst C8KV IOS XE sandbox.
 
 ### Option A: Deploy the Complete TIG Stack Locally
 
-This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the most appropriate choice for Lab 12 unless the Cisco DevNet Sandbox provides a telemetry collector and InfluxDB destination in addition to Grafana. Docker Compose expresses the three local services as one repeatable application.
+This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the appropriate choice when Lab 12 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.
 
 The supplied Compose file pins explicit application versions rather than using `latest`. This is particularly important for InfluxDB because its maintainers announced that the `latest` image tag would move from InfluxDB 2 to InfluxDB 3 Core. A silent major-version change would invalidate the initialization variables and Flux configuration used in this lab.
 
@@ -415,15 +415,23 @@ docker compose --env-file .env -f compose.yaml stop
 
 Start it again from `~/lab-services/tig` with `docker compose --env-file .env -f compose.yaml start`. Avoid `down -v` unless the instructor explicitly asks you to erase the InfluxDB and Grafana volumes.
 
-### Option B: Use Cisco DevNet Sandbox Grafana
+### Option B: Use the Cisco DevNet Sandbox TIG Stack
 
-Open Cisco DevNet Sandbox Grafana:
+The Cisco Catalyst C8KV sandbox already integrates Telegraf, InfluxDB, and Grafana. For Lab 12, the sandbox router sends gRPC dial-out telemetry to Telegraf at `10.10.20.50` on TCP port `57500`, while learners inspect the stored data through Grafana:
 
 ```text
-http://10.10.20.50:3000
+Telegraf: 10.10.20.50:57500/tcp
+Grafana:  http://10.10.20.50:3000
 ```
 
-Sign in with the Cisco DevNet Sandbox credentials and confirm that the home page and assigned course folder load. Cisco DevNet Sandbox Grafana is a visualization service; its URL alone is not a telemetry receiver. For a lab that writes metrics, the sandbox instructions must also provide the associated data-source organization, bucket or database, access token where required, and the reachable Telegraf or ingestion endpoint. If those details are not available, use the local TIG option.
+Verify both endpoints after connecting to the sandbox VPN:
+
+```bash
+nc -vz 10.10.20.50 57500
+curl -I --connect-timeout 5 http://10.10.20.50:3000
+```
+
+Sign in with the Cisco DevNet Sandbox credentials and confirm that the home page and assigned course folder load. The integration among Telegraf, InfluxDB, and Grafana is already prepared, so learners do not install or manage these sandbox services.
 
 ## Task 7: Install kubectl
 
@@ -695,9 +703,10 @@ docker compose --env-file .env -f compose.yaml ps
 curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
-For Cisco DevNet Sandbox Grafana:
+For the Cisco DevNet Sandbox TIG stack:
 
 ```bash
+nc -vz 10.10.20.50 57500
 curl -I --connect-timeout 5 http://10.10.20.50:3000
 ```
 
@@ -712,7 +721,7 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - Successful Python import validation
 - Successful `ansible.builtin.ping` result
 - Docker `hello-world` result
-- Local TIG container status and InfluxDB health result, or access to Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`
+- Local TIG container status and InfluxDB health result, or access to Cisco DevNet Sandbox Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000`
 - Local YANG Suite page at `https://localhost:8443`, or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`
 - NetBox login page
 - Successful GitLab.com SSH authentication and the installed, unregistered Runner service
@@ -905,7 +914,7 @@ Do not remove Docker volumes, NetBox data, or the virtual environment unless the
 - `json` is built into Python, while `yaml` is supplied by PyYAML and the correct package names are `scrapli` and `xmltodict`.
 - Docker provides a common runtime for TIG, NetBox, and containerized CI jobs, but Docker access carries elevated privilege.
 - Cisco YANG Suite can run locally or be accessed through Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
-- Grafana can run as part of the local TIG stack or be accessed through Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`; the sandbox option still requires an available data source and ingestion path for telemetry labs.
+- Grafana can run as part of the local TIG stack or through the integrated Cisco DevNet Sandbox TIG environment; the sandbox C8KV sends telemetry to `10.10.20.50:57500`, and learners view it at `http://10.10.20.50:3000`.
 - NetBox provides the API-driven source of truth used by the cumulative automation project.
 - `kubectl` remains available for optional authorized external-cluster exercises, but no local Kubernetes cluster is installed.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.

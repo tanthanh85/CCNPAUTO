@@ -2,9 +2,9 @@
 
 ## Lab Introduction
 
-Lab 10 observed the automation application. Lab 12 observes the network device itself. Learners first derive operational data paths from the YANG modules advertised by the active IOS XE reservation. They then use those paths in a NETCONF dial-in subscription, a gNMI dial-in subscription, and a configured gRPC dial-out subscription. CPU, memory, and GigabitEthernet1 counters can subsequently be stored in InfluxDB and displayed in Grafana.
+Lab 10 observed the automation application. Lab 12 observes the network device itself. Learners first derive operational data paths from the YANG modules advertised by Cisco Catalyst C8KV running IOS XE. They then use those paths in a NETCONF dial-in subscription, a gNMI dial-in subscription, and a configured gRPC dial-out subscription. CPU, memory, and GigabitEthernet1 counters can subsequently be stored in InfluxDB and displayed in Grafana.
 
-Dial-in and dial-out solve different operational problems. In dial-in, the collector initiates a NETCONF or gNMI session to IOS XE, and the dynamic subscription exists only while that session remains open. In dial-out, a configured subscription persists on IOS XE and the router initiates a connection to a receiver. Dial-in is usually easier across the Cisco DevNet VPN because it follows the same workstation-to-sandbox path used by NETCONF and RESTCONF. Dial-out is better for persistent streaming, but it requires a valid reverse path from the sandbox to the collector.
+Dial-in and dial-out solve different operational problems. In dial-in, the collector initiates a NETCONF or gNMI session to IOS XE, and the dynamic subscription exists only while that session remains open. In dial-out, a configured subscription persists on IOS XE and the router initiates a connection to a receiver. The Cisco Catalyst C8KV sandbox includes an integrated TIG stack, so its router can stream to Telegraf at `10.10.20.50:57500`, while learners operating a locally hosted C8KV can stream to the local TIG stack prepared in Lab 1.
 
 ## Learning Objectives
 
@@ -21,20 +21,28 @@ Dial-in and dial-out solve different operational problems. In dial-in, the colle
 
 ```mermaid
 flowchart LR
-    Y["Local or Cisco DevNet Sandbox<br/>YANG Suite"] --> N["NETCONF dial-in<br/>dynamic XML notifications"]
-    Y --> G["gNMI dial-in<br/>dynamic JSON_IETF stream"]
-    Y --> R["RESTCONF configuration<br/>persistent subscription"]
-    N --> XE["Cisco IOS XE<br/>reservable sandbox"]
-    G --> XE
-    R --> XE
-    XE -->|"gRPC dial-out TCP 57000"| T["Telegraf on host network"]
-    T --> I["InfluxDB"]
-    I --> F["Local or Cisco DevNet<br/>Sandbox Grafana"]
+    Y["Local or Cisco DevNet Sandbox<br/>YANG Suite"] --> XE["Catalyst C8KV<br/>IOS XE"]
+    C["Learner client"] -->|"NETCONF or gNMI dial-in"| XE
+    XE -->|"Sandbox path<br/>gRPC TCP 57500"| ST["Sandbox Telegraf<br/>10.10.20.50"]
+    ST --> SI["Sandbox InfluxDB"]
+    SI --> SG["Sandbox Grafana<br/>10.10.20.50:3000"]
+    XE -->|"Local path<br/>gRPC TCP 57000"| LT["Local Telegraf"]
+    LT --> LI["Local InfluxDB"]
+    LI --> LG["Local Grafana<br/>127.0.0.1:3000"]
 ```
+
+## Choose the Lab Path
+
+Both paths teach the same telemetry workflow. Select one path and use its receiver settings consistently throughout the lab.
+
+| Path | IOS XE router | Telegraf receiver | Grafana | Learner-managed services |
+|---|---|---|---|---|
+| Cisco DevNet Sandbox | Catalyst C8KV in the active reservation | `10.10.20.50:57500` over TCP | `http://10.10.20.50:3000` | None; TIG integration is already prepared |
+| Locally hosted lab | Local Catalyst C8KV | A C8KV-reachable workstation address on TCP `57000` | `http://127.0.0.1:3000` | Local TIG from Lab 1 |
 
 ## Prerequisites and Service Readiness
 
-Reserve the IOS XE sandbox and connect the workstation to its VPN. Export the current reservation values used by the cumulative project. Then start only the services required by the chosen tasks.
+For the sandbox path, reserve the Cisco Catalyst C8KV IOS XE sandbox and connect the workstation to its VPN. For the local path, start the learner's locally hosted Catalyst C8KV and confirm management reachability. Export the current router values used by the cumulative project, and then prepare only the services required by the selected path.
 
 For local YANG Suite:
 
@@ -51,7 +59,16 @@ For Cisco DevNet Sandbox YANG Suite:
 curl -I --connect-timeout 5 http://10.10.20.50:8480
 ```
 
-For local TIG:
+For the Cisco DevNet Sandbox TIG stack, verify the prepared Telegraf listener and Grafana service:
+
+```bash
+nc -vz 10.10.20.50 57500
+curl -I --connect-timeout 5 http://10.10.20.50:3000
+```
+
+The sandbox already integrates Telegraf, InfluxDB, and Grafana. Learners configure the sandbox C8KV to send telemetry to `10.10.20.50:57500` and use Grafana at `http://10.10.20.50:3000`; they do not need to install, reconfigure, or restart those shared services.
+
+For a locally hosted C8KV, start and verify the local TIG stack:
 
 ```bash
 cd "$HOME/lab-services/tig"
@@ -60,17 +77,23 @@ docker compose --env-file .env -f compose.yaml ps
 curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
-For Cisco DevNet Sandbox Grafana:
+## Task 1: Select and Verify the Dial-Out Receiver
 
-```bash
-curl -I --connect-timeout 5 http://10.10.20.50:3000
-```
+### Path A: Cisco DevNet Sandbox C8KV and TIG
 
-Cisco DevNet Sandbox Grafana is the visualization layer. A dial-out exercise also needs a receiver and a writable time-series data source reachable from the router. If the sandbox does not provide those endpoints, use local TIG when reverse reachability exists, or complete the NETCONF and gNMI dial-in tasks.
+Use the prepared endpoints:
 
-## Task 1: Prepare the Local Dial-Out Receiver
+| Component | Setting |
+|---|---|
+| Telegraf receiver address | `10.10.20.50` |
+| Telegraf receiver port | TCP `57500` |
+| Grafana URL | `http://10.10.20.50:3000` |
 
-Skip this task when completing dial-in only or when the Cisco DevNet Sandbox provides the receiver and data source.
+Verify the services from the VPN-connected workstation with the `nc` and `curl` commands in the prerequisites. A successful TCP check proves that the workstation can reach Telegraf; the IOS XE subscription state and fresh Grafana samples later prove that the router is actually streaming to it.
+
+### Path B: Local C8KV and Local TIG
+
+Install the Lab 12 Telegraf input into the Lab 1 TIG deployment, then start the stack:
 
 ```bash
 cd ~/lab-services/tig
@@ -83,16 +106,16 @@ docker compose logs --tail=100 telegraf
 sudo ss -lntp | grep 57000
 ```
 
-All TIG services use `network_mode: host`. Telegraf therefore binds TCP 57000 directly in the workstation network namespace, and it writes to InfluxDB at `http://127.0.0.1:8086`. Allow TCP 57000 only from the Cisco lab network.
+All local TIG services use `network_mode: host`. Telegraf therefore binds TCP `57000` directly in the workstation network namespace, and it writes to InfluxDB at `http://127.0.0.1:8086`. Allow TCP `57000` only from the local C8KV management network.
 
-Determine the workstation address that the sandbox would need to reach:
+Determine the workstation address that the local C8KV must reach:
 
 ```bash
 ip -brief address
 ip route get "$IOSXE_HOST"
 ```
 
-The destination is normally a VPN-interface address, not `127.0.0.1` or a Docker bridge address. A successful workstation-to-router connection does not prove the reverse route. If the router cannot initiate TCP toward the receiver, dial-out will not work; continue with dial-in instead of exposing an unauthenticated receiver to the Internet.
+The receiver must be an address that the local C8KV can route to, not `127.0.0.1` or a Docker bridge address. A successful workstation-to-router connection does not prove the reverse path. Test the route and firewall locally, and do not expose an unauthenticated telemetry receiver to the Internet.
 
 ## Task 2: Create the YANG Suite Device Profile and Model Set
 
@@ -271,7 +294,14 @@ Use **Protocols > RESTCONF** or **Protocols > NETCONF** with `Cisco-IOS-XE-mdt-c
 | 202 | Memory statistics | 30 seconds |
 | 203 | GigabitEthernet1 statistics | 10 seconds |
 
-Set the receiver to the workstation VPN address or the collector address provided by the Cisco DevNet Sandbox, TCP port 57000, protocol `grpc-tcp`, and encoding `encode-kvgpb`. Export the generated RESTCONF JSON body as:
+Use the receiver values for the path selected in Task 1:
+
+| Path | Receiver address | TCP port | Protocol | Encoding |
+|---|---|---:|---|---|
+| Cisco DevNet Sandbox C8KV | `10.10.20.50` | `57500` | `grpc-tcp` | `encode-kvgpb` |
+| Local C8KV | Workstation address reachable from the C8KV | `57000` | `grpc-tcp` | `encode-kvgpb` |
+
+Export the generated RESTCONF JSON body as:
 
 ```text
 telemetry/telemetry_payload.json
@@ -308,18 +338,20 @@ show telemetry ietf subscription 201 detail
 show platform software yang-management process
 ```
 
-Inspect the local receiver:
+For the local path, inspect the Telegraf receiver:
 
 ```bash
 cd ~/lab-services/tig
 docker compose logs -f telegraf
 ```
 
-Successful configuration without received measurements usually indicates reverse routing, firewall policy, receiver address, encoding, or sensor-path trouble. Prove the TCP session first, then investigate decoding and data shape.
+For the sandbox path, learners do not need shell access to the shared TIG host. Instead, confirm that the subscription is connected on IOS XE and that samples with current timestamps appear in Grafana at `http://10.10.20.50:3000`.
+
+Successful configuration without received measurements usually indicates routing, firewall policy, an incorrect receiver port, encoding, or sensor-path trouble. Prove the subscription and TCP session first, then investigate decoding and data shape.
 
 ## Task 8: Build and Compare Grafana Views
 
-Open local Grafana at `http://127.0.0.1:3000` or Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`. Select the data source receiving the telemetry and create **IOS XE Model-Driven Telemetry** with panels for:
+Open Grafana for the selected path: `http://10.10.20.50:3000` for the Cisco DevNet Sandbox TIG stack or `http://127.0.0.1:3000` for local TIG. The sandbox integration between Telegraf, InfluxDB, and Grafana is already prepared. Select the telemetry data source and inspect an existing dashboard or, where permissions allow, create **IOS XE Model-Driven Telemetry** with panels for:
 
 - CPU utilization over time
 - Used and free memory
@@ -347,16 +379,21 @@ git commit -m "Add IOS XE model-driven telemetry subscriptions"
 git push -u origin feature/model-driven-telemetry
 ```
 
-Stop services that are not required for the next lab:
+If the local TIG stack was used, stop it after collecting the required evidence:
 
 ```bash
 test -d "$HOME/lab-services/tig" && \
   (cd "$HOME/lab-services/tig" && docker compose stop)
+```
+
+If local YANG Suite was used, it may also be stopped:
+
+```bash
 test -d "$HOME/lab-services/yangsuite/docker" && \
   (cd "$HOME/lab-services/yangsuite/docker" && docker compose stop)
 ```
 
-Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
+The TIG services at `10.10.20.50` are managed as part of the Cisco DevNet Sandbox and are not stopped by learners. Remove or disable the lab telemetry subscriptions on the router when the reservation must be left clean. Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 
 ## Troubleshooting
 
@@ -366,7 +403,8 @@ Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 | NETCONF reply succeeds but no notification arrives | Empty XPath result, unsupported period, or closed NETCONF session |
 | gNMI connectivity fails | `show gnxi state detail`, service port, TLS mode, and device-profile settings |
 | gNMI returns no values | Origin, module prefix, list key, encoding, and selected subtree |
-| Dial-out subscription remains disconnected | Reverse route, host firewall, receiver IP, TCP 57000, and Telegraf listener |
+| Sandbox dial-out subscription remains disconnected | Receiver `10.10.20.50`, TCP `57500`, subscription state, encoding, and validated XPath |
+| Local dial-out subscription remains disconnected | Route, host firewall, C8KV-reachable receiver IP, TCP `57000`, and local Telegraf listener |
 | Data arrives but Grafana is empty | Telegraf output URL, InfluxDB token, bucket, measurement, and time range |
 | Interface traffic appears constantly increasing | Raw counter plotted instead of derivative or rate |
 

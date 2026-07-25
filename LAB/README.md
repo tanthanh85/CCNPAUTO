@@ -47,7 +47,7 @@ This separation keeps the warm-up and AI assistant independent from the main pro
 
 ### Lab 1: Preparing the Network Automation Workstation
 
-[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. Learners may deploy TIG and Cisco YANG Suite locally or use Cisco DevNet Sandbox Grafana and YANG Suite. NetBox remains the local source of truth, while Vault provides secrets for later automation.
+[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. Learners may deploy TIG and Cisco YANG Suite locally or use the Cisco DevNet Sandbox TIG and YANG Suite services. NetBox remains the local source of truth, while Vault provides secrets for later automation.
 
 This is the foundation lab. If a later lab fails because a service is missing, a Python package is unavailable, or a runner is not registered, return to Lab 1 and verify the workstation.
 
@@ -160,9 +160,9 @@ Containerizing the runtime improves repeatability. The source code remains in Gi
 
 ### Lab 12: Add Model-Driven Telemetry
 
-[Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners configure IOS XE model-driven telemetry so the router pushes CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
+[Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners configure Catalyst C8KV IOS XE model-driven telemetry so the router pushes CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
 
-This lab demonstrates polling, NETCONF and gNMI dial-in subscriptions, and gRPC dial-out streaming. It also introduces an important reachability issue: dial-out telemetry requires the IOS XE sandbox to initiate a connection back to the workstation. If the DevNet VPN path does not allow this, learners use dial-in or a collector reachable from the sandbox.
+This lab demonstrates polling, NETCONF and gNMI dial-in subscriptions, and gRPC dial-out streaming. Learners using the Cisco Catalyst C8KV sandbox send telemetry to its pre-integrated Telegraf service at `10.10.20.50:57500` and view it in Grafana at `http://10.10.20.50:3000`. Learners using a locally hosted C8KV start the local TIG stack from Lab 1 and send telemetry to the workstation on TCP `57000`.
 
 ### Lab 13: Detect Configuration Drift and Report Compliance
 
@@ -228,7 +228,7 @@ Labs 3–14 progressively improve the same `network_automation_project` reposito
 | NetBox | Lab 1 / Lab 4 | Source of truth for managed loopback intent |
 | HashiCorp Vault | Lab 1 / Lab 5 | Device credential storage and retrieval |
 | Cisco YANG Suite | Lab 1 / Lab 6 / Lab 12 | Local `https://localhost:8443` or Cisco DevNet Sandbox `http://10.10.20.50:8480`; model discovery and payload testing |
-| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG or Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`; sandbox metric ingestion depends on the available data source |
+| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG for a local C8KV, or integrated Cisco DevNet Sandbox Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000` |
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
 | LLM provider | Lab 15 | Local Ollama or learner-owned OpenAI/Anthropic API account |
 | FastMCP | Lab 15 | Controlled AI tool boundary for network information |

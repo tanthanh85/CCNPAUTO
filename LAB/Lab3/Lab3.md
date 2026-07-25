@@ -213,7 +213,7 @@ python -m scripts.preview_loopbacks
 The template, not Python, contains the loop:
 
 ```jinja2
-{% raw %}{% for loopback in loopbacks %}
+{% for loopback in loopbacks %}
 interface Loopback{{ loopback.id }}
  description {{ loopback.description }}
  ip address {{ loopback.ipv4 }} {{ loopback.netmask }}
@@ -222,7 +222,7 @@ interface Loopback{{ loopback.id }}
 {% else %}
  shutdown
 {% endif %}
-{% endfor %}{% endraw %}
+{% endfor %}
 ```
 
 Python loads and validates the list once. Jinja2 repeats the interface stanza for every item.

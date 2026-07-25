@@ -39,7 +39,7 @@ The labs use GitLab.com for repositories and pipeline coordination.
 |---|---|---|
 | `lab2_warm_up` | Lab 2 | Disposable warm-up repository used to confirm Git, Python, DevNet VPN, CLI parsing, and RESTCONF access. |
 | `network_automation_project` | Labs 3–14 | Main cumulative automation project. Learners keep improving this repository across multiple labs. |
-| `ai_route_assistant` | Lab 15 | Separate AI assistant project using Flask, Ollama, FastMCP, and RESTCONF. |
+| `ai_route_assistant` | Lab 15 | Separate Flask and FastMCP assistant using local Ollama or an OpenAI/Anthropic API. |
 
 This separation keeps the warm-up and AI assistant independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, compliance, and rollback.
 
@@ -47,7 +47,7 @@ This separation keeps the warm-up and AI assistant independent from the main pro
 
 ### Lab 1: Preparing the Network Automation Workstation
 
-[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, TIG stack, Cisco YANG Suite, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. This lab also establishes the local services used later: NetBox for source of truth, Vault for secrets, TIG for observability, and YANG Suite for model-driven programmability.
+[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. Learners may deploy TIG and Cisco YANG Suite locally or use the instructor-provided shared Grafana and YANG Suite services. NetBox remains the local source of truth, while Vault provides secrets for later automation.
 
 This is the foundation lab. If a later lab fails because a service is missing, a Python package is unavailable, or a runner is not registered, return to Lab 1 and verify the workstation.
 
@@ -96,7 +96,7 @@ This lab reinforces a key production habit: ignoring a file in Git is not the sa
 
 ### Lab 6: Configure OSPF with NETCONF and YANG
 
-[Lab 6](Lab6/Lab6.md) adds model-driven configuration to the project. Learners use Cisco YANG Suite to inspect IOS XE native YANG models, build an OSPF payload, render XML with Jinja2, and send an `<edit-config>` operation through NETCONF. The lab advertises all managed loopback interfaces into OSPF area 0.
+[Lab 6](Lab6/Lab6.md) adds model-driven configuration to the project. Learners use local Cisco YANG Suite or the shared service at `http://10.10.20.50:8480` to inspect IOS XE native YANG models, build an OSPF payload, render XML with Jinja2, and send an `<edit-config>` operation through NETCONF. The lab advertises all managed loopback interfaces into OSPF area 0.
 
 This lab is where learners begin to connect source of truth, secret management, and model-driven programmability:
 
@@ -178,7 +178,7 @@ This lab ties many professional practices together. Automation is not just speed
 
 ### Lab 15: Build an AI Network Route Assistant
 
-[Lab 15](Lab15/Lab15.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, run Qwen 8B locally through Ollama, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server.
+[Lab 15](Lab15/Lab15.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, select local Qwen 8B through Ollama or an OpenAI or Anthropic API model, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server. They compare provider accuracy and response time against the same MCP evidence.
 
 The key architecture is intentional:
 
@@ -188,14 +188,14 @@ flowchart LR
     MCPClient --> MCPServer["FastMCP server"]
     MCPServer --> RESTCONF["RESTCONF"]
     RESTCONF --> IOSXE["IOS XE router"]
-    Web --> Ollama["Ollama qwen3:8b"]
+    Web --> LLM["Ollama, OpenAI, or Anthropic"]
 ```
 
 The AI model answers questions from MCP-provided route context. It does not receive router credentials, does not connect directly to IOS XE, and does not execute configuration. This reinforces the Chapter 17 principle that AI belongs behind narrow, controlled, auditable tools.
 
 ### Final Assessment Lab: Enterprise Network Automation Delivery
 
-[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
+[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or shared YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
 
 The assessment is worth 100 points and includes self-grading scripts so learners can check their completion before submission.
 
@@ -227,10 +227,10 @@ Labs 3–14 progressively improve the same `network_automation_project` reposito
 | Cisco DevNet IOS XE Sandbox | Lab 2 | Router target for CLI, RESTCONF, NETCONF, telemetry, and route assistant labs |
 | NetBox | Lab 1 / Lab 4 | Source of truth for managed loopback intent |
 | HashiCorp Vault | Lab 1 / Lab 5 | Device credential storage and retrieval |
-| Cisco YANG Suite | Lab 1 / Lab 6 | NETCONF and RESTCONF model discovery and payload testing |
-| TIG Stack | Lab 1 / Lab 10 / Lab 12 | InfluxDB, Telegraf, and Grafana observability |
+| Cisco YANG Suite | Lab 1 / Lab 6 | Local `https://127.0.0.1:8443` or shared `http://10.10.20.50:8480`; model discovery and payload testing |
+| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG or shared Grafana at `http://10.10.20.50:3000`; shared metric ingestion requires instructor-provided endpoints |
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
-| Ollama | Lab 15 | Local LLM runtime for the AI route assistant |
+| LLM provider | Lab 15 | Local Ollama or learner-owned OpenAI/Anthropic API account |
 | FastMCP | Lab 15 | Controlled AI tool boundary for network information |
 
 ## Working Practices for Every Lab
@@ -252,7 +252,7 @@ Use these habits consistently:
 When a lab fails, work from the foundation upward:
 
 1. Confirm the DevNet sandbox reservation is active and the VPN is connected.
-2. Confirm local services are running, such as NetBox, Vault, YANG Suite, TIG, or Ollama.
+2. Confirm required local services are running, such as NetBox, Vault, TIG, YANG Suite, or Ollama, or confirm that the selected shared services are reachable.
 3. Confirm the Python virtual environment is active.
 4. Confirm required environment variables or GitLab CI/CD variables are present.
 5. Confirm GitLab Runner is online when a pipeline is expected to run.

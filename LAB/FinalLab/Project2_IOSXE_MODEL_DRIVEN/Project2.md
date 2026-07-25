@@ -54,7 +54,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Your task is to use Cisco YANG Suite to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
+Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Open local Cisco YANG Suite at `https://127.0.0.1:8443` or the shared service at `http://10.10.20.50:8480`. Your task is to use it to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
 
 In YANG Suite, choose the Cisco IOS XE native module, commonly shown as **`Cisco-IOS-XE-native`**. Do not build this task with the generic IETF routing model. This project is intentionally testing the Cisco native model because it closely matches the IOS XE CLI configuration hierarchy.
 
@@ -145,7 +145,7 @@ After completing the function, add one more static route to [data/static_routes.
 
 The project includes a small Flask management portal that refreshes every 5 seconds. Most of the code is complete, but the RESTCONF URIs are missing.
 
-Use Cisco YANG Suite to locate RESTCONF operational paths for:
+Use local Cisco YANG Suite or the shared service at `http://10.10.20.50:8480` to locate RESTCONF operational paths for:
 
 - CPU utilization,
 - memory utilization,
@@ -193,4 +193,4 @@ The grader reports your score out of 70.
 
 ## Notes
 
-If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with YANG Suite. The model exposed by the device is authoritative.
+If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with local or shared YANG Suite. The model exposed by the device is authoritative.

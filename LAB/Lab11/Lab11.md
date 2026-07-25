@@ -65,13 +65,15 @@ The wrapper copies the Runner's public host-key database to a temporary read-onl
 
 The build job creates a commit-specific local image. Subsequent jobs on the same protected shell Runner use that exact tag. The source repository is mounted at `/workspace`, so the image does not need rebuilding for a playbook-only comparison outside CI; however, the pipeline deliberately builds per commit to produce clear provenance.
 
-Because the final observe job publishes the Lab 10 metrics, ensure TIG is running from its standard service directory:
+Because the final observe job publishes the Lab 10 metrics, prepare the observability destination chosen in Lab 10. For local TIG, start it from the standard service directory:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml up -d
 cd ~/ccnpauto-workspace/network_automation_project
 ```
+
+For shared Grafana, keep the instructor-provided InfluxDB write variables configured in GitLab and confirm that `http://10.10.20.50:3000` is reachable. Grafana remains the visualization layer; the pipeline writes to the associated instructor-provided InfluxDB endpoint.
 
 ```bash
 git add Dockerfile .dockerignore ci .gitlab-ci.yml

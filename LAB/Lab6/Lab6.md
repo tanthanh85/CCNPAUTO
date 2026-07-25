@@ -4,7 +4,7 @@
 
 The project currently creates loopback interfaces through Netmiko. In this lab, learners add a second southbound method: NETCONF. The application reads the same loopbacks from NetBox, retrieves credentials through Vault, renders a Cisco IOS XE native-YANG XML payload, and merges OSPF network statements into the running datastore. Every managed loopback is advertised in OSPF area 0 with a host wildcard of `0.0.0.0`.
 
-Cisco YANG Suite is central to the exercise. Learners must inspect the model revision exposed by their reserved router and use YANG Suite to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
+Cisco YANG Suite is central to the exercise. Learners can use the local installation prepared in Lab 1 or the shared course instance at `http://10.10.20.50:8480` to inspect the model revision exposed by their reserved router and to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
 
 ## Learning Objectives
 
@@ -21,7 +21,7 @@ Cisco YANG Suite is central to the exercise. Learners must inspect the model rev
 
 - Labs 1 and 3–5 completed
 - Existing `network_automation_project`
-- YANG Suite installed in Lab 1
+- Access to local YANG Suite at `https://127.0.0.1:8443` or the shared service at `http://10.10.20.50:8480`
 - NetBox and Vault running
 - Active IOS XE reservable sandbox and VPN
 - NETCONF enabled by the sandbox
@@ -95,12 +95,15 @@ Do not modify AAA, management routing, or unrelated services.
 
 ## Task 4: Use YANG Suite to Discover the OSPF Model
 
-Start YANG Suite and open its web interface:
+Open the YANG Suite option selected in Lab 1:
 
-```bash
-cd ~/lab-services/yangsuite/docker
-docker compose up -d
+```text
+https://127.0.0.1:8443
+or
+http://10.10.20.50:8480
 ```
+
+Use the local administrator account created during installation or the shared credentials supplied by the instructor.
 
 Create or refresh the IOS XE device profile. Retrieve the advertised schemas and locate:
 
@@ -129,14 +132,14 @@ Use YANG Suite's NETCONF plugin to retrieve the current OSPF subtree. Then build
 
 The supplied template loops over the normalized NetBox records:
 
-```xml
-{% raw %}{% for loopback in loopbacks %}
+```jinja2
+{% for loopback in loopbacks %}
 <network>
   <ip>{{ loopback.ipv4 }}</ip>
   <wildcard>0.0.0.0</wildcard>
   <area>{{ area }}</area>
 </network>
-{% endfor %}{% endraw %}
+{% endfor %}
 ```
 
 A loopback uses a `/32`, so `0.0.0.0` matches exactly one interface address. All entries use area 0 as required by the course design.

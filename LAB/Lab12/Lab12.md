@@ -29,6 +29,8 @@ flowchart LR
 
 ## Task 1: Prepare the TIG Receiver
 
+Use the local TIG deployment below unless the instructor provides a shared telemetry receiver, InfluxDB destination, and credentials. The shared Grafana page at `http://10.10.20.50:3000` is only the visualization layer and cannot receive IOS XE dial-out telemetry by itself.
+
 ```bash
 cd ~/lab-services/tig
 cp /path/to/CCNPAUTO/LAB/Lab12/telegraf-mdt.conf .
@@ -52,7 +54,7 @@ Record the source interface and address selected by the route lookup. Confirm re
 
 ## Task 2: Discover Sensor Paths with YANG Suite
 
-Start YANG Suite and connect it to the active reservation. Retrieve the advertised modules and examine these common IOS XE operational models:
+Open local YANG Suite at `https://127.0.0.1:8443` or the shared service at `http://10.10.20.50:8480`, then connect it to the active reservation. Use the local administrator account or instructor-provided shared credentials. Retrieve the advertised modules and examine these common IOS XE operational models:
 
 - `Cisco-IOS-XE-process-cpu-oper`
 - `Cisco-IOS-XE-memory-oper`
@@ -129,7 +131,7 @@ Successful configuration without received measurements usually indicates reverse
 
 ## Task 6: Build the Grafana Dashboard
 
-Open Grafana and create **IOS XE Model-Driven Telemetry**. Use InfluxDB's Data Explorer first because Cisco path and field names depend on the encoding and Telegraf mapping. Then create panels for:
+Open local Grafana at `http://127.0.0.1:3000` or shared Grafana at `http://10.10.20.50:3000` and create **IOS XE Model-Driven Telemetry**. When using the shared option, select the instructor-assigned data source connected to the shared receiver. Use InfluxDB's Data Explorer first because Cisco path and field names depend on the encoding and Telegraf mapping. Then create panels for:
 
 - CPU utilization over time
 - Used and free memory

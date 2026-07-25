@@ -1,31 +1,23 @@
 from __future__ import annotations
 
-import json
 import os
+import time
 from typing import Any
 
-import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
+from llm_providers import (
+    LlmProviderError,
+    ask_llm,
+    get_provider_info,
+)
 from mcp_client import McpToolError, call_route_tool
 
 
 load_dotenv()
 
 app = Flask(__name__)
-
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:8b")
-
-
-SYSTEM_PROMPT = """
-You are a professional network automation assistant for a Cisco IOS XE lab.
-Answer only from the supplied MCP-provided RESTCONF route data.
-If the supplied data does not contain the requested detail, say what is missing.
-Do not invent routes, metrics, protocols, next hops, or device state.
-Use concise operational language suitable for a CCNP-level network engineer.
-"""
 
 
 def choose_route_context(question: str) -> dict[str, Any]:
@@ -51,45 +43,15 @@ def choose_route_context(question: str) -> dict[str, Any]:
     return call_route_tool("get_all_routes")
 
 
-def ask_ollama(question: str, context: dict[str, Any]) -> str:
-    payload = {
-        "model": OLLAMA_MODEL,
-        "stream": False,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    "Question:\n"
-                    f"{question}\n\n"
-                    "MCP-provided RESTCONF route data:\n"
-                    f"{json.dumps(context, indent=2)}"
-                ),
-            },
-        ],
-        "options": {
-            "temperature": 0.1,
-            "top_p": 0.9,
-        },
-    }
-
-    try:
-        response = requests.post(
-            f"{OLLAMA_URL}/api/chat",
-            json=payload,
-            timeout=120,
-        )
-        response.raise_for_status()
-    except requests.exceptions.RequestException as exc:
-        raise RuntimeError(f"Ollama request failed: {exc}") from exc
-
-    data = response.json()
-    return data.get("message", {}).get("content", "No response returned by Ollama.")
-
-
 @app.get("/")
 def index():
-    return render_template("index.html", model=OLLAMA_MODEL)
+    provider = get_provider_info()
+    return render_template(
+        "index.html",
+        provider=provider.name,
+        model=provider.model,
+        location=provider.location,
+    )
 
 
 @app.get("/api/summary")
@@ -110,11 +72,24 @@ def api_chat():
 
     try:
         context = choose_route_context(question)
-        answer = ask_ollama(question, context)
-        return jsonify({"ok": True, "answer": answer, "context": context})
+        started = time.perf_counter()
+        answer = ask_llm(question, context)
+        elapsed_ms = round((time.perf_counter() - started) * 1000)
+        provider = get_provider_info()
+        return jsonify(
+            {
+                "ok": True,
+                "answer": answer,
+                "context": context,
+                "provider": provider.name,
+                "model": provider.model,
+                "location": provider.location,
+                "elapsed_ms": elapsed_ms,
+            }
+        )
     except McpToolError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
-    except RuntimeError as exc:
+    except LlmProviderError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 502
 
 

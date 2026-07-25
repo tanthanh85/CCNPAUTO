@@ -47,7 +47,7 @@ Each line is an independent JSON document. This makes partial files recoverable 
 
 ## Task 3: Extend the Pipeline
 
-Start the TIG services from their standard Lab 1 location and confirm InfluxDB is healthy:
+Choose the observability option prepared in Lab 1. If using the local TIG stack, start it and confirm InfluxDB is healthy:
 
 ```bash
 cd "$HOME/lab-services/tig"
@@ -74,9 +74,11 @@ Add the supplied `observe-automation` job from `pipeline-observe-job.yml`. Confi
 
 The shell Runner reaches the workstation-bound InfluxDB endpoint directly. The observe job downloads artifacts from earlier stages, converts task events to Influx line protocol, and writes only operational metadata.
 
+If using shared Grafana at `http://10.10.20.50:3000`, obtain the associated InfluxDB write URL, organization, bucket, and restricted write token from the instructor. Replace the local values above with those supplied values. Shared Grafana by itself cannot receive the pipeline metrics.
+
 ## Task 4: Build the Grafana Views
 
-Open `http://127.0.0.1:3000`, select the InfluxDB data source, and create a dashboard named **Network Automation Pipeline**. Useful panels include:
+Open local Grafana at `http://127.0.0.1:3000` or shared Grafana at `http://10.10.20.50:3000`. Select the assigned InfluxDB data source and create a dashboard named **Network Automation Pipeline**. Useful panels include:
 
 - Task count grouped by `status`
 - Failed and unreachable task count over time

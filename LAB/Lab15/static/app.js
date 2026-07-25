@@ -26,7 +26,7 @@ async function loadSummary() {
 
 async function ask(question) {
   addMessage("user", question);
-  addMessage("assistant", "Calling the MCP route tool and asking the local model...");
+  addMessage("assistant", "Calling the MCP route tool and asking the configured model...");
 
   const response = await fetch("/api/chat", {
     method: "POST",
@@ -37,7 +37,8 @@ async function ask(question) {
 
   messages.lastElementChild.remove();
   if (data.ok) {
-    addMessage("assistant", data.answer);
+    const metadata = `${data.provider} · ${data.model} · ${data.elapsed_ms} ms`;
+    addMessage("assistant", `${metadata}\n\n${data.answer}`);
     summary.textContent = JSON.stringify(data.context, null, 2);
   } else {
     addMessage("assistant", `Error: ${data.error}`);

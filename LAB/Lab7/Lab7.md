@@ -265,7 +265,7 @@ Use four evidence sources:
 | NetBox validation fails | Tagged interface type, name, and assigned `/32` |
 | Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |
 | Netmiko times out | VPN, reservation hostname, and SSH port |
-| NETCONF RPC fails | YANG Suite model revision and rendered XML |
+| NETCONF RPC fails | Compare the rendered XML with the device model in local YANG Suite or the shared service at `http://10.10.20.50:8480` |
 | Verification fails | Compare NetBox intent with CLI and NETCONF output |
 
 ## Safety and Cleanup

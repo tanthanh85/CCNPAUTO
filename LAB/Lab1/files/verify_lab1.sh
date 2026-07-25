@@ -54,11 +54,11 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-if curl --fail --silent --max-time 5 http://127.0.0.1:8000 >/dev/null 2>&1; then
-  printf '[PASS] %-22s reachable\n' "NetBox :8000"
+if curl --fail --silent --max-time 5 http://127.0.0.1:8080 >/dev/null 2>&1; then
+  printf '[PASS] %-22s reachable\n' "NetBox :8080"
   PASS=$((PASS + 1))
 else
-  printf '[FAIL] %-22s not reachable\n' "NetBox :8000"
+  printf '[FAIL] %-22s not reachable\n' "NetBox :8080"
   FAIL=$((FAIL + 1))
 fi
 

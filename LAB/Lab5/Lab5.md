@@ -25,6 +25,15 @@ Vault development mode is used because the course runs on one workstation. It is
 
 ## Task 1: Continue the Same Repository
 
+Start and verify NetBox before changing the credential source. Vault is started in Task 2:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+docker compose ps
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+```
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main

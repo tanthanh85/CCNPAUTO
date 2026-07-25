@@ -1,6 +1,5 @@
 services:
   telegraf:
-    ports:
-      - "57000:57000"
+    network_mode: host
     volumes:
       - ./telegraf-mdt.conf:/etc/telegraf/telegraf.conf:ro

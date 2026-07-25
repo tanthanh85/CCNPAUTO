@@ -1,7 +1,7 @@
 ---
 - name: Read project settings from the environment
   ansible.builtin.set_fact:
-    netbox_url: "{{ lookup('ansible.builtin.env', 'NETBOX_URL') | default('http://127.0.0.1:8000', true) | regex_replace('/+$', '') }}"
+    netbox_url: "{{ lookup('ansible.builtin.env', 'NETBOX_URL') | default('http://127.0.0.1:8080', true) | regex_replace('/+$', '') }}"
     netbox_token: "{{ lookup('ansible.builtin.env', 'NETBOX_TOKEN') }}"
     netbox_device: "{{ lookup('ansible.builtin.env', 'NETBOX_DEVICE') | default('iosxe-sandbox', true) }}"
     netbox_tag: "{{ lookup('ansible.builtin.env', 'NETBOX_TAG') | default('automation-managed', true) }}"

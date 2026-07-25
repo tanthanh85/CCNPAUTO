@@ -15,6 +15,20 @@ The pipeline currently installs Python packages and Ansible collections during e
 
 ## Task 1: Add the Container Files
 
+Verify Docker, NetBox, Vault, Runner, and the observability endpoint before building the runtime:
+
+```bash
+docker version
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+```
+
+Container jobs use `--network host`, while the shell Runner already executes in the workstation network namespace. Stop local YANG Suite because this lab does not use it.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
@@ -33,8 +47,8 @@ The image contains tools, not credentials or project source. `.dockerignore` pre
 
 ```bash
 docker build --pull -t network-automation-runtime:lab11 .
-docker run --rm network-automation-runtime:lab11 --version
-docker run --rm --entrypoint id network-automation-runtime:lab11
+docker run --rm --network host network-automation-runtime:lab11 --version
+docker run --rm --network host --entrypoint id network-automation-runtime:lab11
 docker history network-automation-runtime:lab11
 ```
 
@@ -73,7 +87,7 @@ docker compose --env-file .env -f compose.yaml up -d
 cd ~/ccnpauto-workspace/network_automation_project
 ```
 
-For shared Grafana, keep the instructor-provided InfluxDB write variables configured in GitLab and confirm that `http://10.10.20.50:3000` is reachable. Grafana remains the visualization layer; the pipeline writes to the associated instructor-provided InfluxDB endpoint.
+For Cisco DevNet Sandbox Grafana, keep the sandbox InfluxDB write variables configured in GitLab and confirm that `http://10.10.20.50:3000` is reachable. Grafana remains the visualization layer; the pipeline writes to the associated sandbox InfluxDB endpoint.
 
 ```bash
 git add Dockerfile .dockerignore ci .gitlab-ci.yml

@@ -15,6 +15,19 @@ Network configuration is only half of an automation system. Operators must also 
 
 ## Task 1: Add the Logging Components
 
+Start NetBox, Vault, Runner, and the selected observability destination before extending the pipeline:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+```
+
+For local TIG, run `docker compose up -d` from `~/lab-services/tig` and verify `http://127.0.0.1:8086/health`. For Cisco DevNet Sandbox Grafana, verify `http://10.10.20.50:3000` and the associated writable data-source details. Local YANG Suite is not required and may remain stopped.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
@@ -74,11 +87,11 @@ Add the supplied `observe-automation` job from `pipeline-observe-job.yml`. Confi
 
 The shell Runner reaches the workstation-bound InfluxDB endpoint directly. The observe job downloads artifacts from earlier stages, converts task events to Influx line protocol, and writes only operational metadata.
 
-If using shared Grafana at `http://10.10.20.50:3000`, obtain the associated InfluxDB write URL, organization, bucket, and restricted write token from the instructor. Replace the local values above with those supplied values. Shared Grafana by itself cannot receive the pipeline metrics.
+If using Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`, use the InfluxDB write URL, organization, bucket, and restricted write token supplied with the sandbox. Replace the local values above with those reservation values. Grafana by itself cannot receive pipeline metrics.
 
 ## Task 4: Build the Grafana Views
 
-Open local Grafana at `http://127.0.0.1:3000` or shared Grafana at `http://10.10.20.50:3000`. Select the assigned InfluxDB data source and create a dashboard named **Network Automation Pipeline**. Useful panels include:
+Open local Grafana at `http://127.0.0.1:3000` or Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`. Select the assigned InfluxDB data source and create a dashboard named **Network Automation Pipeline**. Useful panels include:
 
 - Task count grouped by `status`
 - Failed and unreachable task count over time

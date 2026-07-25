@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, observability server, source-of-truth server, secrets laboratory, and CI/CD runner. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, `kubectl`, the TIG observability stack, NetBox, Git, Visual Studio Code, and GitLab Runner. Source repositories and pipeline coordination are hosted by GitLab.com. Learners may install Cisco YANG Suite locally or use the instructor-provided shared instance.
+Every later lab depends on a predictable development environment. In this lab, you will prepare a single Ubuntu 26.04 LTS workstation as a network automation control node, development platform, container host, observability server, source-of-truth server, secrets laboratory, and CI/CD runner. By the end of the lab, the workstation will contain Python automation libraries, Ansible, Terraform, Vault, Docker, `kubectl`, the TIG observability stack, NetBox, Git, Visual Studio Code, and GitLab Runner. Source repositories and pipeline coordination are hosted by GitLab.com. Learners may install Cisco YANG Suite locally or use the Cisco DevNet Sandbox YANG Suite service.
 
 This is deliberately an **all-in-one learning environment** for local tools. It makes the course portable because every learner has the same runtime, but it is not a recommended production architecture. GitLab Runner should be isolated from ordinary user workloads; Vault should use persistent encrypted storage and TLS; and monitoring should remain available when an application host fails. Those production distinctions are noted throughout the lab.
 
@@ -18,7 +18,7 @@ After completing this lab, you will be able to:
 - Install Docker Engine and use Docker Compose to operate a TIG stack.
 - Install the `kubectl` client for optional use with an instructor-provided or external Kubernetes cluster.
 - Install Terraform and use Vault safely in training development mode.
-- Install Cisco YANG Suite locally or verify access to the shared course instance.
+- Install Cisco YANG Suite locally or verify access to Cisco DevNet Sandbox YANG Suite.
 - Deploy NetBox as the source of truth used from Lab 4 onward.
 - Install Git, Visual Studio Code, and a local GitLab Runner for GitLab.com projects.
 - Validate the complete workstation and collect evidence for troubleshooting.
@@ -39,7 +39,7 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
-NetBox, the TIG stack, and a local YANG Suite installation do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com, shared Grafana, and shared YANG Suite do not consume workstation resources; only the lightweight local Runner service remains installed.
+NetBox, the TIG stack, and a local YANG Suite installation do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com, Cisco DevNet Sandbox Grafana, and Cisco DevNet Sandbox YANG Suite do not consume workstation resources; only the lightweight local Runner service remains installed.
 
 ## Lab Architecture
 
@@ -53,15 +53,15 @@ flowchart TB
     GitLab --> Runner["Local GitLab Runner<br/>registered in Lab 7"]
 
     Docker["Docker Engine"] --> TIG["Optional local TIG stack<br/>Grafana :3000 / InfluxDB :8086"]
-    Docker --> NetBox["NetBox<br/>HTTP :8000"]
+    Docker --> NetBox["NetBox<br/>HTTP :8080"]
     Docker --> LocalYANG["Optional local YANG Suite<br/>HTTPS :8443"]
     Runner --> Docker
     Python --> Devices["Cisco labs, controllers, and APIs"]
     Ansible --> Devices
-    SharedYANG["Shared Cisco YANG Suite<br/>http://10.10.20.50:8480"] --> Devices
-    Learner --> SharedYANG
+    SandboxYANG["Cisco DevNet Sandbox YANG Suite<br/>http://10.10.20.50:8480"] --> Devices
+    Learner --> SandboxYANG
     LocalYANG --> Devices
-    SharedGrafana["Shared Grafana<br/>http://10.10.20.50:3000"] --> Learner
+    SandboxGrafana["Cisco DevNet Sandbox Grafana<br/>http://10.10.20.50:3000"] --> Learner
     Vault["Vault dev server :8200"] --> Python
     Vault --> Ansible
 ```
@@ -71,13 +71,13 @@ flowchart TB
 | Component | Port or endpoint | Purpose |
 |---|---|---|
 | Grafana | `http://127.0.0.1:3000` | Dashboards |
-| Shared Grafana | `http://10.10.20.50:3000` | Instructor-provided dashboard service |
+| Cisco DevNet Sandbox Grafana | `http://10.10.20.50:3000` | Sandbox dashboard service |
 | InfluxDB | `http://127.0.0.1:8086` | Time-series storage and API |
 | Vault | `http://127.0.0.1:8200` | Training-only secret service |
-| Local YANG Suite | `https://127.0.0.1:8443` | Learner-operated YANG, NETCONF, RESTCONF, and telemetry tools |
-| Shared YANG Suite | `http://10.10.20.50:8480` | Instructor-provided YANG, NETCONF, RESTCONF, and telemetry tools |
+| Local YANG Suite | `https://localhost:8443` | Learner-operated YANG, NETCONF, RESTCONF, and telemetry tools |
+| Cisco DevNet Sandbox YANG Suite | `http://10.10.20.50:8480` | Sandbox YANG, NETCONF, RESTCONF, gNMI, and telemetry tools |
 | GitLab.com | `https://gitlab.com` | Hosted source control and CI/CD control plane |
-| NetBox | `http://127.0.0.1:8000` | Network source of truth |
+| NetBox | `http://127.0.0.1:8080` | Network source of truth |
 | SSH | TCP `22` | Host access and Git over SSH |
 
 The TIG services bind to `127.0.0.1` so they are not exposed automatically to the surrounding network. If the learner accesses the workstation remotely, use SSH port forwarding or deliberately configure a firewall and trusted interface instead of changing every service to `0.0.0.0` without review.
@@ -309,7 +309,7 @@ Enable the service and test it with administrative access:
 
 ```bash
 sudo systemctl enable --now docker
-sudo docker run --rm hello-world
+sudo docker run --rm --network host hello-world
 ```
 
 For this dedicated lab workstation, add the learner to the `docker` group:
@@ -319,20 +319,20 @@ sudo usermod -aG docker "$USER"
 newgrp docker
 docker version
 docker compose version
-docker run --rm hello-world
+docker run --rm --network host hello-world
 ```
 
 > **Security note:** Membership in the `docker` group is effectively root-level access because a member can mount host filesystems or start privileged containers. Production systems should limit this membership and consider rootless Docker or stronger workload isolation.
 
-Docker-published ports can interact unexpectedly with `ufw`. The lab binds sensitive services to loopback where possible. Do not assume that an `ufw` deny rule always blocks a Docker-published port; review Docker's `DOCKER-USER` chain before exposing containers on a shared network.
+All course containers use Linux host networking so that they follow the learner workstation's Cisco DevNet VPN routes, DNS configuration, proxy configuration, and Internet path. Host networking removes Docker network address translation and Docker service-name DNS; containers therefore use `127.0.0.1` to reach other host-networked services. It also means a container can bind directly to a workstation interface. Before starting a service, inspect listening ports with `sudo ss -lntp`, keep host firewall policy enabled, and never expose NetBox, InfluxDB, Grafana, YANG Suite, or telemetry receivers to an untrusted network.
 
 ## Task 6: Select a TIG and Grafana Option
 
-TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, InfluxDB stores time-series data, and Grafana queries data sources to build dashboards. Learners can deploy the complete stack locally or use the shared Grafana service when the instructor has already prepared the necessary data source and dashboard permissions.
+TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, InfluxDB stores time-series data, and Grafana queries data sources to build dashboards. Learners can deploy the complete stack locally or use Cisco DevNet Sandbox Grafana when the sandbox provides the necessary data source and dashboard permissions.
 
 ### Option A: Deploy the Complete TIG Stack Locally
 
-This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the most appropriate choice for Lab 12 unless the instructor provides a shared telemetry collector and InfluxDB destination in addition to shared Grafana. Docker Compose expresses the three local services as one repeatable application.
+This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the most appropriate choice for Lab 12 unless the Cisco DevNet Sandbox provides a telemetry collector and InfluxDB destination in addition to Grafana. Docker Compose expresses the three local services as one repeatable application.
 
 The supplied Compose file pins explicit application versions rather than using `latest`. This is particularly important for InfluxDB because its maintainers announced that the `latest` image tag would move from InfluxDB 2 to InfluxDB 3 Core. A silent major-version change would invalidate the initialization variables and Flux configuration used in this lab.
 
@@ -393,7 +393,7 @@ In Grafana, add an InfluxDB data source:
 1. Select **Connections > Data sources > Add data source**.
 2. Choose **InfluxDB**.
 3. Set the query language to **Flux**.
-4. Use `http://influxdb:8086` if Grafana connects from its container.
+4. Use `http://127.0.0.1:8086`. Host networking means container loopback is the workstation network namespace.
 5. Enter the organization, bucket, and token from `.env`.
 6. Select **Save & test**.
 
@@ -415,15 +415,15 @@ docker compose --env-file .env -f compose.yaml stop
 
 Start it again from `~/lab-services/tig` with `docker compose --env-file .env -f compose.yaml start`. Avoid `down -v` unless the instructor explicitly asks you to erase the InfluxDB and Grafana volumes.
 
-### Option B: Use the Shared Grafana Service
+### Option B: Use Cisco DevNet Sandbox Grafana
 
-Open the instructor-provided Grafana service:
+Open Cisco DevNet Sandbox Grafana:
 
 ```text
 http://10.10.20.50:3000
 ```
 
-Sign in with the credentials supplied by the instructor and confirm that the home page and assigned course folder load. Shared Grafana is a visualization service; its URL alone is not a telemetry receiver. For a lab that writes metrics, the instructor must also provide the associated data-source organization, bucket or database, access token where required, and the reachable Telegraf or ingestion endpoint. If those details are not provided, use the local TIG option.
+Sign in with the Cisco DevNet Sandbox credentials and confirm that the home page and assigned course folder load. Cisco DevNet Sandbox Grafana is a visualization service; its URL alone is not a telemetry receiver. For a lab that writes metrics, the sandbox instructions must also provide the associated data-source organization, bucket or database, access token where required, and the reachable Telegraf or ingestion endpoint. If those details are not available, use the local TIG option.
 
 ## Task 7: Install kubectl
 
@@ -510,30 +510,39 @@ Stop the development server with `Ctrl+C`. Its data disappears by design. Never 
 
 ## Task 9: Select and Verify a Cisco YANG Suite Option
 
-Cisco YANG Suite helps learners explore YANG modules, build NETCONF and RESTCONF payloads, interact with devices, and work with model-driven telemetry plugins. Choose either the local installation or the shared course instance. Both options support the later labs; the shared option saves workstation resources, whereas the local option gives learners control of the service and its device profiles.
+Cisco YANG Suite helps learners explore YANG modules, build NETCONF and RESTCONF payloads, interact with devices, and work with model-driven telemetry plugins. Choose either the local installation or Cisco DevNet Sandbox YANG Suite. Both options support the later labs; the sandbox option saves workstation resources, whereas the local option gives learners control of the service and its device profiles.
 
 ### Option A: Install YANG Suite Locally
 
 Install the official Docker-based project under `~/lab-services`:
 
 ```bash
+docker compose version
 mkdir -p "$HOME/lab-services"
 cd "$HOME/lab-services"
 git clone https://github.com/CiscoDevNet/yangsuite.git
 cd yangsuite/docker
+cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/yangsuite-compose.override.yml \
+  docker-compose.override.yml
 chmod +x start_yang_suite.sh
 ./start_yang_suite.sh
 ```
 
-The script prompts for a local administrator, allowed host, email address, and a training certificate, then runs Docker Compose in the foreground. Leave that terminal running and use a second terminal for the remaining checks. When the containers become ready, open:
+The supplied override uses the Compose `!reset` tag and therefore requires a current Docker Compose v2 plugin. It applies `network_mode: host` to every YANG Suite container and resets published-port mappings, allowing the service to follow the workstation's VPN and cloud routes directly. Before starting, check that its host ports are not already occupied:
+
+```bash
+sudo ss -lntp | grep -E ':(80|443|8443|50051|50052|9339|57344|57345)\b' || true
+```
+
+The startup script prompts for a local administrator, allowed host, email address, and a training certificate, then runs Docker Compose in the foreground. Leave that terminal running and use a second terminal for the remaining checks. When the containers become ready, open:
 
 ```text
-https://127.0.0.1:8443
+https://localhost:8443
 ```
 
 The generated local certificate may not be trusted by the browser. Review the certificate warning and proceed only when the address and certificate belong to this learner-controlled installation. Confirm that the **Setup**, **Explore**, and **Protocols** areas load.
 
-### Option B: Use the Shared YANG Suite Service
+### Option B: Use Cisco DevNet Sandbox YANG Suite
 
 Open the following address in the workstation browser:
 
@@ -541,7 +550,7 @@ Open the following address in the workstation browser:
 http://10.10.20.50:8480
 ```
 
-Use the credentials supplied by the instructor. Confirm that the **Setup**, **Explore**, and **Protocols** areas load. Later labs will create or refresh device profiles and retrieve the YANG modules advertised by the active Cisco IOS XE sandbox reservation.
+Use the Cisco DevNet Sandbox credentials. Confirm that the **Setup**, **Explore**, and **Protocols** areas load. Later labs will create or refresh device profiles and retrieve the YANG modules advertised by the active Cisco IOS XE sandbox reservation.
 
 If the page does not open, first confirm that the learner workstation is connected to the correct lab network:
 
@@ -550,7 +559,7 @@ ping -c 3 10.10.20.50
 curl -I --connect-timeout 5 http://10.10.20.50:8480
 ```
 
-Do not change the shared server configuration beyond the permissions and device profiles assigned by the instructor. If the shared service is unavailable, use the local installation or report the access problem.
+Do not change the Cisco DevNet Sandbox server configuration beyond the assigned permissions and device profiles. If the service is unavailable, use the local installation or verify the sandbox reservation.
 
 ## Task 10: Install NetBox
 
@@ -571,7 +580,11 @@ cp /path/to/CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml \
   docker-compose.override.yml
 ```
 
-The override publishes NetBox only on workstation loopback port 8000. In Lab 7, the NetBox worker reaches GitLab.com through the workstation's normal outbound Internet connection.
+The override places NetBox, its worker, PostgreSQL, and both Valkey services in host network mode. NetBox listens on port 8080, while PostgreSQL on 5432, Valkey on 6379, and the cache Valkey on 6380 are explicitly bound to `127.0.0.1`. This lets the NetBox worker use the workstation's Cisco DevNet VPN and cloud route without exposing its database and caches to the lab network. Check that these ports are free before starting:
+
+```bash
+sudo ss -lntp | grep -E ':(8080|5432|6379|6380)\b' || true
+```
 
 Pull and start NetBox:
 
@@ -589,7 +602,7 @@ docker compose exec netbox \
   /opt/netbox/netbox/manage.py createsuperuser
 ```
 
-Open `http://127.0.0.1:8000`, sign in, and confirm the dashboard loads. Do not delete the PostgreSQL, Redis, or media volumes during ordinary cleanup because they preserve the source-of-truth data used in later labs.
+Open `http://127.0.0.1:8080`, sign in, and confirm the dashboard loads. Do not delete the PostgreSQL, Valkey, or media volumes during ordinary cleanup because they preserve the source-of-truth data used in later labs.
 
 Stop NetBox when workstation memory is needed elsewhere:
 
@@ -671,7 +684,7 @@ docker version --format '{{.Server.Version}}'
 docker compose version
 sudo systemctl is-active gitlab-runner
 curl --fail --silent https://gitlab.com/users/sign_in >/dev/null && echo "GitLab.com reachable"
-curl --fail --silent http://127.0.0.1:8000 >/dev/null && echo "NetBox ready"
+curl --fail --silent http://127.0.0.1:8080 >/dev/null && echo "NetBox ready"
 ```
 
 For local TIG:
@@ -682,7 +695,7 @@ docker compose --env-file .env -f compose.yaml ps
 curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
-For shared Grafana:
+For Cisco DevNet Sandbox Grafana:
 
 ```bash
 curl -I --connect-timeout 5 http://10.10.20.50:3000
@@ -699,8 +712,8 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - Successful Python import validation
 - Successful `ansible.builtin.ping` result
 - Docker `hello-world` result
-- Local TIG container status and InfluxDB health result, or access to shared Grafana at `http://10.10.20.50:3000`
-- Local YANG Suite page at `https://127.0.0.1:8443`, or shared YANG Suite at `http://10.10.20.50:8480`
+- Local TIG container status and InfluxDB health result, or access to Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`
+- Local YANG Suite page at `https://localhost:8443`, or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`
 - NetBox login page
 - Successful GitLab.com SSH authentication and the installed, unregistered Runner service
 - Final validation summary
@@ -790,12 +803,12 @@ This lab assigns separate ports, so a conflict often indicates an earlier manual
 
 ### TIG starts, but Grafana cannot reach InfluxDB
 
-From the Docker network, Grafana must use `http://influxdb:8086`, not `http://127.0.0.1:8086`. Inside the Grafana container, loopback refers to Grafana itself. Inspect logs and the Compose network:
+All TIG containers share the host network namespace, so Grafana and Telegraf must use `http://127.0.0.1:8086`. A stale `http://influxdb:8086` data-source URL will fail because host networking does not provide Compose service-name DNS. Inspect the resolved configuration and logs:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs influxdb telegraf grafana
-docker network ls
+docker compose --env-file .env -f compose.yaml config
 ```
 
 ### YANG Suite does not open
@@ -808,7 +821,7 @@ docker compose ps
 docker compose logs --tail=100
 ```
 
-For the shared service, check network reachability:
+For Cisco DevNet Sandbox YANG Suite, check network reachability:
 
 ```bash
 ip route get 10.10.20.50
@@ -816,7 +829,7 @@ ping -c 3 10.10.20.50
 curl -I --connect-timeout 5 http://10.10.20.50:8480
 ```
 
-Confirm that the workstation is connected to the instructor-provided lab network. Local Docker commands do not diagnose the shared service. If the host is reachable but TCP port 8480 does not respond, use the local option or report the problem to the instructor.
+Confirm that the workstation is connected to the Cisco DevNet Sandbox network. Local Docker commands do not diagnose the sandbox service. If the host is reachable but TCP port 8480 does not respond, verify the reservation or use the local option.
 
 ### A pipeline remains pending
 
@@ -891,8 +904,8 @@ Do not remove Docker volumes, NetBox data, or the virtual environment unless the
 - Python virtual environments prevent course packages from interfering with Ubuntu's system Python.
 - `json` is built into Python, while `yaml` is supplied by PyYAML and the correct package names are `scrapli` and `xmltodict`.
 - Docker provides a common runtime for TIG, NetBox, and containerized CI jobs, but Docker access carries elevated privilege.
-- Cisco YANG Suite can run locally or be accessed through the shared service at `http://10.10.20.50:8480`.
-- Grafana can run as part of the local TIG stack or be accessed at `http://10.10.20.50:3000`; shared Grafana still requires an instructor-provided data source and ingestion path for telemetry labs.
+- Cisco YANG Suite can run locally or be accessed through Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
+- Grafana can run as part of the local TIG stack or be accessed through Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`; the sandbox option still requires an available data source and ingestion path for telemetry labs.
 - NetBox provides the API-driven source of truth used by the cumulative automation project.
 - `kubectl` remains available for optional authorized external-cluster exercises, but no local Kubernetes cluster is installed.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.

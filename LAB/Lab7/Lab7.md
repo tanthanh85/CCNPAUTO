@@ -59,6 +59,21 @@ sequenceDiagram
 
 ## Task 1: Prepare the Existing Repository
 
+Start and verify every service in the event path before registering or testing the Runner:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo systemctl is-active gitlab-runner
+gitlab-runner --version
+curl --fail --silent https://gitlab.com/users/sign_in >/dev/null
+```
+
+TIG and local YANG Suite are not required for the pipeline and may remain stopped.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main
@@ -86,6 +101,8 @@ python -m scripts.verify_network
 Verification should pass for the loopbacks configured in Labs 4 and 6.
 
 ## Task 2: Register a Dedicated Shell Runner
+
+Use the shell executor for this course. The Runner process executes directly in the learner workstation network namespace, so it inherits the Cisco DevNet VPN route, workstation DNS, and Internet path without a Docker bridge. Later containerized jobs explicitly use `docker run --network host` for the same reason.
 
 The Runner package was installed but deliberately left unregistered in Lab 1. This network-deployment job needs direct access to the workstation VPN, NetBox on loopback, and Vault on loopback, so create a project runner in the GitLab.com project under **Settings > CI/CD > Runners > Create project runner**:
 
@@ -133,7 +150,7 @@ In **Settings > CI/CD > Variables**, create these variables. Mark secrets as mas
 | `SANDBOX_MODE` | `reserved` | Protected |
 | `ALLOW_CONFIG_CHANGES` | `true` | Protected |
 | `VERIFY_TLS` | `false` | Protected |
-| `NETBOX_URL` | `http://127.0.0.1:8000` | Protected |
+| `NETBOX_URL` | `http://127.0.0.1:8080` | Protected |
 | `NETBOX_TOKEN` | NetBox token | Masked and protected |
 | `NETBOX_DEVICE` | `iosxe-sandbox` | Protected |
 | `NETBOX_TAG` | `automation-managed` | Protected |
@@ -265,7 +282,7 @@ Use four evidence sources:
 | NetBox validation fails | Tagged interface type, name, and assigned `/32` |
 | Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |
 | Netmiko times out | VPN, reservation hostname, and SSH port |
-| NETCONF RPC fails | Compare the rendered XML with the device model in local YANG Suite or the shared service at `http://10.10.20.50:8480` |
+| NETCONF RPC fails | Compare the rendered XML with the device model in local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` |
 | Verification fails | Compare NetBox intent with CLI and NETCONF output |
 
 ## Safety and Cleanup

@@ -15,6 +15,19 @@ The Lab 8 pipeline assumes that NetBox and Vault respond immediately. Real APIs 
 
 ## Task 1: Extend the Existing Repository
 
+Start and verify the services used by the resilient API and pipeline tests:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+```
+
+TIG and local YANG Suite are not required and may remain stopped.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only

@@ -1,0 +1,11 @@
+services:
+  yangsuite:
+    network_mode: host
+    ports: !reset []
+
+  nginx:
+    network_mode: host
+    ports: !reset []
+
+  backup:
+    network_mode: host

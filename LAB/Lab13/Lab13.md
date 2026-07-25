@@ -29,6 +29,19 @@ The lab treats every tagged NetBox loopback as managed. A compliant router conta
 
 ## Task 1: Add the Drift Components
 
+Start and verify the read-only audit dependencies:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+```
+
+Start TIG only if compliance metrics will be published. Local YANG Suite is not required.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only

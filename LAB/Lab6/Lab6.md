@@ -4,7 +4,7 @@
 
 The project currently creates loopback interfaces through Netmiko. In this lab, learners add a second southbound method: NETCONF. The application reads the same loopbacks from NetBox, retrieves credentials through Vault, renders a Cisco IOS XE native-YANG XML payload, and merges OSPF network statements into the running datastore. Every managed loopback is advertised in OSPF area 0 with a host wildcard of `0.0.0.0`.
 
-Cisco YANG Suite is central to the exercise. Learners can use the local installation prepared in Lab 1 or the shared course instance at `http://10.10.20.50:8480` to inspect the model revision exposed by their reserved router and to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
+Cisco YANG Suite is central to the exercise. Learners can use the local installation prepared in Lab 1 or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect the model revision exposed by their reserved router and to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
 
 ## Learning Objectives
 
@@ -21,12 +21,24 @@ Cisco YANG Suite is central to the exercise. Learners can use the local installa
 
 - Labs 1 and 3–5 completed
 - Existing `network_automation_project`
-- Access to local YANG Suite at `https://127.0.0.1:8443` or the shared service at `http://10.10.20.50:8480`
+- Access to local YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`
 - NetBox and Vault running
 - Active IOS XE reservable sandbox and VPN
 - NETCONF enabled by the sandbox
 
 ## Task 1: Continue the Existing Repository
+
+Start and verify the project dependencies before editing code:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+nc -vz "$IOSXE_HOST" 830
+```
+
+For local YANG Suite, run `docker compose up -d` from `~/lab-services/yangsuite/docker`. Alternatively, verify Cisco DevNet Sandbox YANG Suite with `curl -I http://10.10.20.50:8480`. TIG is not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
@@ -98,14 +110,31 @@ Do not modify AAA, management routing, or unrelated services.
 Open the YANG Suite option selected in Lab 1:
 
 ```text
-https://127.0.0.1:8443
+https://localhost:8443
 or
 http://10.10.20.50:8480
 ```
 
-Use the local administrator account created during installation or the shared credentials supplied by the instructor.
+Use the local administrator account created during installation or the Cisco DevNet Sandbox credentials.
 
-Create or refresh the IOS XE device profile. Retrieve the advertised schemas and locate:
+### Create the Device Profile
+
+1. Select **Setup > Device profiles**, then select **New profile**.
+2. Enter a profile name such as `iosxe-reservation`.
+3. Enter the current reservation hostname or management address, username, and password.
+4. Enable **NETCONF** and set its port to `830`. Enable **RESTCONF** and set its HTTPS port to `443` for later URI exercises.
+5. Select **Check connectivity**. NETCONF must succeed before an RPC can be built or executed.
+6. Save the device profile. Credentials are stored by the selected YANG Suite service, so use only Cisco DevNet Sandbox credentials and never production credentials on the sandbox instance.
+
+### Download the Device-Advertised Schemas
+
+1. Select **Setup > YANG files and repositories** and create a repository named for the current IOS XE reservation or release.
+2. In **Add modules to repository**, select the **NETCONF** tab and choose `iosxe-reservation`.
+3. Select **Get schema list**. The list comes from the router's NETCONF capabilities rather than from a generic model archive.
+4. Select and download `Cisco-IOS-XE-native`, `Cisco-IOS-XE-ospf`, `ietf-netconf`, and their reported dependencies.
+5. Select **Setup > YANG module sets**, create a set named `iosxe-ospf`, and add the downloaded modules. Record each module revision because a different sandbox image may expose a different tree.
+
+Locate:
 
 - `Cisco-IOS-XE-native`
 - `Cisco-IOS-XE-ospf`
@@ -126,7 +155,20 @@ native
                     └── area
 ```
 
-Use YANG Suite's NETCONF plugin to retrieve the current OSPF subtree. Then build a minimal `<edit-config>` request for one lab loopback. Do not send it until the payload preview matches the active model.
+### Build and Validate the NETCONF XML
+
+1. Select **Protocols > NETCONF**.
+2. Choose the `iosxe-ospf` YANG set and the `iosxe-reservation` device profile.
+3. Load `Cisco-IOS-XE-native` and `Cisco-IOS-XE-ospf`.
+4. Select **get-config**, expand the tree to `native/router/router-ospf/ospf`, select that subtree, and choose the `running` datastore.
+5. Select **Build RPC**, review the generated `<filter>`, and then select **Run RPC**. The reply shows the hierarchy and namespaces the router currently accepts.
+6. Clear the operation selections, choose **edit-config**, and select the `running` target with the default operation `merge`.
+7. In the model tree, set `process-id/id` to `1`. Add one `network` list entry with the IP address of an existing loopback, wildcard `0.0.0.0`, and area `0`.
+8. Select **Build RPC**. Confirm that the generated document contains the NETCONF base namespace on `<rpc>` and `<config>`, the Cisco native namespace on `<native>`, and the Cisco OSPF namespace on `<router-ospf>`.
+9. Save the generated RPC as evidence. The project calls `ncclient.edit_config()`, so copy only the `<config>...</config>` element into the Jinja2 design; `ncclient` creates the outer `<rpc>` and `<edit-config>` envelope.
+10. Do not run the change from YANG Suite if the same configuration will be applied by the lab script. First compare its `<config>` body with `templates/ospf_native.xml.j2`.
+
+The important distinction is that YANG Suite discovers the exact tree and namespaces, while Jinja2 supplies repeatable values. The loop belongs in the template so one payload can contain every NetBox-managed loopback.
 
 ## Task 5: Understand the Rendered Payload
 

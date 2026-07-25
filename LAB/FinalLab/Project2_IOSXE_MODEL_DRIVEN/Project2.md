@@ -54,9 +54,20 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Open local Cisco YANG Suite at `https://127.0.0.1:8443` or the shared service at `http://10.10.20.50:8480`. Your task is to use it to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
+Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Open local Cisco YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. Your task is to use it to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
 
 In YANG Suite, choose the Cisco IOS XE native module, commonly shown as **`Cisco-IOS-XE-native`**. Do not build this task with the generic IETF routing model. This project is intentionally testing the Cisco native model because it closely matches the IOS XE CLI configuration hierarchy.
+
+Use this workflow:
+
+1. In **Setup > Device profiles**, create or refresh the IOS XE reservation profile with NETCONF port `830`.
+2. In **Setup > YANG files and repositories**, retrieve the schema list from that device and download `Cisco-IOS-XE-native` with its dependencies.
+3. Add those files to a YANG module set.
+4. In **Protocols > NETCONF**, select the device and module set, load `Cisco-IOS-XE-native`, and first build a `get-config` for the native routing subtree.
+5. Run the read RPC and use the reply to confirm the hierarchy and namespaces accepted by the active IOS XE release.
+6. Change the operation to `edit-config`, select the `running` target and `merge`, enter one temporary set of route values in the tree, and select **Build RPC**.
+7. Copy only the generated `<config>...</config>` body into the template design because `ncclient.edit_config()` creates the outer `<rpc>` and `<edit-config>` elements.
+8. Replace the temporary values with the supplied Jinja2 variables inside the existing loop.
 
 The YAML format is:
 
@@ -145,11 +156,22 @@ After completing the function, add one more static route to [data/static_routes.
 
 The project includes a small Flask management portal that refreshes every 5 seconds. Most of the code is complete, but the RESTCONF URIs are missing.
 
-Use local Cisco YANG Suite or the shared service at `http://10.10.20.50:8480` to locate RESTCONF operational paths for:
+Use local Cisco YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to locate RESTCONF operational paths for:
 
 - CPU utilization,
 - memory utilization,
 - and GigabitEthernet1 interface counters or utilization.
+
+For each metric:
+
+1. Use the device profile and the YANG set downloaded from the active IOS XE reservation.
+2. Select **Protocols > RESTCONF**, load the operational module, and use **Search module** to locate the required container or leaf.
+3. Select that node and choose **Generate APIs**.
+4. In the generated Swagger view, select `GET`, set `Accept: application/yang-data+json`, and choose **Try it out**.
+5. Confirm that the request returns `200 OK` and that the JSON includes the field consumed by the portal.
+6. Record the device resource path after `/restconf/data/`. Do not copy the YANG Suite proxy hostname or proxy prefix.
+7. When selecting one interface list entry, allow YANG Suite to generate the encoded list-key syntax for `GigabitEthernet1`; do not paste an XPath predicate into a RESTCONF URI.
+8. Test each device URI with `curl` before adding it to Python.
 
 Open [src/restconf_monitor.py](src/restconf_monitor.py) and complete:
 
@@ -193,4 +215,4 @@ The grader reports your score out of 70.
 
 ## Notes
 
-If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with local or shared YANG Suite. The model exposed by the device is authoritative.
+If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with local or Cisco DevNet Sandbox YANG Suite. The model exposed by the device is authoritative.

@@ -1,9 +1,51 @@
 services:
   netbox:
-    ports:
-      - "127.0.0.1:8000:8080"
+    network_mode: host
+    environment: &netbox-host-environment
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_CACHE_HOST: 127.0.0.1
+      REDIS_CACHE_PORT: 6380
     # Initial database migrations can exceed the upstream 90-second grace
     # period on a resource-constrained learner VM, especially on ARM64.
     healthcheck:
       start_period: 300s
+      retries: 5
+
+  netbox-worker:
+    network_mode: host
+    environment: *netbox-host-environment
+
+  postgres:
+    network_mode: host
+    command:
+      - postgres
+      - -c
+      - listen_addresses=127.0.0.1
+
+  redis:
+    network_mode: host
+    command:
+      - sh
+      - -c
+      - >-
+        valkey-server --bind 127.0.0.1 --appendonly yes
+        --requirepass $$REDIS_PASSWORD
+
+  redis-cache:
+    network_mode: host
+    command:
+      - sh
+      - -c
+      - >-
+        valkey-server --bind 127.0.0.1 --port 6380
+        --requirepass $$REDIS_PASSWORD
+    healthcheck:
+      test: >-
+        [ $$(valkey-cli -p 6380 --pass "$${REDIS_PASSWORD}" ping) = 'PONG' ]
+      start_period: 5s
+      timeout: 3s
+      interval: 1s
       retries: 5

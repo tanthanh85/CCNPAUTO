@@ -31,6 +31,19 @@ flowchart TD
 
 ## Task 1: Add Planning and Recovery Files
 
+Start and verify NetBox, Vault, and the protected Runner before generating a plan:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+```
+
+TIG is needed only when retaining the Lab 10 metrics. Local YANG Suite is not required unless a NETCONF payload must be revalidated against a changed IOS XE image.
+
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only

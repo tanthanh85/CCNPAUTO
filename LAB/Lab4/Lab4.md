@@ -69,10 +69,13 @@ Start the NetBox Docker Compose project installed in Lab 1:
 cd ~/lab-services/netbox-docker
 docker compose up -d
 docker compose ps
-curl -I http://127.0.0.1:8000
+docker compose config | grep -n "network_mode: host"
+curl -I http://127.0.0.1:8080
 ```
 
-Open `http://127.0.0.1:8000` and sign in with the administrator created in Lab 1.
+Open `http://127.0.0.1:8080` and sign in with the administrator created in Lab 1.
+
+Vault, TIG, local YANG Suite, and GitLab Runner are not required in this lab and may remain stopped.
 
 ## Task 3: Model the Cisco IOS XE Sandbox Router
 
@@ -323,7 +326,7 @@ echo
 
 curl --fail --silent \
   -H "Authorization: Token $NETBOX_TOKEN" \
-  "http://127.0.0.1:8000/api/dcim/devices/?name=iosxe-sandbox" \
+  "http://127.0.0.1:8080/api/dcim/devices/?name=iosxe-sandbox" \
   | python -m json.tool
 ```
 
@@ -332,7 +335,7 @@ The response should contain one result named `iosxe-sandbox`. Test the managed-i
 ```bash
 curl --fail --silent \
   -H "Authorization: Token $NETBOX_TOKEN" \
-  "http://127.0.0.1:8000/api/dcim/interfaces/?device=iosxe-sandbox&tag=automation-managed" \
+  "http://127.0.0.1:8080/api/dcim/interfaces/?device=iosxe-sandbox&tag=automation-managed" \
   | python -m json.tool
 ```
 
@@ -349,7 +352,7 @@ HTTP 401 means the token is incorrect or malformed. HTTP 403 means the authentic
 Copy `.env.additions.example` values into the repository's untracked `.env`:
 
 ```dotenv
-NETBOX_URL=http://127.0.0.1:8000
+NETBOX_URL=http://127.0.0.1:8080
 NETBOX_TOKEN=<token>
 NETBOX_DEVICE=iosxe-sandbox
 NETBOX_TAG=automation-managed

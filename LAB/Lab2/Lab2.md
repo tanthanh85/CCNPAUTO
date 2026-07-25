@@ -28,6 +28,18 @@ Allow approximately **90 minutes to 2 hours**.
 - Active IOS XE reservable sandbox and VPN connection
 - Permission to create a private project in the learner's GitLab.com namespace
 
+Lab 2 does not require NetBox, Vault, TIG, local YANG Suite, or GitLab Runner. Stop unneeded services before reserving the sandbox:
+
+```bash
+test -d "$HOME/lab-services/netbox-docker" && \
+  (cd "$HOME/lab-services/netbox-docker" && docker compose stop)
+test -d "$HOME/lab-services/tig" && \
+  (cd "$HOME/lab-services/tig" && docker compose stop)
+test -d "$HOME/lab-services/yangsuite/docker" && \
+  (cd "$HOME/lab-services/yangsuite/docker" && docker compose stop)
+sudo systemctl stop gitlab-runner
+```
+
 ## Lab Flow
 
 ```mermaid

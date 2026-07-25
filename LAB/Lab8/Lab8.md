@@ -127,6 +127,21 @@ The inventory initially contains only `localhost`. The deployment playbook creat
 
 ## Task 1: Create the Migration Branch
 
+Before migrating the pipeline, verify the services that Ansible and the shell Runner will use:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
+docker compose up -d
+curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
+vault status
+sudo systemctl start gitlab-runner
+sudo gitlab-runner verify
+nc -vz "$IOSXE_HOST" 22
+nc -vz "$IOSXE_HOST" 830
+```
+
+TIG may remain stopped. Start local YANG Suite only when the OSPF template must be compared with the current IOS XE model; otherwise use Cisco DevNet Sandbox YANG Suite.
+
 Update the same cumulative repository and create a feature branch:
 
 ```bash
@@ -189,7 +204,7 @@ The inventory graph should show `localhost` and empty runtime groups. Those grou
 Ansible controller lookups read environment variables from the process that launches `ansible-playbook`. Export the same values used by the cumulative project. Substitute the current reserved hostname and ports:
 
 ```bash
-export NETBOX_URL="http://127.0.0.1:8000"
+export NETBOX_URL="http://127.0.0.1:8080"
 export NETBOX_TOKEN="<existing-netbox-token>"
 export NETBOX_DEVICE="iosxe-sandbox"
 export NETBOX_TAG="automation-managed"
@@ -213,7 +228,7 @@ export OSPF_AREA="0"
 Confirm that the supporting services are reachable without printing tokens:
 
 ```bash
-curl -I http://127.0.0.1:8000
+curl -I http://127.0.0.1:8080
 VAULT_ADDR=http://127.0.0.1:8200 vault status
 nc -vz "$IOSXE_HOST" "$IOSXE_SSH_PORT"
 nc -vz "$IOSXE_HOST" "$IOSXE_NETCONF_PORT"
@@ -286,7 +301,7 @@ Inspect the template:
 sed -n '1,220p' templates/ospf_native.xml.j2
 ```
 
-The template must match the modules and revisions advertised by the current IOS XE reservation. If the sandbox image changed, open local YANG Suite or the shared service at `http://10.10.20.50:8480`, retrieve the `Cisco-IOS-XE-native` and `Cisco-IOS-XE-ospf` schemas, and compare the tree with the XML hierarchy. A syntactically valid XML document can still be invalid according to the device's YANG schema.
+The template must match the modules and revisions advertised by the current IOS XE reservation. If the sandbox image changed, open local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`, retrieve the `Cisco-IOS-XE-native` and `Cisco-IOS-XE-ospf` schemas, and compare the tree with the XML hierarchy. A syntactically valid XML document can still be invalid according to the device's YANG schema.
 
 Ansible's `netconf_config` module sends the rendered `<config>` content to the running datastore with merge behavior. Existing unrelated OSPF configuration is not intentionally replaced. Nevertheless, learners must review the rendered structure and use only the reserved sandbox because a model operation can affect configuration beyond the intended leaf when its hierarchy or default operation is misunderstood.
 
@@ -469,7 +484,7 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 | Host-key verification fails | New reservation presents a different key | Verify the new fingerprint before updating `known_hosts` |
 | CLI connection times out | VPN, hostname, SSH port, or reservation expired | Test with `nc` and inspect the sandbox details |
 | NETCONF fails while CLI works | Port 830 unavailable, NETCONF disabled, or wrong connection plugin | Test port 830 and confirm `netconf-yang` |
-| `rpc-error` mentions an unknown element | Template differs from the advertised IOS XE YANG revision | Rebuild and test the payload with local YANG Suite or the shared service at `http://10.10.20.50:8480` |
+| `rpc-error` mentions an unknown element | Template differs from the advertised IOS XE YANG revision | Rebuild and test the payload with local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` |
 | Pipeline job remains pending | Runner offline or `network-deploy` tag/protection mismatch | Review the project Runner and protected branch eligibility |
 | Pipeline reaches NetBox but not IOS XE | Runner lacks VPN route | Test reachability as the `gitlab-runner` service account |
 | Deploy job passes but test fails | Requested and observed state differ | Treat the pipeline as failed and compare NetBox, CLI, and OSPF output |

@@ -62,6 +62,18 @@ cd ~/ccnpauto-workspace
 
 ## Task 1: Create the Lab Repository on GitLab.com
 
+Lab 15 is a separate application and does not use NetBox, Vault, TIG, or GitLab Runner. Stop those services before loading the local Qwen model:
+
+```bash
+test -d "$HOME/lab-services/netbox-docker" && \
+  (cd "$HOME/lab-services/netbox-docker" && docker compose stop)
+test -d "$HOME/lab-services/tig" && \
+  (cd "$HOME/lab-services/tig" && docker compose stop)
+sudo systemctl stop gitlab-runner
+```
+
+Start local YANG Suite only when a RESTCONF route URI needs model verification; otherwise use Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
+
 Create a new GitLab.com project named `ai_route_assistant`. Then clone it to the workstation:
 
 ```bash
@@ -238,7 +250,7 @@ pprint(call_route_tool("get_route_summary"))
 PY
 ```
 
-The output should show a total route count and route counts grouped by protocol. This confirms that the MCP tool path can reach the RESTCONF backend. If the script reports that no supported route endpoint returned data, use either a local YANG Suite installation or the shared service at `http://10.10.20.50:8480` to inspect the routing operational models supported by the current IOS XE sandbox release. IOS XE releases can differ in the exact operational YANG path used for RIB data.
+The output should show a total route count and route counts grouped by protocol. This confirms that the MCP tool path can reach the RESTCONF backend. If the script reports that no supported route endpoint returned data, use either a local YANG Suite installation or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect the routing operational models supported by the current IOS XE sandbox release. IOS XE releases can differ in the exact operational YANG path used for RIB data.
 
 ## Task 5: Inspect the MCP and RESTCONF Boundary
 
@@ -406,7 +418,7 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 | Cloud API returns `401` | API key is invalid, revoked, or belongs to the wrong service | Create a new provider API key and update `.env` |
 | Cloud API returns `429` | Account quota or provider rate limit was reached | Check provider billing and limits, wait, then retry |
 | RESTCONF returns `401` or `403` | Wrong sandbox credentials | Check reservation details and `.env` |
-| RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local YANG Suite or `http://10.10.20.50:8480` to inspect routing operational models |
+| RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect routing operational models |
 | Assistant invents details | Prompt lacks enough route context or model is too creative | Keep temperature low and verify against JSON context |
 
 ## Key Takeaways

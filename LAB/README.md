@@ -47,7 +47,7 @@ This separation keeps the warm-up and AI assistant independent from the main pro
 
 ### Lab 1: Preparing the Network Automation Workstation
 
-[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. Learners may deploy TIG and Cisco YANG Suite locally or use the instructor-provided shared Grafana and YANG Suite services. NetBox remains the local source of truth, while Vault provides secrets for later automation.
+[Lab 1](Lab1/Lab1.md) prepares the Ubuntu 26.04 workstation used throughout the course. Learners install Python tooling, network automation libraries, Ansible, Terraform, Docker, NetBox, Vault, Git, Visual Studio Code, and GitLab Runner. Learners may deploy TIG and Cisco YANG Suite locally or use Cisco DevNet Sandbox Grafana and YANG Suite. NetBox remains the local source of truth, while Vault provides secrets for later automation.
 
 This is the foundation lab. If a later lab fails because a service is missing, a Python package is unavailable, or a runner is not registered, return to Lab 1 and verify the workstation.
 
@@ -96,7 +96,7 @@ This lab reinforces a key production habit: ignoring a file in Git is not the sa
 
 ### Lab 6: Configure OSPF with NETCONF and YANG
 
-[Lab 6](Lab6/Lab6.md) adds model-driven configuration to the project. Learners use local Cisco YANG Suite or the shared service at `http://10.10.20.50:8480` to inspect IOS XE native YANG models, build an OSPF payload, render XML with Jinja2, and send an `<edit-config>` operation through NETCONF. The lab advertises all managed loopback interfaces into OSPF area 0.
+[Lab 6](Lab6/Lab6.md) adds model-driven configuration to the project. Learners use local Cisco YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect IOS XE native YANG models, build an OSPF payload, render XML with Jinja2, and send an `<edit-config>` operation through NETCONF. The lab advertises all managed loopback interfaces into OSPF area 0.
 
 This lab is where learners begin to connect source of truth, secret management, and model-driven programmability:
 
@@ -162,7 +162,7 @@ Containerizing the runtime improves repeatability. The source code remains in Gi
 
 [Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners configure IOS XE model-driven telemetry so the router pushes CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
 
-This lab demonstrates the difference between polling and streaming. It also introduces an important reachability issue: dial-out telemetry requires the IOS XE sandbox to initiate a connection back to the workstation. If the DevNet VPN path does not allow this, learners may need an instructor-provided collector or another reachable IOS XE environment.
+This lab demonstrates polling, NETCONF and gNMI dial-in subscriptions, and gRPC dial-out streaming. It also introduces an important reachability issue: dial-out telemetry requires the IOS XE sandbox to initiate a connection back to the workstation. If the DevNet VPN path does not allow this, learners use dial-in or a collector reachable from the sandbox.
 
 ### Lab 13: Detect Configuration Drift and Report Compliance
 
@@ -195,7 +195,7 @@ The AI model answers questions from MCP-provided route context. It does not rece
 
 ### Final Assessment Lab: Enterprise Network Automation Delivery
 
-[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or shared YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
+[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or Cisco DevNet Sandbox YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
 
 The assessment is worth 100 points and includes self-grading scripts so learners can check their completion before submission.
 
@@ -227,11 +227,24 @@ Labs 3–14 progressively improve the same `network_automation_project` reposito
 | Cisco DevNet IOS XE Sandbox | Lab 2 | Router target for CLI, RESTCONF, NETCONF, telemetry, and route assistant labs |
 | NetBox | Lab 1 / Lab 4 | Source of truth for managed loopback intent |
 | HashiCorp Vault | Lab 1 / Lab 5 | Device credential storage and retrieval |
-| Cisco YANG Suite | Lab 1 / Lab 6 | Local `https://127.0.0.1:8443` or shared `http://10.10.20.50:8480`; model discovery and payload testing |
-| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG or shared Grafana at `http://10.10.20.50:3000`; shared metric ingestion requires instructor-provided endpoints |
+| Cisco YANG Suite | Lab 1 / Lab 6 / Lab 12 | Local `https://localhost:8443` or Cisco DevNet Sandbox `http://10.10.20.50:8480`; model discovery and payload testing |
+| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG or Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`; sandbox metric ingestion depends on the available data source |
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
 | LLM provider | Lab 15 | Local Ollama or learner-owned OpenAI/Anthropic API account |
 | FastMCP | Lab 15 | Controlled AI tool boundary for network information |
+
+All course containers use Linux host networking. NetBox, TIG, local YANG Suite, and Lab 11 runtime containers therefore inherit the workstation's Cisco DevNet VPN route, DNS, proxy, and cloud connectivity. Containers use `127.0.0.1` for local host-networked dependencies; Docker service names such as `influxdb` are not used. The GitLab shell Runner already executes in the host network namespace, and every `docker run` command in the course uses `--network host`.
+
+Start only the services required by the current lab:
+
+| Service | Start and verify | Stop when unused |
+|---|---|---|
+| NetBox | `cd ~/lab-services/netbox-docker && docker compose up -d && curl -f http://127.0.0.1:8080/api/status/` | `docker compose stop` |
+| Local TIG | `cd ~/lab-services/tig && docker compose up -d && curl -f http://127.0.0.1:8086/health` | `docker compose stop` |
+| Local YANG Suite | `cd ~/lab-services/yangsuite/docker && docker compose up -d` | `docker compose stop` |
+| Vault dev server | Start the Lab 5 `vault server -dev` command and run `vault status` | `Ctrl+C` in its dedicated terminal |
+| GitLab Runner | `sudo systemctl start gitlab-runner && sudo gitlab-runner verify` | `sudo systemctl stop gitlab-runner` |
+| Ollama | `ollama serve` and `ollama list` | `Ctrl+C` when run interactively |
 
 ## Working Practices for Every Lab
 
@@ -252,7 +265,7 @@ Use these habits consistently:
 When a lab fails, work from the foundation upward:
 
 1. Confirm the DevNet sandbox reservation is active and the VPN is connected.
-2. Confirm required local services are running, such as NetBox, Vault, TIG, YANG Suite, or Ollama, or confirm that the selected shared services are reachable.
+2. Confirm required local services are running, such as NetBox, Vault, TIG, YANG Suite, or Ollama, or confirm that the selected Cisco DevNet Sandbox services are reachable.
 3. Confirm the Python virtual environment is active.
 4. Confirm required environment variables or GitLab CI/CD variables are present.
 5. Confirm GitLab Runner is online when a pipeline is expected to run.

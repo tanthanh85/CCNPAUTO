@@ -30,6 +30,18 @@ Allow approximately **3 hours**.
 - Active IOS XE reservable sandbox and VPN
 - Python virtual environment from Lab 1
 
+The project still uses YAML rather than NetBox and does not require Vault, TIG, local YANG Suite, or GitLab Runner. Stop those services if they are running:
+
+```bash
+test -d "$HOME/lab-services/netbox-docker" && \
+  (cd "$HOME/lab-services/netbox-docker" && docker compose stop)
+test -d "$HOME/lab-services/tig" && \
+  (cd "$HOME/lab-services/tig" && docker compose stop)
+test -d "$HOME/lab-services/yangsuite/docker" && \
+  (cd "$HOME/lab-services/yangsuite/docker" && docker compose stop)
+sudo systemctl stop gitlab-runner
+```
+
 ## Project Architecture
 
 ```mermaid

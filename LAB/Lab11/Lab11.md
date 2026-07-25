@@ -107,7 +107,7 @@ Merge only when NetBox, Vault, VPN, and the sandbox are ready. Create a new loop
 - Non-root execution, an environment allowlist, and `.dockerignore` reduce exposure.
 - Containerization does not remove the need for protected Runners, Vault, TLS, tests, or audit logs.
 
-Lab 12 extends observability from pipeline behavior to live IOS XE model-driven telemetry.
+Lab 12 uses the controlled runtime and preserved evidence to detect configuration drift and report compliance.
 
 ## References
 

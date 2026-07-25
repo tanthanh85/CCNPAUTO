@@ -4,7 +4,7 @@
 
 This lab series is the practical companion to the CCNPAUTO study guide. The theory chapters explain software design, APIs, deployment, security, infrastructure automation, Cisco platforms, and AI-assisted network operations. The labs apply those subjects to a working environment and a cumulative enterprise network automation project.
 
-The course begins with a single Ubuntu workstation and gradually builds toward a professional automation workflow. Learners first prepare the required tools and validate device access. They then create a GitLab.com project, move from file-based intent to NetBox, protect credentials with Vault, configure IOS XE through CLI and model-driven interfaces, automate the workflow with GitLab CI/CD, migrate orchestration to Ansible, add resilience and observability, containerize the runtime, collect model-driven telemetry, detect drift, and finally build an AI route assistant that uses FastMCP and RESTCONF.
+The course begins with a single Ubuntu workstation and gradually builds toward a professional automation workflow. Learners first prepare the required tools and validate device access. They then create a GitLab.com project, move from file-based intent to NetBox, protect credentials with Vault, configure IOS XE through CLI and model-driven interfaces, automate the workflow with GitLab CI/CD, migrate orchestration to Ansible, add resilience and observability, containerize the runtime, detect configuration drift, collect model-driven telemetry, and finally build an AI route assistant that uses FastMCP and RESTCONF.
 
 The labs are written for learners who already have CCNA Automation knowledge. Therefore, they do not reteach introductory Python, Git, structured data, or REST API fundamentals. Instead, they extend those foundations to CCNP-level work in which an engineer must validate intent, protect credentials, control deployment, verify operational state, preserve evidence, and troubleshoot failures.
 
@@ -38,8 +38,8 @@ flowchart TD
     L8 --> L9["Lab 9<br/>Add API resilience"]
     L9 --> L10["Lab 10<br/>Logging and observability"]
     L10 --> L11["Lab 11<br/>Containerized runtime"]
-    L11 --> L12["Lab 12<br/>Model-driven telemetry"]
-    L12 --> L13["Lab 13<br/>Drift and compliance"]
+    L11 --> L12["Lab 12<br/>Drift and compliance"]
+    L12 --> L13["Lab 13<br/>Model-driven telemetry"]
     L13 --> L14["Lab 14<br/>AI route assistant"]
     L14 --> F["Final Assessment<br/>Two practical projects"]
 ```
@@ -171,17 +171,17 @@ That separation is important because troubleshooting one failed pipeline and und
 
 Containerizing the runtime improves repeatability. The source code remains in Git, secrets remain outside the image, and the pipeline runs with a known set of tools. This prepares learners for production practices where automation jobs run in controlled execution environments.
 
-### Lab 12: Add Model-Driven Telemetry
+### Lab 12: Detect Configuration Drift and Report Compliance
 
-[Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners use YANG Suite to locate operational data paths, examine dial-in collection through NETCONF and gNMI, and configure Catalyst C8KV IOS XE to push CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
-
-For gRPC dial-out, learners enter the IOS XE subscriptions manually, beginning with subscription ID 201. Learners using the Cisco Catalyst C8KV sandbox send telemetry to its pre-integrated Telegraf service at `10.10.20.50:57500` and build dashboards in Grafana at `http://10.10.20.50:3000`. Learners using a locally hosted C8KV start the local TIG stack from Lab 1 and send telemetry to the workstation on TCP `57000`.
-
-### Lab 13: Detect Configuration Drift and Report Compliance
-
-[Lab 13](Lab13/Lab13.md) adds a read-only compliance pipeline. The project compares NetBox intent with observed IOS XE loopback and OSPF state, reports drift, and preserves structured evidence without automatically correcting the device.
+[Lab 12](Lab12/Lab12.md) adds a read-only compliance pipeline. The project compares NetBox intent with observed IOS XE loopback and OSPF state, reports drift, and preserves structured evidence without automatically correcting the device.
 
 The lab teaches that drift detection and remediation are different decisions. Sometimes the safest first step is to report clearly rather than repair automatically. This is especially true when multiple teams or systems might touch the same network.
+
+### Lab 13: Add Model-Driven Telemetry
+
+[Lab 13](Lab13/Lab13.md) shifts attention from the automation application to the network device itself. Learners use YANG Suite to locate operational data paths, examine dial-in collection through NETCONF and gNMI, and configure Catalyst C8KV IOS XE to push CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
+
+For gRPC dial-out, learners enter the IOS XE subscriptions manually, beginning with subscription ID 201. Learners using the Cisco Catalyst C8KV sandbox send telemetry to its pre-integrated Telegraf service at `10.10.20.50:57500` and build dashboards in Grafana at `http://10.10.20.50:3000`. Learners using a locally hosted C8KV start the local TIG stack from Lab 1 and send telemetry to the workstation on TCP `57000`.
 
 ### Lab 14: Build an AI Network Route Assistant
 
@@ -221,8 +221,8 @@ Labs 3–13 progressively improve the same `network_automation_project` reposito
 | Lab 9 | API resilience | External dependencies fail; automation must handle timeouts and rate limits safely. |
 | Lab 10 | Logging and observability | Operators need evidence, metrics, and retained artifacts. |
 | Lab 11 | Containerized runtime | Reproducible execution environments reduce dependency drift. |
-| Lab 12 | Model-driven telemetry | Streaming telemetry provides operational visibility into network state. |
-| Lab 13 | Drift detection | Compliance reporting can be read-only and evidence-based. |
+| Lab 12 | Drift detection | Compliance reporting can be read-only and evidence-based. |
+| Lab 13 | Model-driven telemetry | Streaming telemetry provides operational visibility into network state. |
 
 ## Services Used Across the Labs
 
@@ -233,9 +233,9 @@ Labs 3–13 progressively improve the same `network_automation_project` reposito
 | Cisco DevNet Catalyst C8KV IOS XE reservable sandbox | Lab 2 | Router target for CLI, RESTCONF, NETCONF, telemetry, and route-assistant labs |
 | NetBox | Lab 1 / Lab 4 | Source of truth for managed loopback intent |
 | HashiCorp Vault | Lab 1 / Lab 5 | Device credential storage and retrieval |
-| Cisco YANG Suite | Lab 1 / Lab 6 / Lab 12 | Local `https://localhost:8443` or Cisco DevNet Sandbox `http://10.10.20.50:8480`; model discovery and payload testing |
+| Cisco YANG Suite | Lab 1 / Lab 6 / Lab 13 | Local `https://localhost:8443` or Cisco DevNet Sandbox `http://10.10.20.50:8480`; model discovery and payload testing |
 | Local TIG stack | Lab 1 / Lab 10 | Application logs, automation metrics, and telemetry from a locally hosted C8KV |
-| Cisco DevNet Sandbox TIG stack | Lab 12 | Integrated Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000` |
+| Cisco DevNet Sandbox TIG stack | Lab 13 | Integrated Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000` |
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
 | LLM provider | Lab 14 | Local Ollama or learner-owned OpenAI/Anthropic API account |
 | FastMCP | Lab 14 | Controlled AI tool boundary for network information |
@@ -306,6 +306,6 @@ When a lab fails, work from the foundation upward:
 
 ## Completion Outcome
 
-After Lab 14, learners should have practiced a complete professional network automation lifecycle. They will have developed an initial device-automation workflow into source-of-truth-driven change, secret management, model-driven configuration, CI/CD, observability, containerized execution, telemetry, compliance, and AI-assisted route analysis.
+After Lab 14, learners should have practiced a complete professional network automation lifecycle. They will have developed an initial device-automation workflow into source-of-truth-driven change, secret management, model-driven configuration, CI/CD, observability, containerized execution, compliance reporting, model-driven telemetry, and AI-assisted route analysis.
 
 The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.

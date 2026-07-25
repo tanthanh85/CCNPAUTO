@@ -24,7 +24,9 @@ The instructions still provide the commands, file locations, and verification po
 
 ## Recommended Lab Order
 
-Follow the labs in order unless the instructor explicitly says otherwise. Labs 3–13 are cumulative and use the same main project repository, so skipping one may leave missing modules, variables, services, or pipeline files. Lab 14 is a separate AI application that consumes network information through a controlled MCP service.
+Follow the required labs in order unless the instructor explicitly says otherwise. Labs 3–13 are cumulative and use the same main project repository, so skipping one may leave missing modules, variables, services, or pipeline files. Lab 14 is a separate AI application that consumes network information through a controlled MCP service.
+
+Optional Labs 15–17 are standalone extensions. They can be selected according to instructor time, software entitlement, workstation capacity, and learner interest. They are not prerequisites for the final assessment and do not change the required Lab 1–14 sequence.
 
 ```mermaid
 flowchart TD
@@ -53,8 +55,10 @@ The labs use GitLab.com for repositories and pipeline coordination.
 | `lab2_warm_up` | Lab 2 | Disposable warm-up repository used to confirm Git, Python, DevNet VPN, CLI parsing, and RESTCONF access. |
 | `network_automation_project` | Labs 3–13 | Main cumulative automation project. Learners keep improving this repository across multiple labs. |
 | `ai_route_assistant` | Lab 14 | Separate Flask and FastMCP assistant using local Ollama or an OpenAI/Anthropic API. |
+| `optional_lab15_aci_terraform` | Optional Lab 15 | Standalone Terraform project for a Cisco ACI reservable sandbox. |
+| `optional_lab17_splunk_netconf` | Optional Lab 17 | Standalone NETCONF dial-in collector and Splunk HEC integration. |
 
-This separation keeps the warm-up and AI assistant independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, and compliance.
+Optional Lab 16 uses an NSO runtime and service package rather than a separate application repository. This separation keeps the warm-up, AI assistant, and optional technology exercises independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, and compliance.
 
 ## Lab Summary
 
@@ -200,6 +204,20 @@ flowchart LR
 
 The AI model answers questions from MCP-provided route context. It does not receive router credentials, does not connect directly to IOS XE, and does not execute configuration. This reinforces the Chapter 17 principle that AI belongs behind narrow, controlled, auditable tools.
 
+## Optional Extension Labs
+
+### Optional Lab 15: Provision Cisco ACI with Terraform
+
+[Optional Lab 15](Lab15/Lab15.md) uses the CiscoDevNet ACI Terraform provider with a Cisco ACI Simulator reservable sandbox. Learners create a tenant, VRF, bridge domain, subnet, application profile, and application EPGs; review saved plans; inspect state; detect drift; and clean up only their learner-prefixed policy.
+
+### Optional Lab 16: Manage IOS XE and Build an OSPF Service with Cisco NSO
+
+[Optional Lab 16](Lab16/Lab16.md) installs a local NSO development runtime and compatible Cisco IOS CLI NED. Learners onboard an IOS XE router, use NSO's Cisco-style CLI, define an OSPF service in YANG, derive an XML template from the installed NED, preview native CLI, and observe FASTMAP service ownership.
+
+### Optional Lab 17: Stream IOS XE CPU Data into Splunk
+
+[Optional Lab 17](Lab17/Lab17.md) installs Splunk Enterprise under its trial license. A Python collector initiates a NETCONF dial-in YANG-push subscription for five-second IOS XE CPU utilization, normalizes XML notifications, sends structured events to Splunk HEC, and supports a dashboard showing CPU trend and collection health.
+
 ### Final Assessment Lab: Enterprise Network Automation Delivery
 
 [Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or Cisco DevNet Sandbox YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
@@ -239,6 +257,9 @@ Labs 3–13 progressively improve the same `network_automation_project` reposito
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
 | LLM provider | Lab 14 | Local Ollama or learner-owned OpenAI/Anthropic API account |
 | FastMCP | Lab 14 | Controlled AI tool boundary for network information |
+| Cisco ACI Simulator and Terraform provider | Optional Lab 15 | Declarative ACI tenant and application-policy provisioning |
+| Cisco NSO and IOS CLI NED | Optional Lab 16 | Transactional device management and YANG-modeled OSPF service |
+| Splunk Enterprise and HEC | Optional Lab 17 | Indexing and dashboarding normalized NETCONF CPU notifications |
 
 All course containers use Linux host networking. NetBox, TIG, local YANG Suite, and Lab 11 runtime containers therefore inherit the workstation's Cisco DevNet VPN route, DNS, proxy, and cloud connectivity. Containers use `127.0.0.1` for local host-networked dependencies; Docker service names such as `influxdb` are not used. The GitLab shell Runner already executes in the host network namespace, and every `docker run` command in the course uses `--network host`.
 
@@ -273,6 +294,7 @@ Use a separate, least-privilege token for each platform. Never reuse a token as 
 | Grafana | Browser dashboard work uses the learner login and needs no API token. If an instructor authorizes dashboard automation, open **Administration > Users and access > Service accounts**, create a narrowly scoped service account, add a token, and copy it once. | Optional Grafana API automation only; not required by the standard labs |
 | OpenAI | In the OpenAI API platform project, open **API keys**, create a project key with the narrowest available permissions, and copy it once. | `OPENAI_API_KEY` in Lab 14's untracked `.env` |
 | Anthropic | In the Anthropic Console workspace, open **API Keys**, create a lab-specific key, and copy it once. | `ANTHROPIC_API_KEY` in Lab 14's untracked `.env` |
+| Splunk HEC | In Splunk Web, open **Settings > Data Inputs > HTTP Event Collector**, enable HEC, create a token assigned to `network_telemetry`, and copy it once. | `SPLUNK_HEC_TOKEN` in Optional Lab 17's untracked `.env` |
 
 Cisco DevNet Sandbox YANG Suite and Grafana use the credentials supplied with the reservation. They do not require learners to manufacture an additional API token for the standard course workflow.
 
@@ -308,4 +330,4 @@ When a lab fails, work from the foundation upward:
 
 After Lab 14, learners should have practiced a complete professional network automation lifecycle. They will have developed an initial device-automation workflow into source-of-truth-driven change, secret management, model-driven configuration, CI/CD, observability, containerized execution, compliance reporting, model-driven telemetry, and AI-assisted route analysis.
 
-The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.
+The optional labs extend those patterns into ACI infrastructure as code, Cisco NSO services, and Splunk telemetry analytics. The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.

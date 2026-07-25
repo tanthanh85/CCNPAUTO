@@ -1,0 +1,84 @@
+module ospf-service {
+  yang-version 1.1;
+  namespace "http://ccnpauto.example/ospf-service";
+  prefix ospf-svc;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import tailf-ncs {
+    prefix ncs;
+  }
+
+  organization
+    "CCNPAUTO course";
+
+  description
+    "A small NSO service that configures one OSPF process on one or more
+     managed IOS-style routers.";
+
+  revision 2026-07-25 {
+    description
+      "Initial lab revision.";
+  }
+
+  augment "/ncs:services" {
+    list ospf-service {
+      key "name";
+
+      uses ncs:service-data;
+      ncs:servicepoint "ospf-servicepoint";
+
+      leaf name {
+        type string {
+          length "1..64";
+        }
+        description
+          "Unique service instance name.";
+      }
+
+      leaf-list device {
+        type leafref {
+          path "/ncs:devices/ncs:device/ncs:name";
+        }
+        min-elements 1;
+        description
+          "NSO-managed devices receiving this OSPF service.";
+      }
+
+      leaf process-id {
+        type uint16 {
+          range "1..65535";
+        }
+        mandatory true;
+      }
+
+      leaf router-id {
+        type inet:ipv4-address;
+        mandatory true;
+      }
+
+      leaf area {
+        type uint32;
+        default "0";
+        description
+          "Decimal OSPF area used by all network statements in this lab.";
+      }
+
+      list network {
+        key "address";
+        min-elements 1;
+
+        leaf address {
+          type inet:ipv4-address;
+        }
+
+        leaf wildcard {
+          type inet:ipv4-address;
+          mandatory true;
+        }
+      }
+    }
+  }
+}

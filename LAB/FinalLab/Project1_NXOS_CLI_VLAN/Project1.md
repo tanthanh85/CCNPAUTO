@@ -4,7 +4,7 @@
 
 Apex Global Services still operates a small legacy switching environment in one data center. The network team frequently receives requests to create VLANs for application teams, HR systems, IT infrastructure, and temporary migration projects. These switches are managed through SSH CLI in this project, so the company needs a safe and repeatable CLI automation workflow.
 
-Most of the project has already been written. Your task is to complete the missing pieces so the automation can read VLAN intent from YAML, render NX-OS CLI configuration, connect to the Nexus sandbox switch with Netmiko, and create the VLANs.
+Most of the project has already been written. Your task is to complete the missing pieces so the automation can read VLAN intent from YAML, render NX-OS CLI configuration, connect to the Nexus sandbox switch with Netmiko, create the VLANs, and fail clearly when authentication or connection establishment does not succeed.
 
 ## Points
 
@@ -12,9 +12,10 @@ Project 1 is worth **30 points**.
 
 | Task | Requirement | Points |
 |---|---|---:|
-| 1 | Add switch login credentials to `.env` | 10 |
+| 1 | Add switch login credentials to `.env` | 5 |
 | 2 | Complete the Jinja2 VLAN configuration template | 10 |
-| 3 | Complete the Netmiko `device` dictionary used by `ConnectHandler(**device)` | 10 |
+| 3 | Complete the Netmiko `device` dictionary used by `ConnectHandler(**device)` | 5 |
+| 4 | Handle Netmiko authentication and connection timeout failures | 10 |
 
 ## Project Files
 
@@ -22,7 +23,6 @@ Project 1 is worth **30 points**.
 Project1_NXOS_CLI_VLAN/
 ├── .env
 ├── Project1.md
-├── README.md
 ├── data/
 │   └── vlans.yaml
 ├── requirements.txt
@@ -92,6 +92,22 @@ ConnectHandler(**device)
 
 Your job is to complete the dictionary that Netmiko needs. Use the correct Netmiko `device_type` value for Cisco Nexus NX-OS and include the host, username, password, and port from the `settings` object.
 
+## Task 4: Handle Netmiko Connection Failures
+
+Open [scripts/apply_vlans.py](scripts/apply_vlans.py). At present, an authentication failure or an unreachable SSH service produces an unhandled traceback. Wrap the `ConnectHandler(**device)` operation and its session body with specific exception handling for:
+
+- `NetmikoAuthenticationException`
+- `NetmikoTimeoutException`
+
+Import both exception classes from `netmiko.exceptions`. The program must behave as follows:
+
+| Failure | Required message | Exit code |
+|---|---|---:|
+| `NetmikoAuthenticationException` | A clear message containing the word `authentication` | 2 |
+| `NetmikoTimeoutException` | A clear message containing `timeout` or `timed out` | 3 |
+
+Return `0` after a successful dry run or successful device operation. Do not use a broad `except Exception` in place of the two specific Netmiko handlers. A timeout suggests that the host, port, VPN, routing, firewall, or SSH service is unreachable; it does not prove that the password is wrong. Conversely, an authentication exception proves that a session reached the SSH service but the presented identity was rejected.
+
 ## Run the Automation
 
 If you opened a new terminal, activate the virtual environment again:
@@ -112,6 +128,14 @@ Apply the VLANs:
 python scripts/apply_vlans.py
 ```
 
+The shell can display the program's exit code:
+
+```bash
+echo $?
+```
+
+Exit code `0` indicates success, `2` identifies authentication failure, and `3` identifies a connection timeout.
+
 Verify on the Nexus switch:
 
 ```text
@@ -126,4 +150,4 @@ Run:
 python scripts/grade_project1.py
 ```
 
-The grader checks the three required tasks and reports your score out of 30.
+The grader checks all four required tasks. It simulates both Netmiko exceptions locally and does not connect to the sandbox while grading. It then reports your score out of 30.

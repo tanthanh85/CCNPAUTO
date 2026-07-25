@@ -1,0 +1,54 @@
+<form version="1.1" theme="dark">
+  <label>IOS XE NETCONF CPU</label>
+  <fieldset submitButton="false">
+    <input type="time" token="time">
+      <label>Time range</label>
+      <default>
+        <earliest>-30m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>Five-Second CPU Trend</title>
+        <search>
+          <query>index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| timechart span=5s latest(cpu_five_seconds) AS cpu_percent BY device</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+      </chart>
+    </panel>
+    <panel>
+      <single>
+        <title>Latest CPU</title>
+        <search>
+          <query>index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| stats latest(cpu_five_seconds) AS cpu_percent</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+        <option name="unit">%</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Collection Health</title>
+        <search>
+          <query>index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| stats count AS samples latest(_time) AS last_event avg(cpu_five_seconds) AS average_cpu max(cpu_five_seconds) AS peak_cpu BY device
+| convert ctime(last_event)</query>
+          <earliest>$time.earliest$</earliest>
+          <latest>$time.latest$</latest>
+        </search>
+      </table>
+    </panel>
+  </row>
+</form>

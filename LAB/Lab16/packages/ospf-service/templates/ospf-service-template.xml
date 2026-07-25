@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config-template xmlns="http://tail-f.com/ns/config/1.0"
+                 servicepoint="ospf-servicepoint">
+  <devices xmlns="http://tail-f.com/ns/ncs">
+    <?foreach {/device}?>
+    <device>
+      <name>{.}</name>
+      <config>
+        <router xmlns="urn:ios">
+          <ospf>
+            <id>{/process-id}</id>
+            <router-id>{/router-id}</router-id>
+            <?foreach {/network}?>
+            <network>
+              <ip>{address}</ip>
+              <mask>{wildcard}</mask>
+              <area>{/area}</area>
+            </network>
+            <?end?>
+          </ospf>
+        </router>
+      </config>
+    </device>
+    <?end?>
+  </devices>
+</config-template>

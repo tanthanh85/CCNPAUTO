@@ -22,7 +22,7 @@ def render_vlan_config() -> str:
     return template.render(vlans=vlans)
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Render configuration without connecting")
     args = parser.parse_args()
@@ -34,15 +34,19 @@ def main() -> None:
     print("-" * 60)
 
     if args.dry_run:
-        return
+        return 0
 
     commands = [line for line in rendered.splitlines() if line.strip()]
 
+    # TODO: Import and handle NetmikoAuthenticationException and
+    # NetmikoTimeoutException around this connection block.
     with ConnectHandler(**device) as connection:
         output = connection.send_config_set(commands)
         print(output)
         print(connection.send_command("show vlan brief"))
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

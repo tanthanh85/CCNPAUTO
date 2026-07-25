@@ -34,7 +34,6 @@ Start and verify the read-only audit dependencies:
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
@@ -46,12 +45,10 @@ Start TIG only if compliance metrics will be published. Local YANG Suite is not 
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
 git switch -c feature/drift-compliance
-LAB13_FILES="/path/to/CCNPAUTO/LAB/Lab13"
 mkdir -p filter_plugins tests playbooks
-cp "$LAB13_FILES/filter_plugins/drift_filters.py" filter_plugins/
-cp "$LAB13_FILES/tests/test_drift_filters.py" tests/
-cp "$LAB13_FILES/playbooks/drift.yml" playbooks/
 ```
+
+Using the VS Code Explorer, copy and paste `filter_plugins/drift_filters.py`, `tests/test_drift_filters.py`, and `playbooks/drift.yml` from `CCNPAUTO/LAB/Lab13/` into the matching project folders.
 
 The filter converts CLI configuration to dictionaries before comparison. This is more reliable than searching for unrelated substrings, but it remains platform-specific. Structured YANG operational data would be preferable when the required state is consistently exposed by the device model.
 
@@ -67,7 +64,7 @@ The tests cover a compliant router and a router with both missing and unmanaged 
 
 ## Task 3: Run a Read-Only Audit
 
-Set the same NetBox, Vault, and IOS XE environment variables used by Lab 8. Keep `ALLOW_CONFIG_CHANGES=false` and run:
+Set the same NetBox, Vault, and IOS XE environment variables used by Lab 8 and run:
 
 ```bash
 mkdir -p artifacts
@@ -128,7 +125,7 @@ Review the merge request and prove that scheduled execution cannot reach a deplo
 - Compliance failure is evidence, not authorization to delete or overwrite configuration.
 - Scheduled pipelines need explicit rules that exclude change-capable jobs.
 
-Lab 14 adds change planning, approval, backup evidence, testing, and compensating rollback.
+Lab 14 applies the course's API and model-driven foundations to a controlled FastMCP and LLM route assistant.
 
 ## References
 

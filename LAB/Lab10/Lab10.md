@@ -20,23 +20,21 @@ Start NetBox, Vault, Runner, and the selected observability destination before e
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
 ```
 
-For local TIG, run `docker compose up -d` from `~/lab-services/tig` and verify `http://127.0.0.1:8086/health`. For Cisco DevNet Sandbox Grafana, verify `http://10.10.20.50:3000` and the associated writable data-source details. Local YANG Suite is not required and may remain stopped.
+Start the local TIG stack from `~/lab-services/tig`, then open Grafana at `http://127.0.0.1:3000`. Lab 10 writes application metrics and therefore uses the learner-controlled InfluxDB token and bucket. The Cisco DevNet Sandbox TIG integration is reserved for the C8KV telemetry workflow in Lab 12. Local YANG Suite is not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
 git switch -c feature/automation-observability
-LAB10_FILES="/path/to/CCNPAUTO/LAB/Lab10"
 mkdir -p callback_plugins scripts
-cp "$LAB10_FILES/callback_plugins/json_audit.py" callback_plugins/
-cp "$LAB10_FILES/scripts/publish_audit_metrics.py" scripts/
 ```
+
+Using the VS Code Explorer, copy and paste `callback_plugins/json_audit.py` and `scripts/publish_audit_metrics.py` from `CCNPAUTO/LAB/Lab10/` into the matching project folders.
 
 Add these settings under the existing `[defaults]` section of `ansible.cfg`:
 
@@ -60,12 +58,11 @@ Each line is an independent JSON document. This makes partial files recoverable 
 
 ## Task 3: Extend the Pipeline
 
-Choose the observability option prepared in Lab 1. If using the local TIG stack, start it and confirm InfluxDB is healthy:
+Use the local TIG stack prepared in Lab 1:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml up -d
-curl --fail --silent http://127.0.0.1:8086/health | jq
 cd ~/ccnpauto-workspace/network_automation_project
 ```
 
@@ -87,11 +84,9 @@ Add the supplied `observe-automation` job from `pipeline-observe-job.yml`. Confi
 
 The shell Runner reaches the workstation-bound InfluxDB endpoint directly. The observe job downloads artifacts from earlier stages, converts task events to Influx line protocol, and writes only operational metadata.
 
-If using Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`, use the InfluxDB write URL, organization, bucket, and restricted write token supplied with the sandbox. Replace the local values above with those reservation values. Grafana by itself cannot receive pipeline metrics.
-
 ## Task 4: Build the Grafana Views
 
-Open local Grafana at `http://127.0.0.1:3000` or Cisco DevNet Sandbox Grafana at `http://10.10.20.50:3000`. Select the assigned InfluxDB data source and create a dashboard named **Network Automation Pipeline**. Useful panels include:
+Open local Grafana at `http://127.0.0.1:3000`. Select the InfluxDB data source configured in Lab 1 and create a dashboard named **Network Automation Pipeline**. Useful panels include:
 
 - Task count grouped by `status`
 - Failed and unreachable task count over time

@@ -31,7 +31,6 @@ Start and verify NetBox before changing the credential source. Vault is started 
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
 docker compose ps
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 ```
 
 ```bash
@@ -41,18 +40,9 @@ git pull --ff-only
 git switch -c feature/vault-credentials
 ```
 
-Copy the additions:
+Using the VS Code Explorer, copy and paste `vault_credentials.py` and `settings.py` from `CCNPAUTO/LAB/Lab5/src/` into the project's existing `src/` folder, replacing `src/settings.py` when prompted. Copy and paste `verify_vault.py` from `CCNPAUTO/LAB/Lab5/scripts/` into the existing `scripts/` folder.
 
-```bash
-LAB5_FILES="/path/to/CCNPAUTO/LAB/Lab5"
-cp "$LAB5_FILES/src/vault_credentials.py" src/
-cp "$LAB5_FILES/src/settings.py" src/settings.py
-cp "$LAB5_FILES/scripts/verify_vault.py" scripts/
-cp "$LAB5_FILES/requirements-additions.txt" .
-python -m pip install -r requirements-additions.txt
-```
-
-Add `hvac>=2.3,<3` to the cumulative `requirements.txt`.
+Open the existing `requirements.txt`, add `hvac>=2.3,<3` if it is not already present, save it, and run `python -m pip install -r requirements.txt`.
 
 ## Task 2: Start Vault Development Mode
 
@@ -95,7 +85,7 @@ Shell history can still retain the `vault kv put` command. For a less exposed en
 
 ## Task 4: Remove Device Credentials from `.env`
 
-Replace `.env` with the Lab 5 structure. Preserve host, port, NetBox, and safety values, but remove:
+Modify the existing `.env` file. Preserve its host, port, and NetBox values, but remove:
 
 ```text
 IOSXE_USERNAME
@@ -147,22 +137,16 @@ Read-only project validation should work while the settings layer retrieves cred
 python -m scripts.validate_netbox
 ```
 
-With an active reservation and explicit approval:
-
-```dotenv
-ALLOW_CONFIG_CHANGES=true
-```
+After confirming the active reservation and endpoint:
 
 ```bash
 python -m scripts.sync_loopbacks_from_netbox
 ```
 
-Return the flag to false after verification.
-
 ## Task 8: Commit and Merge
 
 ```bash
-git add requirements.txt requirements-additions.txt src/settings.py \
+git add requirements.txt src/settings.py \
   src/vault_credentials.py scripts/verify_vault.py
 git commit -m "Retrieve IOS XE credentials from Vault"
 git push -u origin feature/vault-credentials

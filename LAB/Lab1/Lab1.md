@@ -126,7 +126,6 @@ test -f /var/run/reboot-required && cat /var/run/reboot-required
 
 ```bash
 git --version
-curl --version | head -n 1
 jq --version
 systemctl is-active ssh
 ```
@@ -340,17 +339,11 @@ The Compose project is explicitly named `ccnpauto-tig`, so Docker resource names
 
 Keep long-running lab platforms under `~/lab-services`. Create a dedicated TIG directory and copy the supplied deployment files into it. This gives TIG the same predictable service layout used by NetBox while keeping runtime data and credentials outside the course-content directory.
 
+Create `~/lab-services/tig`. Using the VS Code Explorer, copy and paste `compose.yaml` and `telegraf.conf` from `CCNPAUTO/LAB/Lab1/files/` into that directory. Copy and paste the existing `CCNPAUTO/LAB/Lab1/.env` file into the same directory, then modify its values in place.
+
 ```bash
-mkdir -p "$HOME/lab-services/tig"
-cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/compose.yaml \
-  "$HOME/lab-services/tig/compose.yaml"
-cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/telegraf.conf \
-  "$HOME/lab-services/tig/telegraf.conf"
-cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/.env.example \
-  "$HOME/lab-services/tig/.env"
 cd "$HOME/lab-services/tig"
 chmod 600 .env
-nano .env
 ```
 
 The resulting service directory is:
@@ -404,7 +397,6 @@ Verify that Telegraf is writing:
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs --tail=100 telegraf
-curl --silent http://127.0.0.1:8086/health | jq
 ```
 
 Stop without deleting data:
@@ -424,14 +416,7 @@ Telegraf: 10.10.20.50:57500/tcp
 Grafana:  http://10.10.20.50:3000
 ```
 
-Verify both endpoints after connecting to the sandbox VPN:
-
-```bash
-nc -vz 10.10.20.50 57500
-curl -I --connect-timeout 5 http://10.10.20.50:3000
-```
-
-Sign in with the Cisco DevNet Sandbox credentials and confirm that the home page and assigned course folder load. The integration among Telegraf, InfluxDB, and Grafana is already prepared, so learners do not install or manage these sandbox services.
+After connecting to the sandbox VPN, open Grafana in a browser and sign in with the Cisco DevNet Sandbox credentials. Confirm that the home page and assigned course folder load. The integration among Telegraf, InfluxDB, and Grafana is already prepared, so learners do not install or manage these sandbox services.
 
 ## Task 7: Install kubectl
 
@@ -530,11 +515,11 @@ mkdir -p "$HOME/lab-services"
 cd "$HOME/lab-services"
 git clone https://github.com/CiscoDevNet/yangsuite.git
 cd yangsuite/docker
-cp <COURSE_ROOT>/CCNPAUTO/LAB/Lab1/files/yangsuite-compose.override.yml \
-  docker-compose.override.yml
 chmod +x start_yang_suite.sh
 ./start_yang_suite.sh
 ```
+
+Before running the startup script, use the VS Code Explorer to copy and paste `CCNPAUTO/LAB/Lab1/files/yangsuite-compose.override.yml` into `~/lab-services/yangsuite/docker/`, then rename it `docker-compose.override.yml`.
 
 The supplied override uses the Compose `!reset` tag and therefore requires a current Docker Compose v2 plugin. It applies `network_mode: host` to every YANG Suite container and resets published-port mappings, allowing the service to follow the workstation's VPN and cloud routes directly. Before starting, check that its host ports are not already occupied:
 
@@ -560,14 +545,7 @@ http://10.10.20.50:8480
 
 Use the Cisco DevNet Sandbox credentials. Confirm that the **Setup**, **Explore**, and **Protocols** areas load. Later labs will create or refresh device profiles and retrieve the YANG modules advertised by the active Cisco IOS XE sandbox reservation.
 
-If the page does not open, first confirm that the learner workstation is connected to the correct lab network:
-
-```bash
-ping -c 3 10.10.20.50
-curl -I --connect-timeout 5 http://10.10.20.50:8480
-```
-
-Do not change the Cisco DevNet Sandbox server configuration beyond the assigned permissions and device profiles. If the service is unavailable, use the local installation or verify the sandbox reservation.
+If the page does not open, confirm that the learner workstation is connected to the correct sandbox VPN. Do not change the Cisco DevNet Sandbox server configuration beyond the assigned permissions and device profiles. If the service is unavailable, use the local installation or verify the sandbox reservation.
 
 ## Task 10: Install NetBox
 
@@ -581,12 +559,7 @@ git clone --branch release --depth 1 \
 cd netbox-docker
 ```
 
-Copy the supplied override into the NetBox Docker project:
-
-```bash
-cp /path/to/CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml \
-  docker-compose.override.yml
-```
+Using the VS Code Explorer, copy and paste `CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml` into `~/lab-services/netbox-docker/`, then rename it `docker-compose.override.yml`.
 
 The override places NetBox, its worker, PostgreSQL, and both Valkey services in host network mode. NetBox listens on port 8080, while PostgreSQL on 5432, Valkey on 6379, and the cache Valkey on 6380 are explicitly bound to `127.0.0.1`. This lets the NetBox worker use the workstation's Cisco DevNet VPN and cloud route without exposing its database and caches to the lab network. Check that these ports are free before starting:
 
@@ -691,8 +664,6 @@ Then collect service evidence:
 docker version --format '{{.Server.Version}}'
 docker compose version
 sudo systemctl is-active gitlab-runner
-curl --fail --silent https://gitlab.com/users/sign_in >/dev/null && echo "GitLab.com reachable"
-curl --fail --silent http://127.0.0.1:8080 >/dev/null && echo "NetBox ready"
 ```
 
 For local TIG:
@@ -700,15 +671,11 @@ For local TIG:
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml ps
-curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
 For the Cisco DevNet Sandbox TIG stack:
 
-```bash
-nc -vz 10.10.20.50 57500
-curl -I --connect-timeout 5 http://10.10.20.50:3000
-```
+Open `http://10.10.20.50:3000` in a browser and confirm that the Grafana sign-in page loads.
 
 Local TIG may be stopped when it is not required. Start only the local services needed for the current exercise.
 
@@ -830,15 +797,7 @@ docker compose ps
 docker compose logs --tail=100
 ```
 
-For Cisco DevNet Sandbox YANG Suite, check network reachability:
-
-```bash
-ip route get 10.10.20.50
-ping -c 3 10.10.20.50
-curl -I --connect-timeout 5 http://10.10.20.50:8480
-```
-
-Confirm that the workstation is connected to the Cisco DevNet Sandbox network. Local Docker commands do not diagnose the sandbox service. If the host is reachable but TCP port 8480 does not respond, verify the reservation or use the local option.
+For Cisco DevNet Sandbox YANG Suite, confirm that the workstation is connected to the Cisco DevNet Sandbox network and open `http://10.10.20.50:8480` in a browser. If the page does not load, verify the reservation or use the local option.
 
 ### A pipeline remains pending
 
@@ -875,7 +834,6 @@ Verify DNS, HTTPS, system time, and the Runner service:
 
 ```bash
 getent hosts gitlab.com
-curl -I https://gitlab.com/users/sign_in
 timedatectl status
 sudo systemctl status gitlab-runner --no-pager
 sudo journalctl -u gitlab-runner -n 100 --no-pager

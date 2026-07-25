@@ -64,12 +64,10 @@ Start and verify every service in the event path before registering or testing t
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo systemctl is-active gitlab-runner
 gitlab-runner --version
-curl --fail --silent https://gitlab.com/users/sign_in >/dev/null
 ```
 
 TIG and local YANG Suite are not required for the pipeline and may remain stopped.
@@ -81,14 +79,7 @@ git pull --ff-only
 git switch -c feature/netbox-cicd
 ```
 
-Copy the pipeline and verification script:
-
-```bash
-LAB7_FILES="/path/to/CCNPAUTO/LAB/Lab7"
-cp "$LAB7_FILES/.gitlab-ci.yml" .
-cp "$LAB7_FILES/requirements.txt" requirements.txt
-cp "$LAB7_FILES/scripts/verify_network.py" scripts/
-```
+Using the VS Code Explorer, copy and paste `.gitlab-ci.yml` from `CCNPAUTO/LAB/Lab7/` into the project root, replacing the current pipeline file when prompted. Copy and paste `verify_network.py` from `CCNPAUTO/LAB/Lab7/scripts/` into the existing project `scripts/` folder. Keep the existing project `requirements.txt`; do not replace it.
 
 Run locally before involving CI:
 
@@ -147,8 +138,6 @@ In **Settings > CI/CD > Variables**, create these variables. Mark secrets as mas
 | `IOSXE_SSH_PORT` | `22` | Protected |
 | `IOSXE_NETCONF_PORT` | `830` | Protected |
 | `IOSXE_HTTPS_PORT` | `443` | Protected |
-| `SANDBOX_MODE` | `reserved` | Protected |
-| `ALLOW_CONFIG_CHANGES` | `true` | Protected |
 | `VERIFY_TLS` | `false` | Protected |
 | `NETBOX_URL` | `http://127.0.0.1:8080` | Protected |
 | `NETBOX_TOKEN` | NetBox token | Masked and protected |
@@ -182,7 +171,7 @@ This prevents two deployment jobs using the same resource group from running con
 ## Task 6: Commit and Test a Manual Pipeline
 
 ```bash
-git add .gitlab-ci.yml requirements.txt scripts/verify_network.py
+git add .gitlab-ci.yml scripts/verify_network.py
 git commit -m "Add NetBox-driven deployment pipeline"
 git push -u origin feature/netbox-cicd
 ```
@@ -205,7 +194,7 @@ The trigger token can start a pipeline and must be protected. Do not place it in
 
 ## Task 8: Create the NetBox Webhook
 
-In NetBox, create a webhook named `Trigger network_automation_project`:
+In NetBox 4.x, open **Operations > Integrations > Webhooks**. If the installed minor release shows **Operations > Webhooks** directly, use that entry. Select **Add**, then create a webhook named `Trigger network_automation_project`:
 
 - Method: POST
 - URL: the GitLab trigger URL
@@ -226,12 +215,15 @@ A resolved address followed by an HTTP status confirms both DNS and HTTPS connec
 
 ## Task 9: Create the NetBox Event Rule
 
-Create an event rule with:
+Open **Operations > Event Rules**, select **Add**, and create an event rule with:
 
 - Name: `Loopback IP change triggers GitLab`
 - Object type: IPAM > IP address
 - Events: object created and object updated
-- Action: the GitLab webhook
+- Action type: Webhook
+- Action object: `Trigger network_automation_project`
+
+Save the event rule and confirm that it is enabled.
 
 The event fires when the administrator assigns or changes the loopback `/32`, after the interface itself exists. The pipeline ignores webhook payload fields and retrieves the complete current state from NetBox.
 
@@ -287,7 +279,7 @@ Use four evidence sources:
 
 ## Safety and Cleanup
 
-When the reservation ends, disable the NetBox event rule or pause the deploy runner so later NetBox edits cannot target an expired sandbox. Set the GitLab variable `ALLOW_CONFIG_CHANGES=false`, revoke the pipeline trigger token if the lab is complete, and stop development Vault.
+When the reservation ends, disable the NetBox event rule or pause the deploy runner so later NetBox edits cannot target an expired sandbox. Revoke the pipeline trigger token if the lab is complete, and stop development Vault.
 
 Do not delete NetBox records merely because the disposable sandbox resets. NetBox represents intended lab state and can be reused with the next reservation after credentials and host variables are updated.
 

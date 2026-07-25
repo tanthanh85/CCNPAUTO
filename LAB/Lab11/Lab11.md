@@ -21,7 +21,6 @@ Verify Docker, NetBox, Vault, Runner, and the observability endpoint before buil
 docker version
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
@@ -33,13 +32,11 @@ Container jobs use `--network host`, while the shell Runner already executes in 
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
 git switch -c feature/container-runtime
-LAB11_FILES="/path/to/CCNPAUTO/LAB/Lab11"
 mkdir -p ci
-cp "$LAB11_FILES/Dockerfile" "$LAB11_FILES/.dockerignore" .
-cp "$LAB11_FILES/ci/run_playbook_container.sh" ci/
-cp "$LAB11_FILES/.gitlab-ci.yml" .gitlab-ci.yml
 chmod +x ci/run_playbook_container.sh
 ```
+
+Using the VS Code Explorer, copy and paste `Dockerfile`, `.dockerignore`, and `.gitlab-ci.yml` from `CCNPAUTO/LAB/Lab11/` into the project root. Copy and paste `ci/run_playbook_container.sh` into the project `ci/` folder.
 
 The image contains tools, not credentials or project source. `.dockerignore` prevents local artifacts, virtual environments, keys, and `.env` files from entering the build context.
 
@@ -86,8 +83,6 @@ cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml up -d
 cd ~/ccnpauto-workspace/network_automation_project
 ```
-
-For Cisco DevNet Sandbox Grafana, keep the sandbox InfluxDB write variables configured in GitLab and confirm that `http://10.10.20.50:3000` is reachable. Grafana remains the visualization layer; the pipeline writes to the associated sandbox InfluxDB endpoint.
 
 ```bash
 git add Dockerfile .dockerignore ci .gitlab-ci.yml

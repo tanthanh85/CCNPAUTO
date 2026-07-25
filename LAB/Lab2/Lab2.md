@@ -59,7 +59,7 @@ flowchart LR
 
 ```text
 lab2_warm_up/
-├── .env.example
+├── .env
 ├── .gitignore
 ├── requirements.txt
 ├── inventory/
@@ -104,14 +104,16 @@ git clone \
 cd lab2_warm_up
 ```
 
-Copy the supplied files (use Linux cp command or simply copy and paste):
+Using the VS Code Explorer, copy and paste the following items from the course folder `CCNPAUTO/LAB/Lab2/` into the root of the cloned `lab2_warm_up/` repository:
 
-```bash
-LAB2_FILES="/path/to/CCNPAUTO/LAB/Lab2"
-cp "$LAB2_FILES/.env.example" "$LAB2_FILES/.gitignore" \
-  "$LAB2_FILES/requirements.txt" .
-cp -R "$LAB2_FILES/inventory" "$LAB2_FILES/scripts" "$LAB2_FILES/src" .
-```
+- `.env`
+- `.gitignore`
+- `requirements.txt`
+- `inventory/`
+- `scripts/`
+- `src/`
+
+Keep the same folder names and hierarchy. Do not create another requirements or environment file.
 
 ## Task 3: Install Dependencies
 
@@ -132,12 +134,11 @@ git push -u origin main
 
 ## Task 4: Configure the Environment
 
+Open the existing `.env` file in VS Code and enter the active reservation values. Keep `VERIFY_TLS=false` only because the training device commonly uses a certificate that the workstation does not trust. Save the file, then restrict its permissions:
+
 ```bash
-cp .env.example .env
 chmod 600 .env
 ```
-
-Enter the active reservation values. Keep `VERIFY_TLS=false` only because the training device commonly uses a certificate that the workstation does not trust.
 
 Confirm the secret file is ignored:
 
@@ -172,24 +173,29 @@ This does not make TextFSM unsuitable. It remains useful when an API is unavaila
 
 ## Task 7: Inspect RESTCONF Manually
 
-Load environment variables temporarily:
+Use Postman to inspect the RESTCONF exchange before automating it in Python:
 
-```bash
-set -a
-source .env
-set +a
-```
+1. Open Postman and select **New > HTTP Request**.
+2. Set the method to **GET**.
+3. Enter the request URL, replacing the placeholders with the values from `.env`:
 
-Retrieve interface state  uring curl command.
+   ```text
+   https://<IOSXE_HOST>:<IOSXE_HTTPS_PORT>/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces
+   ```
 
-```bash
-curl -sk -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" \
-  -H 'Accept: application/yang-data+json' \
-  "https://$IOSXE_HOST:$IOSXE_HTTPS_PORT/restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces" \
-  | python -m json.tool | less
-```
+4. Select the **Authorization** tab, choose **Basic Auth**, and enter the sandbox username and password.
+5. Select **Headers** and add:
 
-The JSON field hierarchy comes from a YANG model rather than a screen-oriented CLI format.
+   | Key | Value |
+   |---|---|
+   | `Accept` | `application/yang-data+json` |
+
+6. Because the reserved training router commonly uses a self-signed certificate, open **Settings**, disable **SSL certificate verification** for this lab, and return to the request. Production clients must validate certificates.
+7. Select **Send**.
+8. Confirm status `200 OK`, inspect the response headers, and use Postman's **Pretty > JSON** view to follow the modeled hierarchy.
+9. Save the request in a collection named `CCNPAUTO Lab 2`, but do not save the password in a shared or exported collection.
+
+The response should have the top-level member `Cisco-IOS-XE-interfaces-oper:interfaces`. The JSON hierarchy comes from a YANG model rather than a screen-oriented CLI format. If Postman returns `401`, recheck Basic Auth; `404` usually indicates an incorrect resource path; and a certificate error indicates that the controlled-lab SSL setting was not applied.
 
 ## Task 8: Collect RESTCONF Data with Python
 

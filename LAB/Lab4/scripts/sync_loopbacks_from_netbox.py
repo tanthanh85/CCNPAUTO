@@ -12,7 +12,6 @@ from src.settings import Settings
 
 def main():
     settings = Settings()
-    settings.confirm_write_access()
     source = NetBoxLoopbackSource(
         settings.netbox_url,
         settings.netbox_token,
@@ -50,12 +49,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except PermissionError as exc:
-        raise SystemExit(f"Safety check stopped the change: {exc}") from exc
     except NetmikoAuthenticationException as exc:
         raise SystemExit("IOS XE authentication failed") from exc
     except NetmikoTimeoutException as exc:
         raise SystemExit("IOS XE connection timed out") from exc
     except (ValueError, RuntimeError) as exc:
         raise SystemExit(f"Reconciliation failed: {exc}") from exc
-

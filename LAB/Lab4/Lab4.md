@@ -48,18 +48,13 @@ git pull --ff-only
 git switch -c feature/netbox-source-of-truth
 ```
 
-Copy the Lab 4 additions into the existing repository:
+Using the VS Code Explorer, copy and paste `src/netbox_source.py` and `src/loopback_renderer.py` from `CCNPAUTO/LAB/Lab4/src/` into the project's existing `src/` folder. Then copy and paste `validate_netbox.py` and `sync_loopbacks_from_netbox.py` from `CCNPAUTO/LAB/Lab4/scripts/` into the existing `scripts/` folder.
+
+Open the project's existing `requirements.txt`, add `pynetbox>=7.4,<8` on a new line if it is not already present, save the same file, and run:
 
 ```bash
-LAB4_FILES="/path/to/CCNPAUTO/LAB/Lab4"
-cp "$LAB4_FILES/requirements-additions.txt" .
-cp "$LAB4_FILES/src/netbox_source.py" "$LAB4_FILES/src/loopback_renderer.py" src/
-cp "$LAB4_FILES/scripts/validate_netbox.py" \
-  "$LAB4_FILES/scripts/sync_loopbacks_from_netbox.py" scripts/
-python -m pip install -r requirements-additions.txt
+python -m pip install -r requirements.txt
 ```
-
-Add `pynetbox>=7.4,<8` to the main `requirements.txt` so later CI jobs install the complete dependency set.
 
 ## Task 2: Start and Verify NetBox
 
@@ -70,7 +65,6 @@ cd ~/lab-services/netbox-docker
 docker compose up -d
 docker compose ps
 docker compose config | grep -n "network_mode: host"
-curl -I http://127.0.0.1:8080
 ```
 
 Open `http://127.0.0.1:8080` and sign in with the administrator created in Lab 1.
@@ -316,40 +310,9 @@ The client needs to read:
 
 For a production design, create a dedicated automation user and an object permission granting only the `view` action for those object types. Do not run production automation with a superuser-owned token.
 
-### 5.2 Test the Token Before Editing Python
+### 5.2 Add the Token to the Existing Project Environment
 
-In a terminal, enter the token without saving it in shell history when possible:
-
-```bash
-read -rsp "NetBox token: " NETBOX_TOKEN
-echo
-
-curl --fail --silent \
-  -H "Authorization: Token $NETBOX_TOKEN" \
-  "http://127.0.0.1:8080/api/dcim/devices/?name=iosxe-sandbox" \
-  | python -m json.tool
-```
-
-The response should contain one result named `iosxe-sandbox`. Test the managed-interface filter:
-
-```bash
-curl --fail --silent \
-  -H "Authorization: Token $NETBOX_TOKEN" \
-  "http://127.0.0.1:8080/api/dcim/interfaces/?device=iosxe-sandbox&tag=automation-managed" \
-  | python -m json.tool
-```
-
-Confirm that the result count equals the number of migrated loopbacks. Then remove the temporary shell variable:
-
-```bash
-unset NETBOX_TOKEN
-```
-
-HTTP 401 means the token is incorrect or malformed. HTTP 403 means the authenticated token's user lacks permission. A successful response with zero results usually means the device name, interface tag, or filter value does not match the created objects.
-
-### 5.3 Add the Token to the Untracked Project Environment
-
-Copy `.env.additions.example` values into the repository's untracked `.env`:
+Open the existing project `.env` file and update its NetBox values:
 
 ```dotenv
 NETBOX_URL=http://127.0.0.1:8080
@@ -368,7 +331,14 @@ Finally, run `git status --short` and verify that `.env` does not appear. The to
 
 ## Task 6: Extend the Shared Settings Class
 
-Open `src/settings.py` from Lab 3 and add the four attributes shown in `settings-netbox-addition.txt` inside `Settings.__init__`. Keep the existing IOS XE attributes and safety controls unchanged.
+Open the existing `src/settings.py` from Lab 3 and add these attributes inside `Settings.__init__`. Keep the existing IOS XE attributes unchanged:
+
+```python
+self.netbox_url = self._required("NETBOX_URL")
+self.netbox_token = self._required("NETBOX_TOKEN")
+self.netbox_device = os.getenv("NETBOX_DEVICE", "iosxe-sandbox")
+self.netbox_tag = os.getenv("NETBOX_TAG", "automation-managed")
+```
 
 This is an incremental change to one settings object. Existing Lab 3 scripts should continue to work.
 
@@ -395,18 +365,11 @@ Correct invalid records in NetBox rather than weakening validation in Python.
 
 The new source adapter returns the same normalized keys used in Lab 3: `id`, `description`, `ipv4`, `prefix_length`, `netmask`, and `enabled`. Therefore, the existing `templates/loopback.j2` does not need to change.
 
-Temporarily keep `ALLOW_CONFIG_CHANGES=false` and run the validation again. Then inspect `scripts/sync_loopbacks_from_netbox.py`. It loads all managed intent once, renders one command list, and reuses `IOSXEDevice` for configuration and verification.
+Run the validation again. Then inspect `scripts/sync_loopbacks_from_netbox.py`. It loads all managed intent once, renders one command list, and reuses `IOSXEDevice` for configuration and verification.
 
 ## Task 9: Reconcile NetBox to Cisco IOS XE sandbox router
 
-Enable changes only for the active reservation:
-
-```dotenv
-SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=true
-```
-
-Run:
+Confirm that the active sandbox reservation belongs to you, verify the endpoint in `.env`, and run:
 
 ```bash
 python -m scripts.sync_loopbacks_from_netbox
@@ -414,12 +377,10 @@ python -m scripts.sync_loopbacks_from_netbox
 
 The script is additive. It creates or updates tagged NetBox loopbacks, but it does not delete router interfaces absent from NetBox. Automatic deletion is deliberately deferred because absence may represent incomplete data rather than approved removal.
 
-After successful verification, return `ALLOW_CONFIG_CHANGES=false`.
-
 ## Task 10: Commit and Merge the Migration
 
 ```bash
-git add requirements.txt requirements-additions.txt src scripts
+git add requirements.txt src scripts
 git commit -m "Use NetBox as loopback source of truth"
 git push -u origin feature/netbox-source-of-truth
 ```

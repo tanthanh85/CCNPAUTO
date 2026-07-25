@@ -33,12 +33,10 @@ Start and verify the project dependencies before editing code:
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
-nc -vz "$IOSXE_HOST" 830
 ```
 
-For local YANG Suite, run `docker compose up -d` from `~/lab-services/yangsuite/docker`. Alternatively, verify Cisco DevNet Sandbox YANG Suite with `curl -I http://10.10.20.50:8480`. TIG is not required and may remain stopped.
+For local YANG Suite, run `docker compose up -d` from `~/lab-services/yangsuite/docker` and open `https://localhost:8443`. Alternatively, open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. TIG is not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
@@ -47,20 +45,15 @@ git pull --ff-only
 git switch -c feature/netconf-ospf
 ```
 
-Copy the additions:
+Using the VS Code Explorer, copy and paste:
 
-```bash
-LAB6_FILES="/path/to/CCNPAUTO/LAB/Lab6"
-cp "$LAB6_FILES/src/iosxe_netconf.py" "$LAB6_FILES/src/ospf_renderer.py" src/
-cp "$LAB6_FILES/scripts/configure_ospf.py" scripts/
-cp "$LAB6_FILES/templates/ospf_native.xml.j2" templates/
-cp "$LAB6_FILES/requirements-additions.txt" .
-cp "$LAB6_FILES/pytest.ini" .
-cp -R "$LAB6_FILES/tests" .
-python -m pip install -r requirements-additions.txt
-```
+- `iosxe_netconf.py` and `ospf_renderer.py` from `CCNPAUTO/LAB/Lab6/src/` to the project's `src/`;
+- `configure_ospf.py` from `CCNPAUTO/LAB/Lab6/scripts/` to `scripts/`;
+- `ospf_native.xml.j2` from `CCNPAUTO/LAB/Lab6/templates/` to `templates/`;
+- `pytest.ini` from `CCNPAUTO/LAB/Lab6/` to the project root;
+- `test_ospf_renderer.py` from `CCNPAUTO/LAB/Lab6/tests/` to the project's `tests/`.
 
-Add `ncclient>=0.7,<1` and `pytest>=8,<9` to `requirements.txt`.
+Modify the existing `requirements.txt` by adding `ncclient>=0.7,<1` and `pytest>=8,<9` if needed. Save it and run `python -m pip install -r requirements.txt`.
 
 ## Task 2: Add NETCONF Settings
 
@@ -80,13 +73,9 @@ OSPF_AREA=0
 
 The NETCONF client receives the username and password from the same Vault-backed settings used by Netmiko.
 
-## Task 3: Verify NETCONF Reachability
+## Task 3: Verify NETCONF Access
 
-Test TCP reachability:
-
-```bash
-nc -vz "$IOSXE_HOST" 830
-```
+In YANG Suite, open the `iosxe-ospf` device profile and select **Check connectivity** for NETCONF port `830`.
 
 On IOS XE, confirm NETCONF-YANG is enabled:
 
@@ -212,10 +201,6 @@ Compare the result with the YANG Suite payload. If the reserved IOS XE release a
 
 OSPF should reference interfaces already present on IOS XE. Reconcile NetBox loopbacks before the OSPF task:
 
-```dotenv
-ALLOW_CONFIG_CHANGES=true
-```
-
 ```bash
 python -m scripts.sync_loopbacks_from_netbox
 ```
@@ -264,16 +249,14 @@ A loopback can be included in OSPF even when no neighbor forms on it. The object
 
 ## Task 9: Observe an RPC Error Safely
 
-With changes disabled, make a temporary local copy of the template and misspell one modeled leaf. Preview it and compare it with YANG Suite. If the instructor permits sending the invalid payload in the reserved sandbox, IOS XE should return an `rpc-error` with an error tag, path, and message. Restore the valid template immediately.
+Make a temporary working copy of the template outside the repository and misspell one modeled leaf. Preview it and compare it with YANG Suite. If the instructor permits sending the invalid payload in the reserved sandbox, IOS XE should return an `rpc-error` with an error tag, path, and message. Restore the valid template immediately.
 
 The application catches `RPCError` and stops. It must not silently continue to verification after the device rejects configuration.
 
 ## Task 10: Commit and Merge
 
-Return `ALLOW_CONFIG_CHANGES=false`, then:
-
 ```bash
-git add requirements.txt requirements-additions.txt pytest.ini src scripts templates tests
+git add requirements.txt pytest.ini src scripts templates tests
 git commit -m "Configure loopback OSPF through NETCONF"
 git push -u origin feature/netconf-ospf
 ```

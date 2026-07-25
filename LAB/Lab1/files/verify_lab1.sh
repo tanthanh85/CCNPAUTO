@@ -54,11 +54,11 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-if curl --fail --silent --max-time 5 http://127.0.0.1:8080 >/dev/null 2>&1; then
-  printf '[PASS] %-22s reachable\n' "NetBox :8080"
+if docker ps --format '{{.Names}}' | grep -q 'netbox'; then
+  printf '[PASS] %-22s running\n' "NetBox container"
   PASS=$((PASS + 1))
 else
-  printf '[FAIL] %-22s not reachable\n' "NetBox :8080"
+  printf '[FAIL] %-22s not running\n' "NetBox container"
   FAIL=$((FAIL + 1))
 fi
 

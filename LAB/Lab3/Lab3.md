@@ -60,7 +60,7 @@ flowchart LR
 
 ```text
 network_automation_project/
-├── .env.example
+├── .env
 ├── .gitignore
 ├── requirements.txt
 ├── data/
@@ -114,12 +114,9 @@ This repository is separate from `lab2_warm_up` and becomes the only repository 
 
 ## Task 2: Copy the Baseline Project
 
+Using the VS Code Explorer, copy and paste `.env`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–13.
+
 ```bash
-LAB3_FILES="/path/to/CCNPAUTO/LAB/Lab3"
-cp "$LAB3_FILES/.env.example" "$LAB3_FILES/.gitignore" \
-  "$LAB3_FILES/requirements.txt" .
-cp -R "$LAB3_FILES/data" "$LAB3_FILES/inventory" \
-  "$LAB3_FILES/scripts" "$LAB3_FILES/src" "$LAB3_FILES/templates" .
 tree -a -I '.git'
 ```
 
@@ -141,16 +138,10 @@ git push -u origin main
 
 ## Task 3: Configure the Reserved Router Connection
 
+Open the existing `.env` file, enter the current reservation values, save it, and restrict its permissions:
+
 ```bash
-cp .env.example .env
 chmod 600 .env
-```
-
-Enter the current reservation values. Keep:
-
-```dotenv
-SANDBOX_MODE=reserved
-ALLOW_CONFIG_CHANGES=false
 ```
 
 Confirm `.env` is ignored:
@@ -159,7 +150,7 @@ Confirm `.env` is ignored:
 git check-ignore -v .env
 ```
 
-`Settings.confirm_write_access()` requires both an explicitly reserved environment and an explicit write flag. A missing or false value stops configuration.
+Before running a configuration script, confirm in the Cisco DevNet portal that the reservation belongs to you and that its host, ports, and credentials match `.env`.
 
 ## Task 4: Create a Feature Branch for Loopback Intent
 
@@ -247,13 +238,7 @@ This separation matters in Lab 4: NetBox will replace the YAML loader, while the
 
 ## Task 8: Apply and Verify the Loopbacks
 
-Review the preview carefully, confirm the private reservation, and change:
-
-```dotenv
-ALLOW_CONFIG_CHANGES=true
-```
-
-Run:
+Review the preview carefully, confirm that the private reservation is active, and then run:
 
 ```bash
 python -m scripts.apply_loopbacks
@@ -270,8 +255,6 @@ The script:
 7. verifies every intended interface and address.
 
 Run it a second time. Reapplying the same interface commands should not create duplicate interfaces or change the intended result. This is operationally repeatable, but it is not complete reconciliation: interfaces omitted from YAML are not deleted automatically.
-
-Return `ALLOW_CONFIG_CHANGES=false` after testing.
 
 ## Task 9: Commit Through a Merge Request
 
@@ -317,7 +300,6 @@ The repository now contains the first version of the cumulative automation proje
 | Validation reports empty list | No loopback was added on the feature branch | Add at least one complete YAML item |
 | YAML parser error | Indentation or syntax problem | Correct spacing and list markers |
 | TextFSM returns raw text | Missing or incompatible `ntc-templates` | Reinstall requirements and inspect release support |
-| Safety check stops change | Write flag false or sandbox mode incorrect | Confirm reservation, then enable changes deliberately |
 | SSH timeout | VPN, hostname, port, or reservation expired | Test reachability and reservation details |
 | Verification finds wrong address | Existing interface conflict or unintended state | Stop and compare YAML with router configuration |
 | A pipeline appears without `.gitlab-ci.yml` | Auto DevOps is enabled for the project, group, or instance | Disable Auto DevOps under **Settings > CI/CD**, then cancel the generated pipeline |

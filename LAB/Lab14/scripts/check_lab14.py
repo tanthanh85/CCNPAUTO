@@ -43,12 +43,12 @@ def main() -> int:
                 )
 
     if failures:
-        print("Lab 15 readiness check failed:")
+        print("Lab 14 readiness check failed:")
         for failure in failures:
             print(f"- {failure}")
         return 1
 
-    print(f"Lab 15 readiness check passed for provider: {provider}.")
+    print(f"Lab 14 readiness check passed for provider: {provider}.")
     return 0
 
 

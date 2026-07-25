@@ -20,7 +20,7 @@ Project 1 is worth **30 points**.
 
 ```text
 Project1_NXOS_CLI_VLAN/
-├── .env.example
+├── .env
 ├── Project1.md
 ├── README.md
 ├── data/
@@ -48,10 +48,9 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Create your local `.env` file:
+Open and modify the existing `.env` file:
 
 ```bash
-cp .env.example .env
 nano .env
 ```
 

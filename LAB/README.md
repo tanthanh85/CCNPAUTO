@@ -2,15 +2,29 @@
 
 ## Lab Guide Introduction
 
-This lab series is the practical companion to the CCNPAUTO study guide. The theory chapters explain software design, APIs, deployment, security, infrastructure automation, Cisco platforms, and AI-assisted network operations. The labs turn those ideas into a working environment and a cumulative network automation project.
+This lab series is the practical companion to the CCNPAUTO study guide. The theory chapters explain software design, APIs, deployment, security, infrastructure automation, Cisco platforms, and AI-assisted network operations. The labs apply those subjects to a working environment and a cumulative enterprise network automation project.
 
-The course begins with a single Ubuntu workstation and gradually builds toward a professional automation workflow. Learners first prepare tools and validate basic device access. Then they create a GitLab.com project, move from file-based intent to NetBox, protect credentials with Vault, configure IOS XE with CLI and model-driven interfaces, automate the workflow with GitLab CI/CD, migrate orchestration to Ansible, add resilience and observability, containerize the runtime, collect model-driven telemetry, detect drift, plan and roll back changes, and finally build an AI route assistant that uses FastMCP and RESTCONF.
+The course begins with a single Ubuntu workstation and gradually builds toward a professional automation workflow. Learners first prepare the required tools and validate device access. They then create a GitLab.com project, move from file-based intent to NetBox, protect credentials with Vault, configure IOS XE through CLI and model-driven interfaces, automate the workflow with GitLab CI/CD, migrate orchestration to Ansible, add resilience and observability, containerize the runtime, collect model-driven telemetry, detect drift, and finally build an AI route assistant that uses FastMCP and RESTCONF.
 
-The labs are written for learners with CCNA-level networking knowledge and basic Python experience. The goal is not simply to make scripts work once. The goal is to build the habits that matter in real network automation: version control, source of truth, credential protection, validation, idempotence, controlled deployment, evidence retention, observability, rollback thinking, and safe AI integration.
+The labs are written for learners who already have CCNA Automation knowledge. Therefore, they do not reteach introductory Python, Git, structured data, or REST API fundamentals. Instead, they extend those foundations to CCNP-level work in which an engineer must validate intent, protect credentials, control deployment, verify operational state, preserve evidence, and troubleshoot failures.
+
+## Required Prior Knowledge
+
+Before beginning the lab series, learners should be able to:
+
+- Explain routing, switching, IP addressing, VLAN, and OSPF concepts at approximately CCNA level.
+- Read and modify straightforward Python programs that use variables, functions, classes, loops, conditionals, and exception handling.
+- Work with lists, dictionaries, environment variables, modules, and Python virtual environments.
+- Read and edit JSON, YAML, and XML data.
+- Explain HTTP methods, headers, status codes, authentication, and basic REST API behavior.
+- Perform common Git operations, including cloning, branching, committing, merging, and pushing to a remote repository.
+- Describe the purpose of CLI automation, RESTCONF, NETCONF, YANG, and controller APIs.
+
+The instructions still provide the commands, file locations, and verification points required for the course. However, learners are expected to interpret results and troubleshoot their work rather than treat each task as an introductory programming exercise.
 
 ## Recommended Lab Order
 
-Follow the labs in order unless the instructor explicitly says otherwise. Labs 3–14 are cumulative and use the same main project repository, so skipping one may leave missing modules, variables, services, or pipeline files.
+Follow the labs in order unless the instructor explicitly says otherwise. Labs 3–13 are cumulative and use the same main project repository, so skipping one may leave missing modules, variables, services, or pipeline files. Lab 14 is a separate AI application that consumes network information through a controlled MCP service.
 
 ```mermaid
 flowchart TD
@@ -26,9 +40,8 @@ flowchart TD
     L10 --> L11["Lab 11<br/>Containerized runtime"]
     L11 --> L12["Lab 12<br/>Model-driven telemetry"]
     L12 --> L13["Lab 13<br/>Drift and compliance"]
-    L13 --> L14["Lab 14<br/>Plan, approve, rollback"]
-    L14 --> L15["Lab 15<br/>AI route assistant"]
-    L15 --> F["Final Assessment<br/>Two practical projects"]
+    L13 --> L14["Lab 14<br/>AI route assistant"]
+    L14 --> F["Final Assessment<br/>Two practical projects"]
 ```
 
 ## Repository Flow
@@ -38,10 +51,10 @@ The labs use GitLab.com for repositories and pipeline coordination.
 | Repository | Used by | Purpose |
 |---|---|---|
 | `lab2_warm_up` | Lab 2 | Disposable warm-up repository used to confirm Git, Python, DevNet VPN, CLI parsing, and RESTCONF access. |
-| `network_automation_project` | Labs 3–14 | Main cumulative automation project. Learners keep improving this repository across multiple labs. |
-| `ai_route_assistant` | Lab 15 | Separate Flask and FastMCP assistant using local Ollama or an OpenAI/Anthropic API. |
+| `network_automation_project` | Labs 3–13 | Main cumulative automation project. Learners keep improving this repository across multiple labs. |
+| `ai_route_assistant` | Lab 14 | Separate Flask and FastMCP assistant using local Ollama or an OpenAI/Anthropic API. |
 
-This separation keeps the warm-up and AI assistant independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, compliance, and rollback.
+This separation keeps the warm-up and AI assistant independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, and compliance.
 
 ## Lab Summary
 
@@ -55,7 +68,7 @@ This is the foundation lab. If a later lab fails because a service is missing, a
 
 [Lab 2](Lab2/Lab2.md) confirms that the learner can use GitLab.com, Python virtual environments, a Cisco DevNet IOS XE reservable sandbox, Netmiko, TextFSM, and RESTCONF. The lab intentionally uses a separate repository named `lab2_warm_up` because it is a readiness check rather than part of the main project.
 
-Learners retrieve `show version` and `show ip interface brief`, parse CLI output, display tables, and then compare that with structured YANG JSON from RESTCONF. This lab helps learners see why structured APIs become valuable as automation grows.
+Learners retrieve `show version` and `show ip interface brief`, parse CLI output, and display the results as tables. They then use Postman to inspect a RESTCONF request manually before consuming the same structured YANG JSON in Python. This comparison shows why structured APIs become increasingly valuable as automation grows.
 
 ### Lab 3: Start the Network Automation Project
 
@@ -160,9 +173,9 @@ Containerizing the runtime improves repeatability. The source code remains in Gi
 
 ### Lab 12: Add Model-Driven Telemetry
 
-[Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners configure Catalyst C8KV IOS XE model-driven telemetry so the router pushes CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
+[Lab 12](Lab12/Lab12.md) shifts attention from the automation application to the network device itself. Learners use YANG Suite to locate operational data paths, examine dial-in collection through NETCONF and gNMI, and configure Catalyst C8KV IOS XE to push CPU, memory, and interface counter data to Telegraf. The TIG stack stores and visualizes the telemetry.
 
-This lab demonstrates polling, NETCONF and gNMI dial-in subscriptions, and gRPC dial-out streaming. Learners using the Cisco Catalyst C8KV sandbox send telemetry to its pre-integrated Telegraf service at `10.10.20.50:57500` and view it in Grafana at `http://10.10.20.50:3000`. Learners using a locally hosted C8KV start the local TIG stack from Lab 1 and send telemetry to the workstation on TCP `57000`.
+For gRPC dial-out, learners enter the IOS XE subscriptions manually, beginning with subscription ID 201. Learners using the Cisco Catalyst C8KV sandbox send telemetry to its pre-integrated Telegraf service at `10.10.20.50:57500` and build dashboards in Grafana at `http://10.10.20.50:3000`. Learners using a locally hosted C8KV start the local TIG stack from Lab 1 and send telemetry to the workstation on TCP `57000`.
 
 ### Lab 13: Detect Configuration Drift and Report Compliance
 
@@ -170,15 +183,9 @@ This lab demonstrates polling, NETCONF and gNMI dial-in subscriptions, and gRPC 
 
 The lab teaches that drift detection and remediation are different decisions. Sometimes the safest first step is to report clearly rather than repair automatically. This is especially true when multiple teams or systems might touch the same network.
 
-### Lab 14: Plan, Approve, Back Up, and Roll Back Changes
+### Lab 14: Build an AI Network Route Assistant
 
-[Lab 14](Lab14/Lab14.md) adds a safer change-management workflow. The pipeline generates a plan, pauses for protected approval, captures pre-change state, deploys, tests, and performs scoped rollback if the post-change test fails.
-
-This lab ties many professional practices together. Automation is not just speed; it is controlled speed. A good pipeline should show what it intends to do, require approval for risky actions, preserve evidence, and provide a realistic recovery path.
-
-### Lab 15: Build an AI Network Route Assistant
-
-[Lab 15](Lab15/Lab15.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, select local Qwen 8B through Ollama or an OpenAI or Anthropic API model, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server. They compare provider accuracy and response time against the same MCP evidence.
+[Lab 14](Lab14/Lab14.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, select local Qwen through Ollama or an OpenAI or Anthropic API model, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server. They compare provider accuracy and response time against the same MCP evidence. If Qwen 8B is too slow for the workstation, a smaller Qwen model can be selected without changing the application architecture.
 
 The key architecture is intentional:
 
@@ -201,7 +208,7 @@ The assessment is worth 100 points and includes self-grading scripts so learners
 
 ## Main Project Evolution
 
-Labs 3–14 progressively improve the same `network_automation_project` repository.
+Labs 3–13 progressively improve the same `network_automation_project` repository.
 
 | Stage | Main Improvement | Operational Lesson |
 |---|---|---|
@@ -216,7 +223,6 @@ Labs 3–14 progressively improve the same `network_automation_project` reposito
 | Lab 11 | Containerized runtime | Reproducible execution environments reduce dependency drift. |
 | Lab 12 | Model-driven telemetry | Streaming telemetry provides operational visibility into network state. |
 | Lab 13 | Drift detection | Compliance reporting can be read-only and evidence-based. |
-| Lab 14 | Plan and rollback | Safe automation includes approval, backup, testing, and recovery. |
 
 ## Services Used Across the Labs
 
@@ -224,38 +230,63 @@ Labs 3–14 progressively improve the same `network_automation_project` reposito
 |---|---|---|
 | GitLab.com | Lab 1 / Lab 2 | Git repositories, merge requests, pipeline coordination |
 | GitLab Runner | Lab 1 | Local execution of GitLab.com jobs that need workstation services and DevNet VPN access |
-| Cisco DevNet IOS XE Sandbox | Lab 2 | Router target for CLI, RESTCONF, NETCONF, telemetry, and route assistant labs |
+| Cisco DevNet Catalyst C8KV IOS XE reservable sandbox | Lab 2 | Router target for CLI, RESTCONF, NETCONF, telemetry, and route-assistant labs |
 | NetBox | Lab 1 / Lab 4 | Source of truth for managed loopback intent |
 | HashiCorp Vault | Lab 1 / Lab 5 | Device credential storage and retrieval |
 | Cisco YANG Suite | Lab 1 / Lab 6 / Lab 12 | Local `https://localhost:8443` or Cisco DevNet Sandbox `http://10.10.20.50:8480`; model discovery and payload testing |
-| TIG / Grafana | Lab 1 / Lab 10 / Lab 12 | Local TIG for a local C8KV, or integrated Cisco DevNet Sandbox Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000` |
+| Local TIG stack | Lab 1 / Lab 10 | Application logs, automation metrics, and telemetry from a locally hosted C8KV |
+| Cisco DevNet Sandbox TIG stack | Lab 12 | Integrated Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000` |
 | Docker | Lab 1 / Lab 11 | Runtime packaging and local service hosting |
-| LLM provider | Lab 15 | Local Ollama or learner-owned OpenAI/Anthropic API account |
-| FastMCP | Lab 15 | Controlled AI tool boundary for network information |
+| LLM provider | Lab 14 | Local Ollama or learner-owned OpenAI/Anthropic API account |
+| FastMCP | Lab 14 | Controlled AI tool boundary for network information |
 
 All course containers use Linux host networking. NetBox, TIG, local YANG Suite, and Lab 11 runtime containers therefore inherit the workstation's Cisco DevNet VPN route, DNS, proxy, and cloud connectivity. Containers use `127.0.0.1` for local host-networked dependencies; Docker service names such as `influxdb` are not used. The GitLab shell Runner already executes in the host network namespace, and every `docker run` command in the course uses `--network host`.
+
+## Shared Project File Convention
+
+Labs 3–13 extend the files that already exist in `network_automation_project`. When a lab introduces another dependency, variable, or Ansible setting, learners modify the existing `requirements.txt`, `.env`, or `ansible.cfg` file rather than creating a lab-specific replacement.
+
+When a later lab supplies a project file, open that file and the destination project in Visual Studio Code, then copy and paste the content into the location identified by the lab. This keeps the repository history understandable and makes each enhancement visible in Git. The `.env` file must remain excluded by `.gitignore` because it contains local endpoints and may contain credentials during the earlier project stages.
 
 Start only the services required by the current lab:
 
 | Service | Start and verify | Stop when unused |
 |---|---|---|
-| NetBox | `cd ~/lab-services/netbox-docker && docker compose up -d && curl -f http://127.0.0.1:8080/api/status/` | `docker compose stop` |
-| Local TIG | `cd ~/lab-services/tig && docker compose up -d && curl -f http://127.0.0.1:8086/health` | `docker compose stop` |
+| NetBox | `cd ~/lab-services/netbox-docker && docker compose up -d`, then open `http://127.0.0.1:8080` | `docker compose stop` |
+| Local TIG | `cd ~/lab-services/tig && docker compose up -d`, then open Grafana at `http://127.0.0.1:3000` | `docker compose stop` |
 | Local YANG Suite | `cd ~/lab-services/yangsuite/docker && docker compose up -d` | `docker compose stop` |
 | Vault dev server | Start the Lab 5 `vault server -dev` command and run `vault status` | `Ctrl+C` in its dedicated terminal |
 | GitLab Runner | `sudo systemctl start gitlab-runner && sudo gitlab-runner verify` | `sudo systemctl stop gitlab-runner` |
 | Ollama | `ollama serve` and `ollama list` | `Ctrl+C` when run interactively |
+
+## Where Learners Obtain Tokens
+
+Use a separate, least-privilege token for each platform. Never reuse a token as a device password, paste it into source code, or include it in screenshots.
+
+| Platform | How to create or obtain the token | Where the course uses it |
+|---|---|---|
+| NetBox | Sign in, select the user icon, open **API Tokens**, select **Add a Token**, disable write permission for read-only source-of-truth access, create it, and copy it once. | `NETBOX_TOKEN` in the existing project `.env` and as a masked GitLab CI/CD variable |
+| Vault development server | Lab 5 starts Vault with `-dev-root-token-id="lab-root-token"`. Run `vault login token=lab-root-token`; the CLI stores it in `~/.vault-token`. | Interactive Python access and the protected `VAULT_TOKEN` GitLab variable |
+| GitLab project runner | In the GitLab.com project, open **Settings > CI/CD > Runners > Create project runner**. Configure the protected runner and copy the temporary `glrt-...` authentication token into the registration command. | Registers the workstation Runner; it is not an application API token |
+| GitLab pipeline trigger | Open **Settings > CI/CD > Pipeline trigger tokens**, create `netbox-loopback-trigger`, and copy the token once. | Embedded only in the private NetBox webhook URL |
+| InfluxDB | Sign in to local InfluxDB, open **Load Data > API Tokens**, select **Generate Custom API Token**, grant write access only to the automation bucket, and copy it once. The initial local token may instead come from the Lab 1 `.env` initialization value. | Masked `INFLUX_TOKEN` GitLab variable for Lab 10 |
+| Grafana | Browser dashboard work uses the learner login and needs no API token. If an instructor authorizes dashboard automation, open **Administration > Users and access > Service accounts**, create a narrowly scoped service account, add a token, and copy it once. | Optional Grafana API automation only; not required by the standard labs |
+| OpenAI | In the OpenAI API platform project, open **API keys**, create a project key with the narrowest available permissions, and copy it once. | `OPENAI_API_KEY` in Lab 14's untracked `.env` |
+| Anthropic | In the Anthropic Console workspace, open **API Keys**, create a lab-specific key, and copy it once. | `ANTHROPIC_API_KEY` in Lab 14's untracked `.env` |
+
+Cisco DevNet Sandbox YANG Suite and Grafana use the credentials supplied with the reservation. They do not require learners to manufacture an additional API token for the standard course workflow.
 
 ## Working Practices for Every Lab
 
 Use these habits consistently:
 
 - Start from the correct repository and branch before copying lab files.
-- Keep secrets out of Git. Commit `.env.example`, not `.env`.
+- Keep secrets out of Git. Modify the existing untracked `.env`; never commit it.
+- Extend the existing `requirements.txt` and `ansible.cfg` rather than creating additional versions.
 - Read the expected workflow before running commands.
-- Test connectivity before debugging application logic.
+- Confirm the sandbox reservation, required service, and configured endpoint before debugging application logic.
 - Validate source-of-truth data before configuring devices.
-- Preview or plan changes before deployment when the lab supports it.
+- Inspect generated configuration or payloads before deployment when the lab supports it.
 - Verify operational state after deployment.
 - Preserve artifacts and logs because they are the evidence of what happened.
 - When an API or model path fails, check product documentation and the deployed software version rather than assuming the sample is universal.
@@ -275,6 +306,6 @@ When a lab fails, work from the foundation upward:
 
 ## Completion Outcome
 
-After Lab 15, learners should have practiced a complete professional network automation lifecycle. They will have built automation from simple CLI collection through source-of-truth-driven changes, secret management, model-driven configuration, CI/CD, observability, containerized execution, telemetry, compliance, rollback, and AI-assisted route analysis.
+After Lab 14, learners should have practiced a complete professional network automation lifecycle. They will have developed an initial device-automation workflow into source-of-truth-driven change, secret management, model-driven configuration, CI/CD, observability, containerized execution, telemetry, compliance, and AI-assisted route analysis.
 
 The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.

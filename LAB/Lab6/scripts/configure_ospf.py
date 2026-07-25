@@ -14,7 +14,6 @@ from src.settings import Settings
 
 def main():
     settings = Settings()
-    settings.confirm_write_access()
     source = NetBoxLoopbackSource(
         settings.netbox_url,
         settings.netbox_token,
@@ -46,8 +45,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except PermissionError as exc:
-        raise SystemExit(f"Safety check stopped the change: {exc}") from exc
     except AuthenticationError as exc:
         raise SystemExit("NETCONF authentication failed") from exc
     except SSHError as exc:
@@ -56,4 +53,3 @@ if __name__ == "__main__":
         raise SystemExit(f"IOS XE rejected the NETCONF payload: {exc}") from exc
     except (ValueError, RuntimeError) as exc:
         raise SystemExit(f"OSPF configuration failed: {exc}") from exc
-

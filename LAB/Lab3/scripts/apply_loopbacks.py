@@ -16,8 +16,6 @@ device = None
 
 try:
     settings = Settings()
-    settings.confirm_write_access()
-
     manager = LoopbackManager(
         ROOT / "data" / "loopbacks.yaml",
         ROOT / "templates" / "loopback.j2",
@@ -57,8 +55,6 @@ try:
 
     print("Verification passed.")
 
-except PermissionError as error:
-    print(f"Safety check stopped the change: {error}")
 except yaml.YAMLError as error:
     print(f"The YAML file is not valid: {error}")
 except NetmikoAuthenticationException:

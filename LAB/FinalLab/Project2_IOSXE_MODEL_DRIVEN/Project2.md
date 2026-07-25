@@ -20,7 +20,7 @@ Project 2 is worth **70 points**.
 
 ```text
 Project2_IOSXE_MODEL_DRIVEN/
-├── .env.example
+├── .env
 ├── Project2.md
 ├── README.md
 ├── app.py
@@ -95,7 +95,6 @@ After completing the template, first render it:
 
 ```bash
 source final_lab/bin/activate
-cp .env.example .env
 nano .env
 python scripts/configure_static_routes.py --dry-run
 ```

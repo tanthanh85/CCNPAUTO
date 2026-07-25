@@ -50,21 +50,9 @@ For local YANG Suite:
 cd "$HOME/lab-services/yangsuite/docker"
 docker compose up -d
 docker compose ps
-curl -kI --connect-timeout 5 https://localhost:8443
 ```
 
-For Cisco DevNet Sandbox YANG Suite:
-
-```bash
-curl -I --connect-timeout 5 http://10.10.20.50:8480
-```
-
-For the Cisco DevNet Sandbox TIG stack, verify the prepared Telegraf listener and Grafana service:
-
-```bash
-nc -vz 10.10.20.50 57500
-curl -I --connect-timeout 5 http://10.10.20.50:3000
-```
+Open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. For the sandbox TIG path, open Grafana at `http://10.10.20.50:3000`.
 
 The sandbox already integrates Telegraf, InfluxDB, and Grafana. Learners configure the sandbox C8KV to send telemetry to `10.10.20.50:57500` and use Grafana at `http://10.10.20.50:3000`; they do not need to install, reconfigure, or restart those shared services.
 
@@ -74,7 +62,6 @@ For a locally hosted C8KV, start and verify the local TIG stack:
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml up -d
 docker compose --env-file .env -f compose.yaml ps
-curl --fail --silent http://127.0.0.1:8086/health | jq
 ```
 
 ## Task 1: Select and Verify the Dial-Out Receiver
@@ -89,17 +76,14 @@ Use the prepared endpoints:
 | Telegraf receiver port | TCP `57500` |
 | Grafana URL | `http://10.10.20.50:3000` |
 
-Verify the services from the VPN-connected workstation with the `nc` and `curl` commands in the prerequisites. A successful TCP check proves that the workstation can reach Telegraf; the IOS XE subscription state and fresh Grafana samples later prove that the router is actually streaming to it.
+Open Grafana in a browser. The IOS XE subscription state and fresh Grafana samples later prove that the router is actually streaming to the prepared Telegraf listener.
 
 ### Path B: Local C8KV and Local TIG
 
-Install the Lab 12 Telegraf input into the Lab 1 TIG deployment, then start the stack:
+Using the VS Code Explorer, copy and paste `telegraf-mdt.conf` and `telemetry-compose.override.yml` from `CCNPAUTO/LAB/Lab12/` into `~/lab-services/tig/`. Rename the pasted override to `compose.override.yaml`, then start the stack:
 
 ```bash
 cd ~/lab-services/tig
-cp /path/to/CCNPAUTO/LAB/Lab12/telegraf-mdt.conf .
-cp /path/to/CCNPAUTO/LAB/Lab12/telemetry-compose.override.yml \
-  compose.override.yaml
 docker compose config
 docker compose up -d
 docker compose logs --tail=100 telegraf
@@ -108,14 +92,7 @@ sudo ss -lntp | grep 57000
 
 All local TIG services use `network_mode: host`. Telegraf therefore binds TCP `57000` directly in the workstation network namespace, and it writes to InfluxDB at `http://127.0.0.1:8086`. Allow TCP `57000` only from the local C8KV management network.
 
-Determine the workstation address that the local C8KV must reach:
-
-```bash
-ip -brief address
-ip route get "$IOSXE_HOST"
-```
-
-The receiver must be an address that the local C8KV can route to, not `127.0.0.1` or a Docker bridge address. A successful workstation-to-router connection does not prove the reverse path. Test the route and firewall locally, and do not expose an unauthenticated telemetry receiver to the Internet.
+Enter a workstation address that the local C8KV can reach; do not use `127.0.0.1` or a Docker bridge address. Confirm the address from the workstation network settings and the local C8KV management design. Do not expose an unauthenticated telemetry receiver to the Internet.
 
 ## Task 2: Create the YANG Suite Device Profile and Model Set
 
@@ -182,15 +159,7 @@ An MDT XPath must identify a single container, list, leaf-list, or leaf. Do not 
    /restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces/interface=GigabitEthernet1/statistics
    ```
 
-Validate the resource portion directly from the workstation:
-
-```bash
-curl -k -u "$IOSXE_USERNAME:$IOSXE_PASSWORD" \
-  -H "Accept: application/yang-data+json" \
-  "https://${IOSXE_HOST}:443/restconf/data/<generated-resource>"
-```
-
-Never copy the YANG Suite proxy prefix into Python or Ansible. The application should call the router's RESTCONF endpoint directly.
+Validate the resource with YANG Suite's **Try it out** function or the Postman workflow from Lab 2. Never copy the YANG Suite proxy prefix into Python or Ansible. An application calls the router's RESTCONF endpoint directly.
 
 ## Task 4: Create a NETCONF Dial-In Subscription
 
@@ -284,9 +253,9 @@ In YANG Suite:
 
 YANG Suite generates the exact prefix, origin, and element representation expected by its gNMI plugin. If the router does not advertise gNMI or the sandbox blocks its port, save the generated request and capability evidence, then continue with NETCONF dial-in.
 
-## Task 6: Build the Persistent gRPC Dial-Out Subscriptions
+## Task 6: Prepare the Persistent gRPC Dial-Out Subscriptions
 
-Use **Protocols > RESTCONF** or **Protocols > NETCONF** with `Cisco-IOS-XE-mdt-cfg` to build three configured subscriptions:
+Use YANG Suite to validate three XPath filters before entering them manually on IOS XE:
 
 | Subscription | Validated XPath | Suggested period |
 |---:|---|---:|
@@ -301,40 +270,59 @@ Use the receiver values for the path selected in Task 1:
 | Cisco DevNet Sandbox C8KV | `10.10.20.50` | `57500` | `grpc-tcp` | `encode-kvgpb` |
 | Local C8KV | Workstation address reachable from the C8KV | `57000` | `grpc-tcp` | `encode-kvgpb` |
 
-Export the generated RESTCONF JSON body as:
+Record the three validated paths in the lab worksheet. A syntactically valid XPath can still return no data when it does not exist in the active model revision.
+
+## Task 7: Configure gRPC Dial-Out Manually
+
+Open an SSH or console session to the reserved C8KV. Begin with CPU subscription `201`, replacing `<CPU_XPATH>` with the path validated in Task 3:
 
 ```text
-telemetry/telemetry_payload.json
+configure terminal
+telemetry ietf subscription 201
+ encoding encode-kvgpb
+ filter xpath <CPU_XPATH>
+ stream yang-push
+ update-policy periodic 1000
+ receiver ip address 10.10.20.50 57500 protocol grpc-tcp
+end
 ```
 
-Review subscription IDs, receiver address, XPath filters, encoding, and periods before sending it. A syntactically valid payload can still fail because a path does not exist in the active model revision or because the router cannot reach the receiver.
+The period is expressed in centiseconds on IOS XE, so `1000` represents 10 seconds. For the local path, replace the receiver address with the workstation address reachable by the local C8KV and replace port `57500` with `57000`.
 
-## Task 7: Apply and Verify the Dial-Out Configuration
+Create memory subscription `202` with its validated XPath and a 30-second period:
 
-```bash
-cd ~/ccnpauto-workspace/network_automation_project
-git switch main && git pull --ff-only
-git switch -c feature/model-driven-telemetry
-LAB12_FILES="/path/to/CCNPAUTO/LAB/Lab12"
-mkdir -p telemetry playbooks
-cp "$LAB12_FILES/playbooks/send_telemetry_payload.yml" playbooks/
-cp telemetry_payload.json telemetry/telemetry_payload.json
+```text
+configure terminal
+telemetry ietf subscription 202
+ encoding encode-kvgpb
+ filter xpath <MEMORY_XPATH>
+ stream yang-push
+ update-policy periodic 3000
+ receiver ip address 10.10.20.50 57500 protocol grpc-tcp
+end
 ```
 
-Set `ALLOW_CONFIG_CHANGES=true`, confirm the reserved endpoint, and run:
+Create interface subscription `203` with the validated GigabitEthernet1 statistics XPath and a 10-second period:
 
-```bash
-ansible-playbook playbooks/send_telemetry_payload.yml
-export ALLOW_CONFIG_CHANGES=false
+```text
+configure terminal
+telemetry ietf subscription 203
+ encoding encode-kvgpb
+ filter xpath <GIGABITETHERNET1_XPATH>
+ stream yang-push
+ update-policy periodic 1000
+ receiver ip address 10.10.20.50 57500 protocol grpc-tcp
+end
 ```
 
-The example disables certificate validation because the reservable sandbox commonly presents a training certificate. Production RESTCONF must validate the device certificate against a trusted CA and match the management hostname.
-
-Inspect IOS XE:
+Review the running configuration and correct any rejected command before continuing:
 
 ```text
 show telemetry ietf subscription all
 show telemetry ietf subscription 201 detail
+show telemetry ietf subscription 202 detail
+show telemetry ietf subscription 203 detail
+show running-config | section telemetry
 show platform software yang-management process
 ```
 
@@ -349,9 +337,21 @@ For the sandbox path, learners do not need shell access to the shared TIG host. 
 
 Successful configuration without received measurements usually indicates routing, firewall policy, an incorrect receiver port, encoding, or sensor-path trouble. Prove the subscription and TCP session first, then investigate decoding and data shape.
 
-## Task 8: Build and Compare Grafana Views
+## Task 8: Create the Grafana Dashboard
 
-Open Grafana for the selected path: `http://10.10.20.50:3000` for the Cisco DevNet Sandbox TIG stack or `http://127.0.0.1:3000` for local TIG. The sandbox integration between Telegraf, InfluxDB, and Grafana is already prepared. Select the telemetry data source and inspect an existing dashboard or, where permissions allow, create **IOS XE Model-Driven Telemetry** with panels for:
+Open `http://10.10.20.50:3000` for the Cisco DevNet Sandbox TIG stack or `http://127.0.0.1:3000` for local TIG. Then:
+
+1. Sign in with the credentials supplied for the selected environment.
+2. Select **Dashboards > New > New dashboard** and choose **Add visualization**.
+3. Select the integrated InfluxDB data source.
+4. Use the query builder or measurement browser to locate the series generated by subscription `201`. Filter by the router source and CPU field, select a time-series visualization, and title it **CPU Utilization**.
+5. Add a second visualization from subscription `202`. Select the used and free memory fields, use a time-series or gauge visualization, set the unit to bytes where appropriate, and title it **Memory Utilization**.
+6. Add a third visualization from subscription `203`. Filter the interface tag or key to `GigabitEthernet1`, select input and output octet counters, and apply a non-negative derivative or rate transformation so the panel displays change per second rather than an ever-increasing counter. Title it **GigabitEthernet1 Traffic Rate**.
+7. Add an **Interface Errors** panel using input-error and output-error fields when they are present.
+8. Add a **Telemetry Freshness** stat panel based on the newest sample timestamp. A stale timestamp indicates that the subscription or receiver path has failed even when an older graph remains visible.
+9. Set the dashboard refresh interval to five seconds, save it as **IOS XE Model-Driven Telemetry**, and confirm that the panels update after at least two collection intervals.
+
+Field and measurement names can vary with the Telegraf Cisco MDT decoder and IOS XE release. Select fields from the data-source browser rather than inventing names. The finished dashboard should cover:
 
 - CPU utilization over time
 - Used and free memory
@@ -371,13 +371,9 @@ Record the behavior of each method:
 | Reverse VPN path required | No | No | Yes |
 | Automatic reconnect after router restart | Client responsibility | Client responsibility | Device retries receiver |
 
-## Task 9: Commit and Stop Unneeded Services
+## Task 9: Preserve Evidence and Stop Unneeded Services
 
-```bash
-git add playbooks/send_telemetry_payload.yml telemetry/telemetry_payload.json
-git commit -m "Add IOS XE model-driven telemetry subscriptions"
-git push -u origin feature/model-driven-telemetry
-```
+Save screenshots of the three subscription-detail outputs and the completed dashboard without exposing credentials. No Ansible telemetry playbook or generated RESTCONF payload is added to the project in this lab.
 
 If the local TIG stack was used, stop it after collecting the required evidence:
 
@@ -393,7 +389,18 @@ test -d "$HOME/lab-services/yangsuite/docker" && \
   (cd "$HOME/lab-services/yangsuite/docker" && docker compose stop)
 ```
 
-The TIG services at `10.10.20.50` are managed as part of the Cisco DevNet Sandbox and are not stopped by learners. Remove or disable the lab telemetry subscriptions on the router when the reservation must be left clean. Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
+The TIG services at `10.10.20.50` are managed as part of the Cisco DevNet Sandbox and are not stopped by learners. Remove the lab subscriptions before releasing the reservation:
+
+```text
+configure terminal
+no telemetry ietf subscription 201
+no telemetry ietf subscription 202
+no telemetry ietf subscription 203
+end
+show telemetry ietf subscription all
+```
+
+Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 
 ## Troubleshooting
 

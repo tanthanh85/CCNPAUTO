@@ -132,12 +132,9 @@ Before migrating the pipeline, verify the services that Ansible and the shell Ru
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
-nc -vz "$IOSXE_HOST" 22
-nc -vz "$IOSXE_HOST" 830
 ```
 
 TIG may remain stopped. Start local YANG Suite only when the OSPF template must be compared with the current IOS XE model; otherwise use Cisco DevNet Sandbox YANG Suite.
@@ -153,21 +150,16 @@ git switch -c feature/ansible-migration
 
 Do not create another GitLab project. Keeping the migration in one repository preserves the complete evolution from YAML and Python through NetBox, Vault, NETCONF, CI/CD, and Ansible.
 
-Copy the Lab 8 files:
+Using the VS Code Explorer, copy and paste the following from `CCNPAUTO/LAB/Lab8/` into the matching locations in `network_automation_project/`:
 
-```bash
-LAB8_FILES="/path/to/CCNPAUTO/LAB/Lab8"
+- `ansible.cfg` and `.gitlab-ci.yml` to the project root;
+- `collections/requirements.yml` to `collections/`;
+- `inventory/hosts.yml` to `inventory/`;
+- all files from `playbooks/` to `playbooks/`;
+- all files from `tasks/` to `tasks/`;
+- `templates/ospf_native.xml.j2` to `templates/`.
 
-cp "$LAB8_FILES/ansible.cfg" .
-cp "$LAB8_FILES/requirements.txt" requirements.txt
-cp "$LAB8_FILES/.gitlab-ci.yml" .gitlab-ci.yml
-mkdir -p collections inventory playbooks tasks templates
-cp "$LAB8_FILES/collections/requirements.yml" collections/
-cp "$LAB8_FILES/inventory/hosts.yml" inventory/
-cp "$LAB8_FILES/playbooks/"*.yml playbooks/
-cp "$LAB8_FILES/tasks/"*.yml tasks/
-cp "$LAB8_FILES/templates/ospf_native.xml.j2" templates/
-```
+Create missing destination folders in VS Code before pasting. Keep and modify the existing project `requirements.txt`; add `ansible-core>=2.18,<2.20` if it is not already present.
 
 Do not delete `src/`, `scripts/`, or their tests. They document the working Python implementation and allow a meaningful comparison during review. The new `.gitlab-ci.yml` determines which implementation is active in CI/CD.
 
@@ -217,22 +209,13 @@ export VAULT_IOSXE_PATH="ccnpauto/iosxe"
 export IOSXE_HOST="<reserved-router-hostname>"
 export IOSXE_SSH_PORT="22"
 export IOSXE_NETCONF_PORT="830"
-export SANDBOX_MODE="reserved"
-export ALLOW_CONFIG_CHANGES="false"
 export OSPF_PROCESS_ID="1"
 export OSPF_AREA="0"
 ```
 
 `NETBOX_TOKEN` and `VAULT_TOKEN` are secrets even though they are exported for the training session. Do not place them in `ansible.cfg`, inventory, playbooks, shell screenshots, or Git. Lab 7 already stores the CI copies as protected and masked GitLab variables.
 
-Confirm that the supporting services are reachable without printing tokens:
-
-```bash
-curl -I http://127.0.0.1:8080
-VAULT_ADDR=http://127.0.0.1:8200 vault status
-nc -vz "$IOSXE_HOST" "$IOSXE_SSH_PORT"
-nc -vz "$IOSXE_HOST" "$IOSXE_NETCONF_PORT"
-```
+Confirm Vault with `VAULT_ADDR=http://127.0.0.1:8200 vault status`, and open NetBox at `http://127.0.0.1:8080`. Do not print either token.
 
 With host-key checking enabled, trust the reserved host only after comparing its fingerprint with the sandbox information or instructor-approved value:
 
@@ -283,13 +266,7 @@ flowchart TB
 
 The separate hosts matter because an Ansible host normally has one active connection plugin. CLI modules require `ansible.netcommon.network_cli`, whereas modeled NETCONF operations require `ansible.netcommon.netconf`. Creating both hosts dynamically avoids duplicating secrets in files and makes the transport boundary visible.
 
-The runtime task also enforces three safeguards before configuration:
-
-1. `IOSXE_HOST` must not be empty.
-2. `SANDBOX_MODE` must equal `reserved`.
-3. Deployment requires `ALLOW_CONFIG_CHANGES=true`.
-
-The test play does not require change approval because it is read-only, although it still requires the explicit reserved-sandbox context.
+The runtime task validates that `IOSXE_HOST` is present before creating the in-memory hosts. Learners must independently confirm that the active sandbox reservation and endpoint are correct before running a deployment.
 
 ## Task 6: Preview the OSPF Native-YANG Template
 
@@ -307,10 +284,7 @@ Ansible's `netconf_config` module sends the rendered `<config>` content to the r
 
 ## Task 7: Deploy Loopbacks and OSPF with Ansible
 
-Enable the deliberate write guard only after validation, reservation, VPN, Vault, and host-key checks have passed:
-
 ```bash
-export ALLOW_CONFIG_CHANGES="true"
 ansible-playbook playbooks/deploy.yml --diff
 ```
 
@@ -327,12 +301,6 @@ ansible-playbook playbooks/deploy.yml --diff
 ```
 
 The CLI tasks should now report `changed=0` when IOS XE represents the lines in the expected form. The NETCONF module may report a change whenever an edit RPC is sent, depending on device and module behavior. Therefore, a changed count is not by itself proof that operational state differs. Idempotence must be evaluated using both module reporting and retrieved device state.
-
-Return the local guard to its safe value when deployment is complete:
-
-```bash
-export ALLOW_CONFIG_CHANGES="false"
-```
 
 ## Task 8: Run the Ansible Tests Locally
 
@@ -491,7 +459,7 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 
 ## Safety and Cleanup
 
-Disable write access after the exercise by setting the GitLab variable `ALLOW_CONFIG_CHANGES` to `false`. Disable the NetBox event rule or pause the deployment Runner when the sandbox reservation ends. Otherwise, a later NetBox edit can trigger a pipeline against an expired or reassigned endpoint.
+Disable the NetBox event rule or pause the deployment Runner when the sandbox reservation ends. Otherwise, a later NetBox edit can trigger a pipeline against an expired or reassigned endpoint.
 
 Do not delete the Python implementation merely because Ansible now drives the project. Retain it until the migration has passed functional testing and the team has agreed on its archival policy. In production, migration rollback should be deliberate: two active automation engines must never compete to manage the same device state.
 

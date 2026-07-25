@@ -20,7 +20,6 @@ Start and verify the services used by the resilient API and pipeline tests:
 ```bash
 cd "$HOME/lab-services/netbox-docker"
 docker compose up -d
-curl --fail --silent http://127.0.0.1:8080/api/status/ | jq
 vault status
 sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
@@ -32,14 +31,10 @@ TIG and local YANG Suite are not required and may remain stopped.
 cd ~/ccnpauto-workspace/network_automation_project
 git switch main && git pull --ff-only
 git switch -c feature/api-resilience
-LAB9_FILES="/path/to/CCNPAUTO/LAB/Lab9"
 mkdir -p library tests tasks
-cp "$LAB9_FILES/library/resilient_http.py" library/
-cp "$LAB9_FILES/tests/test_resilient_http_helpers.py" tests/
-cp "$LAB9_FILES/tasks/load_intent.yml" tasks/load_intent.yml
-cp "$LAB9_FILES/.gitlab-ci.yml" .gitlab-ci.yml
-printf '\npytest>=8,<9\n' >> requirements.txt
 ```
+
+Using the VS Code Explorer, copy and paste `library/resilient_http.py`, `tests/test_resilient_http_helpers.py`, `tasks/load_intent.yml`, and `.gitlab-ci.yml` from `CCNPAUTO/LAB/Lab9/` into the matching project locations. Open the existing `requirements.txt` and add `pytest>=8,<9` only if it is not already present.
 
 The custom Ansible module uses `requests.get()` with a ten-second timeout. Statuses `429`, `500`, `502`, `503`, and `504`, plus transport exceptions, consume the retry budget. Other HTTP errors are classified as unrecoverable. The module returns only status and attempt metadata; authorization headers are declared `no_log`.
 

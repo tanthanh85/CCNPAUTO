@@ -41,18 +41,14 @@ sudo systemctl stop gitlab-runner
 vault status
 ```
 
-If `vault status` fails, start the Lab 5 development server in a dedicated terminal and recreate the assessment secret. For local YANG Suite, start it from `~/lab-services/yangsuite/docker`; otherwise verify Cisco DevNet Sandbox YANG Suite with `curl -I http://10.10.20.50:8480`.
+If `vault status` fails, start the Lab 5 development server in a dedicated terminal and recreate the assessment secret. For local YANG Suite, start it from `~/lab-services/yangsuite/docker`; otherwise open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
 
 ## Suggested Working Directory
 
-Copy the final lab projects into your workspace:
+Create `~/ccnpauto-workspace/final_assessment`. Using the VS Code Explorer, copy and paste the complete `Project1_NXOS_CLI_VLAN` and `Project2_IOSXE_MODEL_DRIVEN` folders from `CCNPAUTO/LAB/FinalLab/` into that working directory.
 
 ```bash
 mkdir -p ~/ccnpauto-workspace/final_assessment
-cp -R /Users/thandoan/Documents/Presentations/CCNPAUTO/LAB/FinalLab/Project1_NXOS_CLI_VLAN \
-  ~/ccnpauto-workspace/final_assessment/
-cp -R /Users/thandoan/Documents/Presentations/CCNPAUTO/LAB/FinalLab/Project2_IOSXE_MODEL_DRIVEN \
-  ~/ccnpauto-workspace/final_assessment/
 cd ~/ccnpauto-workspace/final_assessment
 ```
 

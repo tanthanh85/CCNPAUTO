@@ -1,3 +1,0 @@
-# Add this attribute inside Settings.__init__:
-self.netconf_port = int(os.getenv("IOSXE_NETCONF_PORT", "830"))
-

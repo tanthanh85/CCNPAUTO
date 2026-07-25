@@ -8,8 +8,6 @@
 
     - name: Load the protected runtime settings
       ansible.builtin.include_tasks: ../tasks/load_runtime.yml
-      vars:
-        require_change_approval: true
 
     - name: Create the temporary CLI inventory host
       ansible.builtin.add_host:

@@ -10,9 +10,27 @@ fi
 mkdir -p artifacts
 
 known_hosts_copy="$(mktemp /tmp/ccnpauto-known-hosts.XXXXXX)"
-trap 'rm -f "$known_hosts_copy"' EXIT
-cp /home/gitlab-runner/.ssh/known_hosts "$known_hosts_copy"
+runtime_home="$(mktemp -d /tmp/ccnpauto-ansible-home.XXXXXX)"
+
+cleanup() {
+  rm -f "$known_hosts_copy"
+  rm -rf "$runtime_home"
+}
+trap cleanup EXIT
+
+known_hosts_source="${HOME}/.ssh/known_hosts"
+if [[ -r "$known_hosts_source" ]]; then
+  cp "$known_hosts_source" "$known_hosts_copy"
+else
+  : > "$known_hosts_copy"
+fi
 chmod 644 "$known_hosts_copy"
+
+mkdir -p \
+  "$runtime_home/.ansible/tmp" \
+  "$runtime_home/.cache" \
+  "$runtime_home/.config"
+chmod -R 700 "$runtime_home"
 
 env_args=()
 for name in NETBOX_URL NETBOX_TOKEN NETBOX_DEVICE NETBOX_TAG VAULT_ADDR VAULT_TOKEN \
@@ -28,7 +46,12 @@ done
 docker run --rm --network host \
   --user "$(id -u):$(id -g)" \
   --volume "$CI_PROJECT_DIR:/workspace" \
+  --volume "$runtime_home:/home/runtime" \
   --volume "$known_hosts_copy:/etc/ssh/ssh_known_hosts:ro" \
   --workdir /workspace \
+  --env HOME=/home/runtime \
+  --env ANSIBLE_LOCAL_TEMP=/home/runtime/.ansible/tmp \
+  --env XDG_CACHE_HOME=/home/runtime/.cache \
+  --env XDG_CONFIG_HOME=/home/runtime/.config \
   "${env_args[@]}" \
   "$AUTOMATION_IMAGE" "$1" 2>&1 | tee "$2"

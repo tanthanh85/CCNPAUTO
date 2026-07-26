@@ -40,7 +40,18 @@ Using the VS Code Explorer, copy and paste `Dockerfile`, `.dockerignore`, and `.
 
 The image contains tools, not credentials or project source. `.dockerignore` prevents local artifacts, virtual environments, keys, and `.env` files from entering the build context.
 
-The wrapper passes only approved logging controls and bind-mounts the repository at `/workspace`. Python processes therefore create unique files in `/workspace/logs`, where the Runner can retain them after the container exits. No diagnostic log is baked into the image.
+The wrapper passes only approved logging controls and bind-mounts the
+repository at `/workspace`. It also creates a temporary host directory,
+mounts it at `/home/runtime`, and sets `HOME`, `ANSIBLE_LOCAL_TEMP`, and the
+XDG cache paths to writable locations inside that directory. This is required
+because the container runs with the Runner's numeric UID rather than the
+image's original UID. Without the explicit runtime home, Ansible can try to
+create `/.ansible/tmp` and fail with `Permission denied`. The wrapper removes
+the temporary directory when the job exits.
+
+Python processes create unique files in `/workspace/logs`, where the Runner
+can retain them after the container exits. No diagnostic log is baked into
+the image.
 
 ## Task 2: Build and Inspect the Image
 
@@ -74,7 +85,14 @@ After the container exits, inspect `artifacts/` and `logs/` on the host. Their o
 
 The wrapper passes a fixed allowlist of environment-variable names. It never uses `--env-file` because that can expose unrelated workstation values. GitLab masks protected variables in job output, while Ansible `no_log` protects secret-bearing tasks.
 
-The wrapper copies the Runner's public host-key database to a temporary read-only system `known_hosts` mount, then removes the copy when the container exits. It also runs the container with the Runner's numeric UID and GID so artifacts written into the bind-mounted project remain owned by the Runner. Confirm the approved source file exists from Lab 8. Never bake a changing sandbox host key or a private SSH key into the image.
+The wrapper copies the current account's public host-key database to a
+temporary read-only system `known_hosts` mount, then removes the copy when the
+container exits. If the file does not yet exist, the wrapper supplies an empty
+file; the course `ansible.cfg` already uses
+`host_key_checking = False` for the controlled sandbox. It also runs the
+container with the Runner's numeric UID and GID so artifacts written into the
+bind-mounted project remain owned by the Runner. Never bake a changing
+sandbox host key or a private SSH key into the image.
 
 ## Task 5: Run the Containerized Pipeline
 
@@ -101,6 +119,13 @@ Merge only when NetBox, Vault, VPN, and the sandbox are ready. Create a new loop
 - Pinning packages improves reproducibility but also creates an obligation to rebuild for security fixes.
 - Mounting the Docker socket or using host networking grants significant access and requires a trusted protected Runner.
 - The image must never contain Vault tokens, NetBox tokens, device passwords, or private keys.
+
+If a job reports `Unable to create local directories '/.ansible/tmp'`, verify
+that the project contains the current `ci/run_playbook_container.sh`. The
+Docker command must mount a temporary directory at `/home/runtime` and set
+`HOME=/home/runtime`. Rebuild the image after changing the Dockerfile so that
+the required collections are installed under
+`/usr/share/ansible/collections`.
 
 ## Finish on the Latest Main Branch
 

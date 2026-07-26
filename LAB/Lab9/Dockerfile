@@ -8,11 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-client 
        ncclient==0.7.0 pytest==8.4.2
 
 COPY collections/requirements.yml /tmp/collections.yml
-RUN ansible-galaxy collection install -r /tmp/collections.yml \
+RUN install -d -m 755 /usr/share/ansible/collections \
+    && ansible-galaxy collection install \
+       -r /tmp/collections.yml \
+       -p /usr/share/ansible/collections \
     && rm /tmp/collections.yml
 
 RUN useradd --create-home --uid 10001 automation \
     && install -d -m 700 -o automation -g automation /home/automation/.ssh
+ENV ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections
 WORKDIR /workspace
 USER automation
 ENTRYPOINT ["ansible-playbook"]

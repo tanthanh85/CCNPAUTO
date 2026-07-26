@@ -75,6 +75,8 @@ Keep the virtual environment active while working on both projects:
 source ~/ccnpauto-workspace/final_assessment/final_lab/bin/activate
 ```
 
+Each project supplies `.env.example` with placeholder variable names. Create a local `.env` inside each project and copy and paste the corresponding example content into it before entering sandbox credentials. Never place real credentials in `.env.example`.
+
 ## Project 1 Overview: CLI automation for legacy devices
 
 Project 1 represents a legacy data-center automation task. The Nexus switch does not use NETCONF or RESTCONF in this project. Your automation must use SSH CLI through Netmiko and create VLANs from YAML intent.

@@ -38,7 +38,7 @@ A virtual sandbox normally reports zero CRC errors because it has no physical co
 
 ## Task 1: Create the Repository
 
-Create a private standalone project named `optional_lab20_pyats_crc`, clone it under `~/ccnpauto-workspace`, and copy the supplied Lab 20 files into it using VS Code.
+Create a private standalone project named `optional_lab20_pyats_crc`, clone it under `~/ccnpauto-workspace`, and copy the supplied Lab 20 files into it using VS Code, including the hidden `.env.example` file.
 
 ## Task 2: Install pyATS and Genie
 
@@ -54,7 +54,7 @@ Installation can take several minutes because pyATS and Genie include platform m
 
 ## Task 3: Configure Connection Variables
 
-Open `.env` and enter the current switch details. Keep the existing file and do not commit it:
+Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and enter the current switch details. Do not commit `.env`:
 
 ```text
 CATALYST_HOST=<sandbox-host-or-ip>

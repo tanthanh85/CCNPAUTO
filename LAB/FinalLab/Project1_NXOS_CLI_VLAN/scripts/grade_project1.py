@@ -43,7 +43,7 @@ def grade_env() -> int:
             0,
             5,
             ".env file not found",
-            "Create the supplied .env file and provide non-placeholder "
+            "Create .env from .env.example and provide non-placeholder "
             "NXOS_HOST, NXOS_USERNAME, NXOS_PASSWORD, and numeric NXOS_PORT.",
         )
         return 0

@@ -59,7 +59,8 @@ flowchart LR
 
 ```text
 lab2_warm_up/
-├── .env
+├── .env                 # Learner-created and ignored
+├── .env.example
 ├── .gitignore
 ├── requirements.txt
 ├── inventory/
@@ -106,14 +107,14 @@ cd lab2_warm_up
 
 Using the VS Code Explorer, copy and paste the following items from the course folder `CCNPAUTO/LAB/Lab2/` into the root of the cloned `lab2_warm_up/` repository:
 
-- `.env`
+- `.env.example`
 - `.gitignore`
 - `requirements.txt`
 - `inventory/`
 - `scripts/`
 - `src/`
 
-Keep the same folder names and hierarchy. Do not create another requirements or environment file.
+Keep the same folder names and hierarchy. `.env.example` is safe placeholder documentation and will be committed; `.env` will be created locally in Task 4 and ignored by Git.
 
 ## Task 3: Install Dependencies
 
@@ -134,7 +135,7 @@ git push -u origin main
 
 ## Task 4: Configure the Environment
 
-Open the existing `.env` file in VS Code and enter the active reservation values. Keep `VERIFY_TLS=false` only because the training device commonly uses a certificate that the workstation does not trust. Save the file, then restrict its permissions:
+Open `.env.example` in VS Code. Create a new file named `.env` in the repository root, copy and paste the complete example content into it, and enter the active reservation values. Keep `VERIFY_TLS=false` only because the training device commonly uses a certificate that the workstation does not trust. Save the file, then restrict its permissions:
 
 ```bash
 chmod 600 .env

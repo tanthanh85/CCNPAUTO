@@ -60,7 +60,8 @@ flowchart LR
 
 ```text
 network_automation_project/
-├── .env
+├── .env                 # Learner-created and ignored
+├── .env.example
 ├── .gitignore
 ├── requirements.txt
 ├── logs/
@@ -135,7 +136,7 @@ This repository is separate from `lab2_warm_up` and becomes the only repository 
 
 ## Task 2: Copy the Baseline Project
 
-Using the VS Code Explorer, copy and paste `.env`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `logs/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–13.
+Using the VS Code Explorer, copy and paste `.env.example`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `logs/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–13.
 
 ```bash
 tree -a -I '.git'
@@ -159,7 +160,7 @@ git push -u origin main
 
 ## Task 3: Configure the Reserved Router Connection
 
-Open the existing `.env` file, enter the current reservation values, save it, and restrict its permissions:
+If `.env` does not exist yet, create it now. Open `.env.example` in VS Code, create a new file named `.env` in the project root, and copy and paste the complete example content into it. Enter the current reservation values, save the new file, and restrict its permissions:
 
 ```bash
 chmod 600 .env

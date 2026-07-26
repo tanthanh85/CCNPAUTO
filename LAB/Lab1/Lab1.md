@@ -348,7 +348,7 @@ The Compose project is explicitly named `ccnpauto-tig`, so Docker resource names
 
 Keep long-running lab platforms under `~/lab-services`. Create a dedicated TIG directory and copy the supplied deployment files into it. This gives TIG the same predictable service layout used by NetBox while keeping runtime data and credentials outside the course-content directory.
 
-Create `~/lab-services/tig`. Using the VS Code Explorer, copy and paste `compose.yaml` and `telegraf.conf` from `CCNPAUTO/LAB/Lab1/files/` into that directory. Copy and paste the existing `CCNPAUTO/LAB/Lab1/.env` file into the same directory, then modify its values in place.
+Create `~/lab-services/tig`. Using the VS Code Explorer, copy and paste `compose.yaml` and `telegraf.conf` from `CCNPAUTO/LAB/Lab1/files/` into that directory. Open `CCNPAUTO/LAB/Lab1/.env.example`, create a new file named `.env` in `~/lab-services/tig/`, and copy and paste the example content into it. Then modify the new `.env` values.
 
 ```bash
 cd "$HOME/lab-services/tig"

@@ -492,7 +492,7 @@ Cisco DevNet sandbox Yangsuite and Grafana use credentials supplied with the res
 Treat the following as team standards:
 
 1. Start from the correct repository and branch.
-2. Modify the existing `requirements.txt`, `.env`, and `ansible.cfg`; do not create competing lab-specific versions.
+2. Create `.env` from the supplied `.env.example` when a project begins. Later cumulative labs modify that same `.env`, `requirements.txt`, and `ansible.cfg` rather than creating competing lab-specific versions.
 3. Keep `.env`, passwords, tokens, private keys, and generated secrets out of Git.
 4. Validate source-of-truth data before generating configuration.
 5. Inspect proposed CLI or XML whenever the workflow provides a preview.

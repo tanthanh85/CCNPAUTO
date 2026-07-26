@@ -82,7 +82,7 @@ git clone git@gitlab.com:<your-namespace>/ai_route_assistant.git
 cd ai_route_assistant
 ```
 
-Using the VS Code Explorer, copy and paste the contents of `CCNPAUTO/LAB/Lab14/` into the cloned `ai_route_assistant/` repository. Include `.env`, `.gitignore`, `requirements.txt`, all Python files, and the `logs/`, `templates/`, `static/`, and `scripts/` folders. Keep the supplied hierarchy and do not create a second environment or requirements file.
+Using the VS Code Explorer, copy and paste the contents of `CCNPAUTO/LAB/Lab14/` into the cloned `ai_route_assistant/` repository. Include `.env.example`, `.gitignore`, `requirements.txt`, all Python files, and the `logs/`, `templates/`, `static/`, and `scripts/` folders. Keep the supplied hierarchy and do not create a second requirements file.
 
 The repository now contains a small web application, an MCP client abstraction, a FastMCP server, and a RESTCONF route backend used only behind the MCP server.
 
@@ -97,7 +97,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Open and modify the existing `.env` file:
+Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then protect and modify `.env`:
 
 ```bash
 chmod 600 .env

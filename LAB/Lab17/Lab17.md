@@ -51,7 +51,7 @@ sequenceDiagram
 - A Splunk.com account permitted to download the Splunk Enterprise trial.
 - At least 4 GB of free memory and sufficient disk for a short lab data set.
 
-This lab is standalone. Create a GitLab.com repository named `optional_lab17_splunk_netconf`, clone it under `~/ccnpauto-workspace`, and copy the contents of `CCNPAUTO/LAB/Lab17/` into it with VS Code.
+This lab is standalone. Create a GitLab.com repository named `optional_lab17_splunk_netconf`, clone it under `~/ccnpauto-workspace`, and copy the contents of `CCNPAUTO/LAB/Lab17/` into it with VS Code, including the hidden `.env.example` file.
 
 ## Task 1: Confirm the CPU YANG Path
 
@@ -148,7 +148,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Open `.env` and enter the reservation and Splunk values:
+Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and enter the reservation and Splunk values:
 
 ```text
 IOSXE_HOST=<sandbox-host>

@@ -49,7 +49,7 @@ The local CA private key is not required and must not be copied into this reposi
 
 ## Task 1: Create the Repository
 
-Create a private standalone project named `optional_lab22_async_restconf`, clone it under `~/ccnpauto-workspace`, and copy the Lab 22 files into it with VS Code.
+Create a private standalone project named `optional_lab22_async_restconf`, clone it under `~/ccnpauto-workspace`, and copy the Lab 22 files into it with VS Code, including the hidden `.env.example` file.
 
 ## Task 2: Install Dependencies
 
@@ -80,6 +80,8 @@ Lab22/ca/ccnpauto-root-ca.crt.pem
 Do not copy the CA private key, router CSR, or server certificate. The root certificate is sufficient to validate the chain presented by IOS XE.
 
 ## Task 4: Configure `.env`
+
+Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then update `.env`:
 
 ```text
 IOSXE_BASE_URL=https://iosxe.lab.local

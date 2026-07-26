@@ -37,7 +37,7 @@ flowchart LR
 - VPN access and the APIC URL and credentials shown in the reservation.
 - Basic understanding of ACI tenants, VRFs, bridge domains, application profiles, and EPGs.
 
-Create a standalone GitLab.com repository named `optional_lab15_aci_terraform`, clone it under `~/ccnpauto-workspace`, and use the VS Code Explorer to copy the files from `CCNPAUTO/LAB/Lab15/` into it.
+Create a standalone GitLab.com repository named `optional_lab15_aci_terraform`, clone it under `~/ccnpauto-workspace`, and use the VS Code Explorer to copy the files from `CCNPAUTO/LAB/Lab15/` into it, including the hidden `.env.example` file.
 
 ## Task 1: Inspect the ACI Object Model
 
@@ -61,7 +61,7 @@ Terraform dependencies reproduce this hierarchy. A child resource uses the paren
 
 ## Task 2: Protect APIC Credentials
 
-Open the existing `.env` and insert the values from the active reservation:
+Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and insert the values from the active reservation:
 
 ```text
 ACI_URL=https://<apic-address>
@@ -224,4 +224,3 @@ Verify that the plan targets only the learner tenant and its children. APIC dele
 - [CiscoDevNet ACI Provider](https://registry.terraform.io/providers/CiscoDevNet/aci/latest/docs)
 - [Cisco DevNet Terraform Learning](https://developer.cisco.com/automation-terraform/)
 - [Terraform State](https://developer.hashicorp.com/terraform/language/state)
-

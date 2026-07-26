@@ -21,7 +21,8 @@ Project 1 is worth **30 points**.
 
 ```text
 Project1_NXOS_CLI_VLAN/
-├── .env
+├── .env.example
+├── .env                 # Learner-created and not committed
 ├── Project1.md
 ├── data/
 │   └── vlans.yaml
@@ -48,7 +49,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Open and modify the existing `.env` file:
+Open `.env.example` in VS Code, create a new file named `.env` in the project root, and copy and paste the complete example content into it. Then modify `.env`:
 
 ```bash
 nano .env

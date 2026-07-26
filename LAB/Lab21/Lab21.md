@@ -37,7 +37,7 @@ This is a learning CA, not an enterprise PKI. Protect its private key, never com
 
 ## Task 1: Create the Repository
 
-Create a private standalone project named `optional_lab21_restconf_pki`, clone it under `~/ccnpauto-workspace`, and copy the Lab 21 files into it using VS Code.
+Create a private standalone project named `optional_lab21_restconf_pki`, clone it under `~/ccnpauto-workspace`, and copy the Lab 21 files into it using VS Code, including the hidden `.env.example` file.
 
 Create and activate the environment:
 
@@ -257,7 +257,7 @@ The trustpoint should contain both the CA certificate and an identity certificat
 
 ## Task 9: Configure the Secure Python Client
 
-Open `.env`:
+Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then update `.env`:
 
 ```text
 IOSXE_BASE_URL=https://iosxe.lab.local

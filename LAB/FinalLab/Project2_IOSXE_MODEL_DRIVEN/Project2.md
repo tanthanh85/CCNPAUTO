@@ -20,7 +20,8 @@ Project 2 is worth **70 points**.
 
 ```text
 Project2_IOSXE_MODEL_DRIVEN/
-├── .env
+├── .env.example
+├── .env                 # Learner-created and not committed
 ├── Project2.md
 ├── README.md
 ├── app.py
@@ -91,7 +92,7 @@ The XML you add inside that loop must use `route.prefix`, `route.mask`, and `rou
 
 When the YAML file contains two or more routes, the rendered XML should contain two or more static-route entries. This is the main skill being tested in Task 1: discover the Cisco native YANG structure once, then use Jinja2 to repeat that structure for each desired static route.
 
-After completing the template, first render it:
+After completing the template, first create `.env` if it does not exist. Open `.env.example` in VS Code, create `.env` in the project root, and copy and paste the example content into it. Enter the active reservation values, then render the template:
 
 ```bash
 source final_lab/bin/activate

@@ -14,7 +14,7 @@ After completing this lab, learners will be able to:
 
 - Map an existing Python automation workflow to Ansible plays, tasks, modules, variables, templates, and collections.
 - Retrieve loopback intent from the NetBox REST API with `ansible.builtin.uri`.
-- Validate interface names, IPv4 `/32` assignments, and uniqueness before deployment.
+- Validate interface names, assigned IPv4 address counts, and uniqueness before deployment.
 - Retrieve IOS XE credentials from Vault KV version 2 without writing secrets to inventory or logs.
 - Build temporary in-memory inventory hosts for CLI and NETCONF connections.
 - Configure loopback interfaces with `cisco.ios.ios_config`.
@@ -72,7 +72,7 @@ sequenceDiagram
     N->>G: Trigger main-branch pipeline
     G->>R: Schedule validate job
     R->>N: Retrieve complete managed intent
-    R->>R: Validate names, /32 addresses, uniqueness
+    R->>R: Validate names, address counts, uniqueness
     G->>R: Schedule deploy job
     R->>V: Retrieve IOS XE credentials
     R->>N: Retrieve complete intent again
@@ -221,29 +221,54 @@ ansible-playbook --syntax-check playbooks/test.yml
 
 The inventory graph should show `localhost` and empty runtime groups. Those groups contain no router hostname or credential until `add_host` executes inside a playbook.
 
-## Task 3: Export the Existing Nonsecret Settings
+## Task 3: Load the Existing Project Settings
 
-Ansible controller lookups read environment variables from the process that launches `ansible-playbook`. Export the same values used by the cumulative project. Substitute the current reserved hostname and ports:
+Ansible controller lookups read environment variables from the process that
+launches `ansible-playbook`; merely storing values in `.env` does not export
+them. Open the project's existing `.env` in VS Code and update it with the
+current reservation, NetBox, and Vault values. Keep the existing file rather
+than creating another environment file.
 
-```bash
-export NETBOX_URL="http://127.0.0.1:8080"
-export NETBOX_TOKEN="<existing-netbox-token>"
-export NETBOX_DEVICE="iosxe-sandbox"
-export NETBOX_TAG="automation-managed"
+In particular, `IOSXE_HOST` must contain only the exact hostname or IPv4
+address shown in the active Cisco DevNet reservation. Do not type angle
+brackets, and do not include `https://`, a port number, or a path. Ports belong
+only in `IOSXE_SSH_PORT` and `IOSXE_NETCONF_PORT`. A valid portion of the
+existing file resembles:
 
-export VAULT_ADDR="http://127.0.0.1:8200"
-export VAULT_TOKEN="lab-root-token"
-export VAULT_MOUNT="secret"
-export VAULT_IOSXE_PATH="ccnpauto/iosxe"
+```dotenv
+IOSXE_HOST=10.10.20.48
+IOSXE_SSH_PORT=22
+IOSXE_NETCONF_PORT=830
 
-export IOSXE_HOST="<reserved-router-hostname>"
-export IOSXE_SSH_PORT="22"
-export IOSXE_NETCONF_PORT="830"
-export OSPF_PROCESS_ID="1"
-export OSPF_AREA="0"
+NETBOX_URL=http://127.0.0.1:8080
+NETBOX_TOKEN=REPLACE_WITH_EXISTING_NETBOX_TOKEN
+NETBOX_DEVICE=iosxe-sandbox
+NETBOX_TAG=automation-managed
+
+VAULT_ADDR=http://127.0.0.1:8200
+VAULT_TOKEN=lab-root-token
+VAULT_MOUNT=secret
+VAULT_IOSXE_PATH=ccnpauto/iosxe
+
+OSPF_PROCESS_ID=1
+OSPF_AREA=0
 ```
 
-`NETBOX_TOKEN` and `VAULT_TOKEN` are secrets even though they are exported for the training session. Do not place them in `ansible.cfg`, inventory, playbooks, shell screenshots, or Git. Lab 7 already stores the CI copies as protected and masked GitLab variables.
+The address `10.10.20.48` is an illustration; use the address from the current
+reservation. Load every entry from the existing `.env` into the current shell:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+set -a
+source .env
+set +a
+```
+
+Run these three commands again after opening a new terminal or changing `.env`.
+`NETBOX_TOKEN` and `VAULT_TOKEN` remain secrets even though the shell exports
+them. Do not place them in `ansible.cfg`, inventory, playbooks, screenshots, or
+Git. Lab 7 already stores the CI copies as protected and masked GitLab
+variables.
 
 Confirm Vault with `VAULT_ADDR=http://127.0.0.1:8200 vault status`, and open NetBox at `http://127.0.0.1:8080`. Do not print either token.
 
@@ -255,7 +280,7 @@ The validation playbook includes `tasks/load_intent.yml`. It first queries virtu
 
 - At least one managed interface must exist.
 - Each name must match `Loopback<number>`.
-- Each interface must have exactly one valid IPv4 `/32`.
+- Each interface must have exactly one assigned IPv4 address.
 - Interface names must be unique.
 - IPv4 addresses must be unique.
 
@@ -432,7 +457,7 @@ The output should contain `Loopback104`, `192.0.2.104`, and an OSPF host network
 
 ## Task 12: Add Multiple Loopbacks
 
-Repeat the same NetBox workflow for additional interfaces such as `Loopback105` and `Loopback106`, using unique IPv4 `/32` addresses. Complete one interface and its address before beginning the next, then allow its pipeline to finish. This sequence matters because the source-of-truth validator correctly rejects a tagged interface that has not yet received its required `/32`.
+Repeat the same NetBox workflow for additional interfaces such as `Loopback105` and `Loopback106`, using unique IPv4 `/32` addresses. Complete one interface and its address before beginning the next, then allow its pipeline to finish. This sequence matters because the source-of-truth validator correctly rejects a tagged interface that has not yet received its required address.
 
 Every NetBox address event starts a pipeline, and every pipeline retrieves the complete managed set. The second pipeline therefore reconciles both new loopbacks, while the third reconciles all three. Existing configuration should remain unchanged because the Ansible tasks are designed to be repeatable.
 
@@ -452,11 +477,13 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 
 | Symptom | Likely cause | First action |
 |---|---|---|
+| `[Errno -2] Name or service not known` for `iosxe_cli` | `IOSXE_HOST` contains a placeholder, URL, `host:port`, misspelled hostname, expired reservation value, or a name unavailable through the active VPN/DNS path | Set `IOSXE_HOST` again from the current reservation using only its hostname or IPv4 address, then rerun the playbook and inspect the displayed CLI target |
+| `ansible-pylibssh not installed, falling back to paramiko` | The optional pylibssh transport is absent | No action is required; Paramiko is already supported by this lab and the warning is not the task failure |
 | `community.hashi_vault` or `vault_kv2_get` not found | The Vault Ansible collection was not installed for the active user | Run `ansible-galaxy collection install -r collections/requirements.yml`, then verify with `ansible-doc -t lookup community.hashi_vault.vault_kv2_get` |
 | Vault lookup reports that `hvac` is missing | The Python requirements were not installed in the active virtual environment | Activate `~/.venvs/ccnpauto`, run `python -m pip install -r requirements.txt`, and retry |
 | NetBox task fails but details are hidden | `no_log` protects the token | Test NetBox health, token permissions, device name, and tag without printing the token |
 | No managed interfaces returned | Wrong NetBox device/tag or objects are not Virtual | Review the NetBox interface records from Lab 4 |
-| Validation reports address failure | Missing, duplicate, non-IPv4, or non-`/32` assignment | Correct the authoritative NetBox record |
+| Validation reports address failure | Missing or duplicate assigned IPv4 address | Correct the authoritative NetBox record |
 | Vault lookup fails | Vault stopped, token invalid, or KV mount/path incorrect | Run `vault status` and verify secret metadata |
 | CLI connection times out | VPN, hostname, SSH port, or reservation expired | Recheck the active sandbox endpoint, port, and VPN |
 | NETCONF fails while CLI works | Port 830 unavailable, NETCONF disabled, or wrong connection plugin | Confirm `netconf-yang` and the reserved NETCONF port |

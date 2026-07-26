@@ -1,7 +1,7 @@
 ---
 - name: Read runtime and Vault settings
   ansible.builtin.set_fact:
-    iosxe_host: "{{ lookup('ansible.builtin.env', 'IOSXE_HOST') }}"
+    iosxe_host: "{{ lookup('ansible.builtin.env', 'IOSXE_HOST') | trim }}"
     iosxe_ssh_port: "{{ lookup('ansible.builtin.env', 'IOSXE_SSH_PORT') | default('22', true) | int }}"
     iosxe_netconf_port: "{{ lookup('ansible.builtin.env', 'IOSXE_NETCONF_PORT') | default('830', true) | int }}"
     vault_addr: "{{ lookup('ansible.builtin.env', 'VAULT_ADDR') | default('http://127.0.0.1:8200', true) }}"
@@ -16,11 +16,24 @@
   ansible.builtin.assert:
     that:
       - iosxe_host | length > 0
+      - "'://' not in iosxe_host"
+      - "':' not in iosxe_host"
+      - "'<' not in iosxe_host"
+      - "'>' not in iosxe_host"
       - vault_token | length > 0
       - ospf_process_id >= 1
       - ospf_process_id <= 65535
       - ospf_area == 0
-    fail_msg: Set IOSXE_HOST and VAULT_TOKEN, use OSPF process 1-65535, and keep OSPF_AREA=0.
+    fail_msg: >-
+      Set IOSXE_HOST to only the reserved hostname or IPv4 address, without
+      https://, a port, or angle brackets. Set VAULT_TOKEN, use OSPF process
+      1-65535, and keep OSPF_AREA=0.
+
+- name: Display the nonsecret IOS XE connection targets
+  ansible.builtin.debug:
+    msg:
+      - "CLI target: {{ iosxe_host }}:{{ iosxe_ssh_port }}"
+      - "NETCONF target: {{ iosxe_host }}:{{ iosxe_netconf_port }}"
 
 - name: Read IOS XE credentials from Vault KV version 2
   ansible.builtin.set_fact:

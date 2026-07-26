@@ -38,7 +38,7 @@ Using the VS Code Explorer, copy and paste `library/resilient_http.py`, `tests/t
 
 Ansible executes a custom module from a temporary module environment, so `resilient_http.py` contains a small dedicated logger rather than importing the project package. It consumes the same logging controls and records attempts, status codes, elapsed time, retry classification, `Retry-After`, backoff, and the final outcome. Request headers are declared `no_log` and are never written.
 
-The custom Ansible module uses `requests.get()` with a ten-second timeout. Statuses `429`, `500`, `502`, `503`, and `504`, plus transport exceptions, consume the retry budget. Other HTTP errors are classified as unrecoverable. The module returns only status and attempt metadata; authorization headers are declared `no_log`.
+The custom Ansible module uses `requests.get()` with a ten-second timeout and defaults `verify_tls` to `false` for the isolated lab services. Statuses `429`, `500`, `502`, `503`, and `504`, plus transport exceptions, consume the retry budget. Other HTTP errors are classified as unrecoverable. The module returns only status and attempt metadata; authorization headers are declared `no_log`.
 
 ## Task 2: Run Automated Tests
 

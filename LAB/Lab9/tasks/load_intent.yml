@@ -19,6 +19,7 @@
       Accept: application/json
     timeout: 10
     max_attempts: 5
+    verify_tls: false
     enable_file_logging: "{{ lookup('ansible.builtin.env', 'ENABLE_FILE_LOGGING') | default('false', true) | bool }}"
     log_level: "{{ lookup('ansible.builtin.env', 'LOG_LEVEL') | default('DEBUG', true) }}"
     log_dir: "{{ lookup('ansible.builtin.env', 'LOG_DIR') | default(playbook_dir + '/../logs', true) }}"
@@ -37,6 +38,7 @@
       Accept: application/json
     timeout: 10
     max_attempts: 5
+    verify_tls: false
     enable_file_logging: "{{ lookup('ansible.builtin.env', 'ENABLE_FILE_LOGGING') | default('false', true) | bool }}"
     log_level: "{{ lookup('ansible.builtin.env', 'LOG_LEVEL') | default('DEBUG', true) }}"
     log_dir: "{{ lookup('ansible.builtin.env', 'LOG_DIR') | default(playbook_dir + '/../logs', true) }}"

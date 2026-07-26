@@ -22,6 +22,7 @@
       Accept: application/json
     return_content: true
     status_code: 200
+    validate_certs: false
   register: netbox_interfaces
   no_log: true
 
@@ -40,6 +41,7 @@
       Accept: application/json
     return_content: true
     status_code: 200
+    validate_certs: false
   loop: "{{ netbox_interfaces.json.results }}"
   loop_control:
     label: "{{ item.name }}"
@@ -84,7 +86,6 @@
     managed_loopbacks: >-
       {{ managed_loopbacks + [{
         'name': interface.name,
-        'description': interface.description | default('', true),
         'enabled': interface.enabled | bool,
         'prefix': addresses[0].address,
         'ipv4': addresses[0].address.split('/')[0]

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
+import urllib3
 
 
 logger = logging.getLogger(__name__)
@@ -101,11 +102,13 @@ def _request_json(
     started = time.perf_counter()
 
     try:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         response = requests.post(
             url,
             headers=headers,
             json=payload,
             timeout=timeout,
+            verify=False,
         )
         logger.info(
             "LLM HTTP response status=%d elapsed_seconds=%.3f",

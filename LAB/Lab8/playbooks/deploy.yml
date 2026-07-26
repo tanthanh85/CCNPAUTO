@@ -46,7 +46,6 @@
       cisco.ios.ios_config:
         parents: "interface {{ item.name }}"
         lines:
-          - "description {{ item.description | default('NETBOX_MANAGED', true) }}"
           - "ip address {{ item.ipv4 }} 255.255.255.255"
           - "{{ 'no shutdown' if item.enabled else 'shutdown' }}"
         match: line
@@ -60,12 +59,8 @@
   gather_facts: false
   serial: 1
   tasks:
-    - name: Render the Cisco IOS XE native-YANG payload
-      ansible.builtin.set_fact:
-        ospf_payload: "{{ lookup('ansible.builtin.template', '../templates/ospf_native.xml.j2') }}"
-
     - name: Merge all managed loopbacks into OSPF area 0
       ansible.netcommon.netconf_config:
-        content: "{{ ospf_payload }}"
+        content: "{{ lookup('ansible.builtin.template', '../templates/ospf_native.xml.j2') }}"
         target: running
-        commit: false
+        default_operation: merge

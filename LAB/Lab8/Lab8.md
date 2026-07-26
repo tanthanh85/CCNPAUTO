@@ -219,17 +219,7 @@ export OSPF_AREA="0"
 
 Confirm Vault with `VAULT_ADDR=http://127.0.0.1:8200 vault status`, and open NetBox at `http://127.0.0.1:8080`. Do not print either token.
 
-With host-key checking enabled, trust the reserved host only after comparing its fingerprint with the sandbox information or instructor-approved value:
-
-```bash
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-ssh-keyscan -p "$IOSXE_SSH_PORT" "$IOSXE_HOST" >> ~/.ssh/known_hosts
-ssh-keyscan -p "$IOSXE_NETCONF_PORT" "$IOSXE_HOST" >> ~/.ssh/known_hosts
-chmod 600 ~/.ssh/known_hosts
-```
-
-Never use `host_key_checking=False` merely to hide an unknown-key error. A changed key might be expected when a sandbox reservation changes, but it should still be investigated before the obsolete entry is removed.
+The supplied `ansible.cfg` sets `host_key_checking = false`. This avoids interactive SSH-key prompts when a reservable sandbox is rebuilt or assigned to another learner. This simplification is appropriate for the isolated course lab; production automation should verify and manage device host keys.
 
 ## Task 4: Understand and Run NetBox Validation
 
@@ -293,7 +283,7 @@ ansible-playbook playbooks/deploy.yml --diff
 The playbook performs three plays in strict order:
 
 1. The localhost play validates NetBox, reads Vault, and creates runtime hosts.
-2. The CLI play uses `cisco.ios.ios_config` to reconcile each interface description, `/32` address, and administrative state.
+2. The CLI play uses `cisco.ios.ios_config` to reconcile each interface `/32` address and administrative state.
 3. The NETCONF play renders the native-YANG XML and merges every loopback into OSPF process 1, area 0.
 
 `ios_config` compares the requested lines with the relevant running configuration. On the first run it should report changes. Run the same command a second time:
@@ -347,21 +337,7 @@ The pipeline continues to use:
 
 Each job creates an isolated virtual environment and installs the declared Ansible collections. This is slower than reusing arbitrary workstation packages, but it makes pipeline dependencies explicit. A later production improvement would package the tested Python packages and collections into a signed Ansible execution-environment image.
 
-The shell Runner executes as the `gitlab-runner` operating-system account, which has a different home directory from the learner. After verifying the router fingerprints, install the approved keys for that account as well:
-
-```bash
-ssh-keyscan -p "$IOSXE_SSH_PORT" "$IOSXE_HOST" > /tmp/iosxe-known-hosts
-ssh-keyscan -p "$IOSXE_NETCONF_PORT" "$IOSXE_HOST" >> /tmp/iosxe-known-hosts
-ssh-keygen -lf /tmp/iosxe-known-hosts
-
-sudo install -d -m 700 -o gitlab-runner -g gitlab-runner \
-  /home/gitlab-runner/.ssh
-sudo install -m 600 -o gitlab-runner -g gitlab-runner \
-  /tmp/iosxe-known-hosts /home/gitlab-runner/.ssh/known_hosts
-rm /tmp/iosxe-known-hosts
-```
-
-Do not automate acceptance of an unverified key inside `.gitlab-ci.yml`. When a new reservation legitimately changes the endpoint or key, repeat this controlled trust step.
+The shell Runner executes as the `gitlab-runner` operating-system account. The project-level `ansible.cfg` and CI variable both disable host-key checking, so the Runner does not require a separate `known_hosts` file for this isolated sandbox exercise.
 
 Before pushing, inspect the exact changes:
 
@@ -453,9 +429,8 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 | No managed interfaces returned | Wrong NetBox device/tag or objects are not Virtual | Review the NetBox interface records from Lab 4 |
 | Validation reports address failure | Missing, duplicate, non-IPv4, or non-`/32` assignment | Correct the authoritative NetBox record |
 | Vault lookup fails | Vault stopped, token invalid, or KV mount/path incorrect | Run `vault status` and verify secret metadata |
-| Host-key verification fails | New reservation presents a different key | Verify the new fingerprint before updating `known_hosts` |
-| CLI connection times out | VPN, hostname, SSH port, or reservation expired | Test with `nc` and inspect the sandbox details |
-| NETCONF fails while CLI works | Port 830 unavailable, NETCONF disabled, or wrong connection plugin | Test port 830 and confirm `netconf-yang` |
+| CLI connection times out | VPN, hostname, SSH port, or reservation expired | Recheck the active sandbox endpoint, port, and VPN |
+| NETCONF fails while CLI works | Port 830 unavailable, NETCONF disabled, or wrong connection plugin | Confirm `netconf-yang` and the reserved NETCONF port |
 | `rpc-error` mentions an unknown element | Template differs from the advertised IOS XE YANG revision | Rebuild and test the payload with local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` |
 | Pipeline job remains pending | Runner offline or `network-deploy` tag/protection mismatch | Review the project Runner and protected branch eligibility |
 | Pipeline reaches NetBox but not IOS XE | Runner lacks VPN route | Test reachability as the `gitlab-runner` service account |

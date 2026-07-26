@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import requests
+import urllib3
 
 from src.logging_config import configure_logging
 
@@ -65,10 +66,11 @@ def main():
         return 0
     logger.info("Publishing %d line-protocol metric(s)", len(lines))
     started = time.perf_counter()
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     response = requests.post(
         f"{url}/api/v2/write", params={"org": org, "bucket": bucket, "precision": "ns"},
         headers={"Authorization": f"Token {token}", "Content-Type": "text/plain"},
-        data="\n".join(lines), timeout=10,
+        data="\n".join(lines), timeout=10, verify=False,
     )
     logger.info(
         "InfluxDB response status=%d elapsed_seconds=%.3f",

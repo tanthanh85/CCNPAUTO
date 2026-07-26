@@ -10,6 +10,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import requests
+import urllib3
 from ansible.module_utils.basic import AnsibleModule
 
 RETRYABLE = {429, 500, 502, 503, 504}
@@ -64,7 +65,7 @@ def run_module():
             "max_attempts": {"type": "int", "default": 5},
             "base_delay": {"type": "float", "default": 1.0},
             "max_delay": {"type": "float", "default": 16.0},
-            "verify_tls": {"type": "bool", "default": True},
+            "verify_tls": {"type": "bool", "default": False},
             "enable_file_logging": {"type": "bool", "default": False},
             "log_level": {
                 "type": "str",
@@ -93,6 +94,8 @@ def run_module():
         p["verify_tls"],
         module.check_mode,
     )
+    if not p["verify_tls"]:
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     for attempt in range(1, p["max_attempts"] + 1):
         logger.debug("Starting request attempt=%d", attempt)

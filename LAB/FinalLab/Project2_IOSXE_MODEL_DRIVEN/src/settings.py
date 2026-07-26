@@ -42,6 +42,5 @@ def load_settings() -> IosXeSettings:
         restconf_port=int(os.getenv("IOSXE_RESTCONF_PORT", "443")),
         username=username,
         password=password,
-        verify_tls=os.getenv("IOSXE_VERIFY_TLS", "true").lower() == "true",
+        verify_tls=os.getenv("IOSXE_VERIFY_TLS", "false").lower() == "true",
     )
-

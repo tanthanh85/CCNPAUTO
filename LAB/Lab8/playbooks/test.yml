@@ -8,8 +8,6 @@
 
     - name: Retrieve runtime settings and credentials from Vault
       ansible.builtin.include_tasks: ../tasks/load_runtime.yml
-      vars:
-        require_change_approval: false
 
     - name: Create the temporary test host
       ansible.builtin.add_host:

@@ -9,6 +9,7 @@ workflow:
     - when: never
 
 variables:
+  ANSIBLE_HOST_KEY_CHECKING: "false"
   ENABLE_FILE_LOGGING: "true"
   ENABLE_CONSOLE_LOGGING: "true"
   LOG_LEVEL: "DEBUG"

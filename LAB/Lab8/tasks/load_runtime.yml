@@ -12,11 +12,15 @@
     ospf_area: "{{ lookup('ansible.builtin.env', 'OSPF_AREA') | default('0', true) | int }}"
   no_log: true
 
-- name: Validate the IOS XE target
+- name: Require the IOS XE target and Vault token
   ansible.builtin.assert:
     that:
       - iosxe_host | length > 0
-    fail_msg: Set a valid IOSXE_HOST in the project .env file.
+      - vault_token | length > 0
+      - ospf_process_id >= 1
+      - ospf_process_id <= 65535
+      - ospf_area == 0
+    fail_msg: Set IOSXE_HOST and VAULT_TOKEN, use OSPF process 1-65535, and keep OSPF_AREA=0.
 
 - name: Read IOS XE credentials from Vault KV version 2
   ansible.builtin.set_fact:

@@ -38,7 +38,7 @@ def load_settings() -> IosXeSettings:
     username = os.getenv("IOSXE_USERNAME", "").strip()
     password = os.getenv("IOSXE_PASSWORD", "").strip()
     port = int(os.getenv("IOSXE_RESTCONF_PORT", "443"))
-    verify_tls = os.getenv("IOSXE_VERIFY_TLS", "true").lower() == "true"
+    verify_tls = os.getenv("IOSXE_VERIFY_TLS", "false").lower() == "true"
 
     missing = [
         name

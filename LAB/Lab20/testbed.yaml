@@ -1,0 +1,17 @@
+testbed:
+  name: catalyst_crc_lab
+  credentials:
+    default:
+      username: "%ENV{CATALYST_USERNAME}"
+      password: "%ENV{CATALYST_PASSWORD}"
+
+devices:
+  catalyst:
+    os: iosxe
+    platform: cat9k
+    type: switch
+    connections:
+      cli:
+        protocol: ssh
+        ip: "%ENV{CATALYST_HOST}"
+        port: "%ENV{CATALYST_PORT}"

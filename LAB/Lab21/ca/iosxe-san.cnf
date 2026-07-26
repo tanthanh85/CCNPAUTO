@@ -1,0 +1,9 @@
+[v3_server]
+basicConstraints = critical, CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alternate_names
+
+[alternate_names]
+DNS.1 = iosxe.lab.local
+IP.1 = REPLACE_WITH_ROUTER_IP

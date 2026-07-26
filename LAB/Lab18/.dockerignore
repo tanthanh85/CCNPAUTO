@@ -1,0 +1,9 @@
+.git
+.gitignore
+.venv
+.pytest_cache
+__pycache__
+package_config.ini
+package.tar
+tests
+Lab18.md

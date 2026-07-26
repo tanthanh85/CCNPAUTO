@@ -26,7 +26,7 @@ The instructions still provide the commands, file locations, and verification po
 
 Follow the required labs in order unless the instructor explicitly says otherwise. Labs 3–13 are cumulative and use the same main project repository, so skipping one may leave missing modules, variables, services, or pipeline files. Lab 14 is a separate AI application that consumes network information through a controlled MCP service.
 
-Optional Labs 15–17 are standalone extensions. They can be selected according to instructor time, software entitlement, workstation capacity, and learner interest. They are not prerequisites for the final assessment and do not change the required Lab 1–14 sequence.
+Optional Labs 15–22 are standalone extensions. They can be selected according to instructor time, software entitlement, workstation capacity, platform capability, and learner interest. They are not prerequisites for the final assessment and do not change the required Lab 1–14 sequence.
 
 ```mermaid
 flowchart TD
@@ -57,6 +57,11 @@ The labs use GitLab.com for repositories and pipeline coordination.
 | `ai_route_assistant` | Lab 14 | Separate Flask and FastMCP assistant using local Ollama or an OpenAI/Anthropic API. |
 | `optional_lab15_aci_terraform` | Optional Lab 15 | Standalone Terraform project for a Cisco ACI reservable sandbox. |
 | `optional_lab17_splunk_netconf` | Optional Lab 17 | Standalone NETCONF dial-in collector and Splunk HEC integration. |
+| `optional_lab18_iosxe_app_hosting` | Optional Lab 18 | Standalone IOx Docker application that receives IOS XE syslog and re-enables Loopback1 through Netmiko. |
+| `optional_lab19_minikube` | Optional Lab 19 | Standalone beginner Kubernetes deployment, scaling, rollout, and self-healing exercise using Minikube. |
+| `optional_lab20_pyats_crc` | Optional Lab 20 | Standalone pyATS and Genie test that detects increasing CRC counters on Catalyst IOS XE switch ports. |
+| `optional_lab21_restconf_pki` | Optional Lab 21 | Standalone OpenSSL local CA and trusted IOS XE RESTCONF client using `requests`. |
+| `optional_lab22_async_restconf` | Optional Lab 22 | Standalone trusted asynchronous RESTCONF client using `aiohttp`. |
 
 Optional Lab 16 uses an NSO runtime and service package rather than a separate application repository. This separation keeps the warm-up, AI assistant, and optional technology exercises independent from the main production-style automation project. The main project remains focused on source-of-truth-driven network changes, CI/CD, Ansible, observability, and compliance.
 
@@ -219,6 +224,26 @@ The AI model answers questions from MCP-provided route context. It does not rece
 
 [Optional Lab 17](Lab17/Lab17.md) installs Splunk Enterprise under its trial license. A Python collector initiates a NETCONF dial-in YANG-push subscription for five-second IOS XE CPU utilization, normalizes XML notifications, and sends structured events to Splunk HEC. Learners verify ingestion with SPL and create the app, searches, and CPU dashboard directly in Splunk Web; no external dashboard HTML or XML is imported.
 
+### Optional Lab 18: Host a Loopback Recovery Application on IOS XE
+
+[Optional Lab 18](Lab18/Lab18.md) builds and packages a true IOx Docker application for a compatible IOS XE application-hosting platform. IOS XE connects the container to `VirtualPortGroup0`, assigns it its own IP address, and sends native syslog directly to UDP port `5514`. When the service detects that `Loopback1` became administratively down, it uses Netmiko over SSH to apply `interface Loopback1` and `no shutdown`. The interface is therefore enabled again without EEM, Guest Shell, RESTCONF, or persistent audit files.
+
+### Optional Lab 19: Learn Kubernetes Fundamentals with Minikube
+
+[Optional Lab 19](Lab19/Lab19.md) is a standalone beginner Kubernetes exercise. Learners create a local Minikube cluster, build a small Flask image inside Minikube, and deploy it through a ConfigMap, two-replica Deployment, probes, resource limits, and NodePort Service. They then observe load distribution, scale the workload, delete a pod to prove self-healing, update configuration, and stop or remove the cluster.
+
+### Optional Lab 20: Test Catalyst Port CRC Errors with Cisco pyATS
+
+[Optional Lab 20](Lab20/Lab20.md) uses a pyATS testbed, aetest, and the Genie `show interfaces` parser to collect two CRC-counter samples from a Catalyst IOS XE switch. The test compares deltas, treats counter reset or disappearing ports as invalid evidence, fails when CRC errors increase, and writes structured JSON alongside the standard pyATS run logs.
+
+### Optional Lab 21: Secure IOS XE RESTCONF with a Local CA
+
+[Optional Lab 21](Lab21/Lab21.md) creates a protected local root CA with OpenSSL, enrolls an IOS XE PKI trustpoint, signs a router HTTPS certificate containing DNS and IP SAN values, and binds the identity to the RESTCONF server. A Python `requests` client trusts the local root certificate and validates both the chain and hostname instead of using `verify=False`.
+
+### Optional Lab 22: Make Trusted RESTCONF Requests Asynchronously
+
+[Optional Lab 22](Lab22/Lab22.md) retains the Lab 21 trust chain while replacing sequential `requests` operations with bounded `aiohttp` concurrency. Learners reuse one client session and SSL context, gather four IOS XE resources, isolate request failures, compare concurrency one with concurrency four, and preserve detailed timing and results in JSON.
+
 ### Final Assessment Lab: Enterprise Network Automation Delivery
 
 [Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or Cisco DevNet Sandbox YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure. Both self-graders report earned points, missing requirements, and the exact condition required for full credit; local scoring does not replace live sandbox verification.
@@ -261,6 +286,11 @@ Labs 3–13 progressively improve the same `network_automation_project` reposito
 | Cisco ACI Simulator and Terraform provider | Optional Lab 15 | Declarative ACI tenant and application-policy provisioning |
 | Cisco NSO and IOS CLI NED | Optional Lab 16 | Transactional device management and YANG-modeled OSPF service |
 | Splunk Enterprise and HEC | Optional Lab 17 | Indexing and dashboarding normalized NETCONF CPU notifications |
+| IOS XE IOx and Docker application hosting | Optional Lab 18 | Routed container networking, direct syslog ingestion, and closed-loop Loopback1 recovery |
+| Minikube and Kubernetes | Optional Lab 19 | Beginner local orchestration, health checks, Services, scaling, rollout, and self-healing |
+| Cisco pyATS and Genie | Optional Lab 20 | Structured Catalyst interface parsing and CRC-delta testing |
+| OpenSSL and IOS XE PKI | Optional Lab 21 | Locally issued RESTCONF server identity and trusted synchronous HTTPS |
+| Python `aiohttp` | Optional Lab 22 | Trusted, bounded, asynchronous RESTCONF collection |
 
 All course containers use Linux host networking. NetBox, TIG, local YANG Suite, and Lab 11 runtime containers therefore inherit the workstation's Cisco DevNet VPN route, DNS, proxy, and cloud connectivity. Containers use `127.0.0.1` for local host-networked dependencies; Docker service names such as `influxdb` are not used. The GitLab shell Runner already executes in the host network namespace, and every `docker run` command in the course uses `--network host`.
 
@@ -331,4 +361,4 @@ When a lab fails, work from the foundation upward:
 
 After Lab 14, learners should have practiced a complete professional network automation lifecycle. They will have developed an initial device-automation workflow into source-of-truth-driven change, secret management, model-driven configuration, CI/CD, observability, containerized execution, compliance reporting, model-driven telemetry, and AI-assisted route analysis.
 
-The optional labs extend those patterns into ACI infrastructure as code, Cisco NSO services, and Splunk telemetry analytics. The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.
+The optional labs extend those patterns into ACI infrastructure as code, Cisco NSO services, Splunk telemetry analytics, and IOS XE application hosting. The final result is not one monolithic script. It is a set of engineering patterns that learners can reuse in real Cisco network automation work.

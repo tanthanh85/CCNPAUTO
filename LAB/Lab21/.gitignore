@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+ca/private/
+ca/certs/
+ca/csr/
+ca/*.srl

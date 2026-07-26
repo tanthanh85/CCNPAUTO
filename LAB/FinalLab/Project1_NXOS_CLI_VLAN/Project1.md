@@ -42,8 +42,8 @@ Project1_NXOS_CLI_VLAN/
 Before editing project files, create a Python virtual environment and install the required libraries:
 
 ```bash
-python3 -m venv final_lab
-source final_lab/bin/activate
+python3 -m venv final_lab1
+source final_lab1/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
@@ -58,7 +58,7 @@ The application will stop during module import because the library used to
 load and render the VLAN template is deliberately absent from
 `requirements.txt`. Read the complete traceback, identify the missing import,
 inspect `scripts/apply_vlans.py`, and determine which Python package supplies
-that module. Install the missing package into the active `final_lab`
+that module. Install the missing package into the active `final_lab1`
 environment with `python -m pip`.
 
 Confirm that Python can import the module, then run the dry run again. Do not
@@ -148,7 +148,7 @@ The exception handlers only need to display clear messages; they do not need to 
 If you opened a new terminal, activate the virtual environment again:
 
 ```bash
-source final_lab/bin/activate
+source final_lab1/bin/activate
 ```
 
 Preview the rendered configuration:

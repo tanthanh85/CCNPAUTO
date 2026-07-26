@@ -49,8 +49,8 @@ Project2_IOSXE_MODEL_DRIVEN/
 Before editing project files, create a Python virtual environment and install the required libraries:
 
 ```bash
-python3 -m venv final_lab
-source final_lab/bin/activate
+python3 -m venv final_lab2
+source final_lab2/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
@@ -95,7 +95,7 @@ When the YAML file contains two or more routes, the rendered XML should contain 
 After completing the template, first create `.env` if it does not exist. Open `.env.example` in VS Code, create `.env` in the project root, and copy and paste the example content into it. Enter the active reservation values, then render the template:
 
 ```bash
-source final_lab/bin/activate
+source final_lab2/bin/activate
 nano .env
 python scripts/configure_static_routes.py --dry-run
 ```
@@ -167,11 +167,36 @@ For each metric:
 1. Use the device profile and the YANG set downloaded from the active IOS XE reservation.
 2. Select **Protocols > RESTCONF**, load the operational module, and use **Search module** to locate the required container or leaf.
 3. Select that node and choose **Generate APIs**.
-4. In the generated Swagger view, select `GET`, set `Accept: application/yang-data+json`, and choose **Try it out**.
-5. Confirm that the request returns `200 OK` and that the JSON includes the field consumed by the portal.
-6. Record the device resource path after `/restconf/data/`. Do not copy the Yangsuite proxy hostname or proxy prefix.
-7. When selecting one interface list entry, allow Yangsuite to generate the encoded list-key syntax for `GigabitEthernet1`; do not paste an XPath predicate into a RESTCONF URI.
-8. Test each device URI with `curl` before adding it to Python.
+4. Use the generated API information to identify the `GET` resource path.
+   Copy the device resource path that follows `/restconf/data/`; do not copy a
+   Yangsuite proxy hostname or proxy prefix. Validate the request directly
+   against IOS XE with Postman.
+5. Open Postman and create a new **HTTP Request**. Set the method to `GET` and
+   enter the direct IOS XE URL:
+
+   ```text
+   https://<IOSXE_HOST>:<IOSXE_RESTCONF_PORT>/restconf/data/<generated-resource-path>
+   ```
+
+6. On the **Authorization** tab, select **Basic Auth** and enter the active IOS
+   XE reservation username and password.
+7. On the **Headers** tab, add:
+
+   ```text
+   Accept: application/yang-data+json
+   ```
+
+8. The sandbox normally uses a self-signed HTTPS certificate. For this
+   controlled assessment only, open **Postman Settings > General** and disable
+   **SSL certificate verification** if certificate validation prevents the
+   request.
+9. Select **Send** and confirm that IOS XE returns `200 OK`. Inspect the JSON
+   response and verify that it includes the field consumed by the portal.
+10. When selecting one interface list entry, allow Yangsuite to generate the
+    encoded list-key syntax for `GigabitEthernet1`; do not paste an XPath
+    predicate into a RESTCONF URI.
+11. Repeat the Postman request for CPU, memory, and interface data before
+    placing any resource path into Python.
 
 Open [src/restconf_monitor.py](src/restconf_monitor.py) and complete:
 

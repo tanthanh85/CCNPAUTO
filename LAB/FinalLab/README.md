@@ -58,15 +58,15 @@ Create one GitLab.com repository named `ccnpauto_final_assessment` if your instr
 
 Each project includes its own `requirements.txt` file. Use a separate virtual
 environment inside each project folder so one project's dependencies do not
-hide a dependency fault in the other project. Name both isolated environments
-`final_lab`.
+hide a dependency fault in the other project. Name the Project 1 environment
+`final_lab1` and the Project 2 environment `final_lab2`.
 
 Prepare Project 1 first:
 
 ```bash
 cd ~/ccnpauto-workspace/final_assessment/Project1_NXOS_CLI_VLAN
-python3 -m venv final_lab
-source final_lab/bin/activate
+python3 -m venv final_lab1
+source final_lab1/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
@@ -76,8 +76,8 @@ After finishing Project 1, deactivate its environment and prepare Project 2:
 ```bash
 deactivate
 cd ~/ccnpauto-workspace/final_assessment/Project2_IOSXE_MODEL_DRIVEN
-python3 -m venv final_lab
-source final_lab/bin/activate
+python3 -m venv final_lab2
+source final_lab2/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```

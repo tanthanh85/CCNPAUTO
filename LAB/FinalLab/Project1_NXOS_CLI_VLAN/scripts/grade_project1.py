@@ -43,7 +43,7 @@ def grade_dependency() -> int:
             "the template-rendering module imported by apply_vlans.py is unavailable",
             "Read the ModuleNotFoundError and scripts/apply_vlans.py, identify "
             "which distribution supplies the missing template module, and "
-            "install it in the active final_lab environment.",
+            "install it in the active final_lab1 environment.",
         )
         return 0
 
@@ -56,7 +56,7 @@ def grade_dependency() -> int:
             10,
             f"the template-rendering module could not be imported: {exc}",
             "Install the package that supplies the imported template module "
-            "in the active final_lab environment.",
+            "in the active final_lab1 environment.",
         )
         return 0
 
@@ -66,7 +66,7 @@ def grade_dependency() -> int:
         10,
         10,
         f"required template module is importable (version {version})",
-        "The missing template-rendering dependency is installed in final_lab.",
+        "The missing template-rendering dependency is installed in final_lab1.",
     )
     return 10
 

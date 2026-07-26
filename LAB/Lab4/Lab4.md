@@ -388,7 +388,64 @@ git commit -m "Use NetBox as loopback source of truth"
 git push -u origin feature/netbox-source-of-truth
 ```
 
-Create a merge request into `main`. Include validation output and the number of reconciled loopbacks, but do not include tokens, passwords, or full sensitive inventory responses. Merge, then synchronize locally.
+### Create the merge request in GitLab
+
+The feature branch now exists on GitLab because it was pushed in the previous step. Create a merge request as follows:
+
+1. Sign in to GitLab.com and open the `network_automation_project` project.
+2. In the left sidebar, select **Code > Merge requests**.
+3. Select **New merge request**.
+4. Under **Source branch**, select `feature/netbox-source-of-truth`.
+5. Under **Target branch**, select `main`.
+6. Confirm that both branches belong to `network_automation_project`, then select **Compare branches and continue**.
+7. Set the title to `Use NetBox as loopback source of truth`.
+8. In the description, briefly state:
+   - YAML is no longer the active loopback source of truth.
+   - NetBox interfaces and IP addresses are normalized before configuration.
+   - Validation completed successfully.
+   - The number of loopbacks retrieved or reconciled.
+9. Do not paste a NetBox token, device password, complete environment file, or sensitive API response into the description.
+10. Leave the merge request out of draft status. If an instructor or lab partner is available, select that person under **Reviewers**. The learner can remain the assignee.
+11. Select **Create merge request**.
+
+### Review and approve the merge request
+
+Open the new merge request and review it before approving:
+
+1. At the top of the page, confirm that the direction is:
+
+   ```text
+   feature/netbox-source-of-truth → main
+   ```
+
+2. Select the **Commits** tab and confirm that the expected migration commit is present.
+3. Select the **Changes** tab and inspect every changed file.
+4. Confirm that the changes contain the NetBox source module, loopback renderer, scripts, and dependency update.
+5. Confirm that `.env`, API tokens, passwords, generated logs, and unrelated files are absent from the changes.
+6. Return to the **Overview** tab and check the merge request widget. Resolve any reported merge conflict or open discussion before proceeding.
+7. The assigned reviewer selects **Approve** in the merge request widget. A green approval indicator should appear.
+
+GitLab project settings determine who can approve. If GitLab does not allow the merge request author to approve their own work, the instructor or another eligible project member must open the same merge request and select **Approve**. Do not share accounts or weaken an approval rule merely to make the button appear. On a personal GitLab Free project, approval may be optional, but learners should still complete the review steps before merging.
+
+### Merge the approved change
+
+After approval:
+
+1. Confirm that the merge request is not marked as draft.
+2. Confirm there are no merge conflicts, unresolved discussions, or failed required pipeline jobs.
+3. In the merge request widget, select **Merge**. If GitLab displays a confirmation dialog, confirm the merge.
+4. Wait until the page reports **Merged** and shows `main` as the target branch.
+5. Optionally allow GitLab to delete `feature/netbox-source-of-truth` after the merge. The branch history remains available through the merge request and commit history.
+
+After the merge succeeds, return to the terminal. Switch the local repository back to `main` and pull the merged commit from GitLab:
+
+```bash
+git switch main
+git pull
+git status
+```
+
+`git status` should report that the local `main` branch is up to date with `origin/main`. Continue to Lab 5 from this synchronized `main` branch.
 
 ## Key Takeaways
 
@@ -405,3 +462,5 @@ Lab 5 keeps this NetBox workflow but moves the IOS XE username and password from
 - [NetBox documentation](https://netboxlabs.com/docs/netbox/)
 - [NetBox REST API](https://netboxlabs.com/docs/netbox/integrations/rest-api/)
 - [pynetbox documentation](https://pynetbox.readthedocs.io/)
+- [GitLab: Create merge requests](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
+- [GitLab: Merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)

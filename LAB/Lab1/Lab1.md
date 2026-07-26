@@ -582,7 +582,7 @@ cd netbox-docker
 
 Using the VS Code Explorer, copy and paste `CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml` into `~/lab-services/netbox-docker/`, then rename it `docker-compose.override.yml`.
 
-The override places NetBox, its worker, PostgreSQL, and both Valkey services in host network mode. NetBox listens on port 8080, while PostgreSQL on 5432, Valkey on 6379, and the cache Valkey on 6380 are explicitly bound to `127.0.0.1`. This lets the NetBox worker use the workstation's Cisco DevNet VPN and cloud route without exposing its database and caches to the lab network. Check that these ports are free before starting:
+Keep the upstream `docker-compose.yml` unchanged. Docker Compose automatically combines it with a file named exactly `docker-compose.override.yml` in the same folder. The supplied override places the NetBox services in host network mode, so NetBox uses the workstation's DNS, Internet connection, and route to `gitlab.com`. NetBox listens on port 8080, while PostgreSQL on 5432, Valkey on 6379, and the cache Valkey on 6380 are bound to `127.0.0.1`. Check that these ports are free before starting:
 
 ```bash
 sudo ss -lntp | grep -E ':(8080|5432|6379|6380)\b' || true
@@ -875,6 +875,13 @@ If local Yangsuite was installed:
 
 ```bash
 cd "$HOME/lab-services/yangsuite/docker"
+docker compose stop
+```
+
+Stop NetBox when it is not needed:
+
+```bash
+cd "$HOME/lab-services/netbox-docker"
 docker compose stop
 ```
 

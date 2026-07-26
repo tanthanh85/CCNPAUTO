@@ -167,7 +167,17 @@ Do not delete `src/`, `scripts/`, or their tests. They document the working Pyth
 
 ## Task 2: Install the Ansible Runtime and Collections
 
-Activate the course virtual environment and install the Python packages:
+Vault integration has three separate dependencies in this project:
+
+| Component | Purpose | How it is provided |
+|---|---|---|
+| HashiCorp Vault server and CLI | Stores the IOS XE secret and serves the Vault API | Installed in Lab 1 |
+| Python `hvac` library | Allows the Ansible lookup plugin to communicate with Vault | Existing project `requirements.txt` |
+| `community.hashi_vault` Ansible collection | Supplies the `vault_kv2_get` lookup used by the playbooks | `collections/requirements.yml` |
+
+Installing Ansible alone does not install `community.hashi_vault`. Activate the
+course virtual environment, install the Python requirements, and then install
+all declared Ansible collections. Do not omit the `ansible-galaxy` command:
 
 ```bash
 source ~/.venvs/ccnpauto/bin/activate
@@ -175,6 +185,19 @@ cd ~/ccnpauto-workspace/network_automation_project
 python -m pip install -r requirements.txt
 ansible-galaxy collection install -r collections/requirements.yml
 ansible --version
+ansible-galaxy collection list community.hashi_vault
+ansible-doc -t lookup community.hashi_vault.vault_kv2_get
+```
+
+The collection list must show `community.hashi_vault`, and `ansible-doc` must
+display documentation for `vault_kv2_get`. If either command reports that the
+collection or plugin cannot be found, stop and repeat the collection
+installation before running a playbook.
+
+The same `collections/requirements.yml` also installs `cisco.ios`,
+`ansible.netcommon`, and `ansible.utils`. Review the complete installed set:
+
+```bash
 ansible-galaxy collection list | grep -E 'cisco.ios|ansible.netcommon|community.hashi_vault|ansible.utils'
 ```
 
@@ -424,7 +447,8 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 
 | Symptom | Likely cause | First action |
 |---|---|---|
-| Collection or module not found | Collections were not installed in the active environment | Run `ansible-galaxy collection install -r collections/requirements.yml` |
+| `community.hashi_vault` or `vault_kv2_get` not found | The Vault Ansible collection was not installed for the active user | Run `ansible-galaxy collection install -r collections/requirements.yml`, then verify with `ansible-doc -t lookup community.hashi_vault.vault_kv2_get` |
+| Vault lookup reports that `hvac` is missing | The Python requirements were not installed in the active virtual environment | Activate `~/.venvs/ccnpauto`, run `python -m pip install -r requirements.txt`, and retry |
 | NetBox task fails but details are hidden | `no_log` protects the token | Test NetBox health, token permissions, device name, and tag without printing the token |
 | No managed interfaces returned | Wrong NetBox device/tag or objects are not Virtual | Review the NetBox interface records from Lab 4 |
 | Validation reports address failure | Missing, duplicate, non-IPv4, or non-`/32` assignment | Correct the authoritative NetBox record |

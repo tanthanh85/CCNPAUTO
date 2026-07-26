@@ -152,6 +152,12 @@ In **Settings > CI/CD > Variables**, create these variables. Mark secrets as mas
 | `OSPF_PROCESS_ID` | `1` | Protected |
 | `OSPF_AREA` | `0` | Protected |
 
+Enter each value in the row with the matching key. In particular,
+`NETBOX_TAG` is the NetBox tag **slug** `automation-managed`; it is not a URL.
+`http://127.0.0.1:8200` belongs only in `VAULT_ADDR`. After saving the
+variables, review the table once more before starting the pipeline because an
+incorrect value is injected into every job that uses that variable.
+
 The Vault token authenticates the pipeline to Vault; the IOS XE username and password remain inside Vault. The root development token is accepted only in this single-user lab. Production CI should obtain a short-lived token through OIDC/JWT or AppRole with a read-only secret policy.
 
 ## Task 5: Review the Pipeline

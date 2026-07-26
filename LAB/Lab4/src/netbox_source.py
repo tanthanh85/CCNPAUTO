@@ -18,8 +18,14 @@ class NetBoxSourceError(ValueError):
 
 class NetBoxLoopbackSource:
     LOOPBACK_NAME = re.compile(r"^Loopback(?P<id>\d+)$")
+    TAG_SLUG = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
     def __init__(self, url, token, device_name, tag_slug="automation-managed"):
+        if not self.TAG_SLUG.fullmatch(tag_slug):
+            raise NetBoxSourceError(
+                "NETBOX_TAG must contain a NetBox tag slug such as "
+                f"'automation-managed'; received {tag_slug!r}"
+            )
         self.device_name = device_name
         self.tag_slug = tag_slug
         self.api = pynetbox.api(url, token=token)

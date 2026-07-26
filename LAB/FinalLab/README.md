@@ -28,7 +28,6 @@ You need access to:
 - Cisco IOS XE reservable sandbox router
 - Access to local Cisco Yangsuite at `https://localhost:8443` or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`
 - HashiCorp Vault from Lab 1
-- Python virtual environment from earlier labs
 
 The assessment does not use NetBox, TIG, or GitLab Runner. Stop them to preserve workstation resources, then verify Vault and the selected Yangsuite option:
 
@@ -41,7 +40,7 @@ sudo systemctl stop gitlab-runner
 vault status
 ```
 
-If `vault status` fails, start the Lab 5 development server in a dedicated terminal and recreate the assessment secret. For local Yangsuite, start it from `~/lab-services/yangsuite/docker`; otherwise open Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
+If `vault status` fails, start the development server in a dedicated terminal and recreate the assessment secret. For local Yangsuite, start it from `~/lab-services/yangsuite/docker`; otherwise open Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
 
 ## Suggested Working Directory
 

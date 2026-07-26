@@ -580,9 +580,24 @@ git clone --branch release --depth 1 \
 cd netbox-docker
 ```
 
-Using the VS Code Explorer, copy and paste `CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml` into `~/lab-services/netbox-docker/`, then rename it `docker-compose.override.yml`.
+Open the existing `~/lab-services/netbox-docker/docker-compose.yml` in VS Code. In the `netbox` service, add the following port mapping immediately after `user: "netbox:root"`:
 
-Keep the upstream `docker-compose.yml` unchanged. Docker Compose automatically combines it with a file named exactly `docker-compose.override.yml` in the same folder. The supplied override keeps the upstream NetBox bridge network and publishes the NetBox web service as `127.0.0.1:8080`. PostgreSQL and both Valkey services remain private inside the Compose network. NetBox and its worker can still initiate outbound HTTPS connections to `gitlab.com` through Docker's normal Internet access.
+```yaml
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+In the existing `netbox` health check, change `start_period` to `300s` and add `retries: 5`. This gives the first database migration enough time on a smaller workstation.
+
+The file uses the `netbox` service as a YAML template for `netbox-worker`. Add `ports: []` immediately below `<<: *netbox` so the worker does not inherit the web port:
+
+```yaml
+  netbox-worker:
+    <<: *netbox
+    ports: []
+```
+
+Save the file. The deployment retains its normal Docker bridge network: PostgreSQL and both Valkey services remain private, while NetBox and its worker can make outbound HTTPS connections to `gitlab.com`.
 
 Check that the web port is free before starting:
 

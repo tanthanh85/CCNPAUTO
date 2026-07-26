@@ -66,7 +66,6 @@ Start the NetBox Docker Compose project installed in Lab 1:
 cd ~/lab-services/netbox-docker
 docker compose up -d
 docker compose ps
-docker compose config | grep -n "network_mode: host"
 ```
 
 Open `http://127.0.0.1:8080` and sign in with the administrator created in Lab 1.

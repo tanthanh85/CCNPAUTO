@@ -87,7 +87,7 @@ minikube start \
   --memory=4096
 ```
 
-Minikube’s Docker driver creates a local Kubernetes node inside a managed container. This is an intentional exception to the course’s normal host-networked application containers because Kubernetes must create and control its own pod and service networks.
+Minikube’s Docker driver creates a local Kubernetes node inside a managed container. Kubernetes must create and control its own pod and service networks, so Minikube does not use the host-network pattern employed by automation containers that must follow DevNet VPN routes.
 
 Verify the cluster:
 

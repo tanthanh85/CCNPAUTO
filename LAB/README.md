@@ -453,10 +453,10 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Local TIG stack | Automation metrics and local C8KV telemetry | Grafana at `http://127.0.0.1:3000` |
 | Cisco DevNet sandbox TIG stack | Pre-integrated C8KV telemetry | Telegraf `10.10.20.50:57500`; Grafana `http://10.10.20.50:3000` |
 | Cisco Catalyst C8KV reservable sandbox | CLI, NETCONF, RESTCONF, and telemetry target | Reservation-provided endpoint and credentials |
-| Docker | Local services and repeatable automation runtime | Linux host networking |
+| Docker | Local services and repeatable automation runtime | Host networking where DevNet VPN access is required; bridge networking for NetBox |
 | Ollama or cloud LLM | Route-assistant language model | Learner-selected provider |
 
-Course containers use Linux host networking so that they inherit the workstation’s Cisco DevNet VPN route, DNS, and proxy behavior. Use `127.0.0.1` for host-networked local dependencies rather than Docker service names. Minikube in Optional Lab 19 is a deliberate exception because Kubernetes manages its own network.
+Containers that must follow the workstation’s Cisco DevNet VPN route use Linux host networking. NetBox remains on its standard Compose bridge network and publishes only `127.0.0.1:8080`; Docker bridge networking still permits its worker to call GitLab.com. Minikube in Optional Lab 19 manages its own Kubernetes network.
 
 ## Start Only What the Current Release Needs
 

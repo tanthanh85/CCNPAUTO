@@ -332,7 +332,7 @@ docker run --rm --network host hello-world
 
 > **Security note:** Membership in the `docker` group is effectively root-level access because a member can mount host filesystems or start privileged containers. Production systems should limit this membership and consider rootless Docker or stronger workload isolation.
 
-All course containers use Linux host networking so that they follow the learner workstation's Cisco DevNet VPN routes, DNS configuration, proxy configuration, and Internet path. Host networking removes Docker network address translation and Docker service-name DNS; containers therefore use `127.0.0.1` to reach other host-networked services. It also means a container can bind directly to a workstation interface. Before starting a service, inspect listening ports with `sudo ss -lntp`, keep host firewall policy enabled, and never expose NetBox, InfluxDB, Grafana, Yangsuite, or telemetry receivers to an untrusted network.
+Containers that must reach Cisco sandbox resources use Linux host networking so that they follow the learner workstation's DevNet VPN routes. NetBox is a deliberate exception: it uses the standard Docker Compose bridge network because it needs only normal outbound Internet access to `gitlab.com`. Its web interface is published only on `127.0.0.1:8080`. Before starting a service, inspect listening ports, keep host firewall policy enabled, and never expose NetBox, InfluxDB, Grafana, Yangsuite, or telemetry receivers to an untrusted network.
 
 ## Task 6: Select a TIG and Grafana Option
 
@@ -582,10 +582,12 @@ cd netbox-docker
 
 Using the VS Code Explorer, copy and paste `CCNPAUTO/LAB/Lab1/files/netbox-compose.override.yml` into `~/lab-services/netbox-docker/`, then rename it `docker-compose.override.yml`.
 
-Keep the upstream `docker-compose.yml` unchanged. Docker Compose automatically combines it with a file named exactly `docker-compose.override.yml` in the same folder. The supplied override places the NetBox services in host network mode, so NetBox uses the workstation's DNS, Internet connection, and route to `gitlab.com`. NetBox listens on port 8080, while PostgreSQL on 5432, Valkey on 6379, and the cache Valkey on 6380 are bound to `127.0.0.1`. Check that these ports are free before starting:
+Keep the upstream `docker-compose.yml` unchanged. Docker Compose automatically combines it with a file named exactly `docker-compose.override.yml` in the same folder. The supplied override keeps the upstream NetBox bridge network and publishes the NetBox web service as `127.0.0.1:8080`. PostgreSQL and both Valkey services remain private inside the Compose network. NetBox and its worker can still initiate outbound HTTPS connections to `gitlab.com` through Docker's normal Internet access.
+
+Check that the web port is free before starting:
 
 ```bash
-sudo ss -lntp | grep -E ':(8080|5432|6379|6380)\b' || true
+sudo ss -lntp | grep -E ':8080\b' || true
 ```
 
 Pull and start NetBox:

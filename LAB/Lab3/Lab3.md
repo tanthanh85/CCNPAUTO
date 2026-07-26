@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-Lab 2 confirmed that the workstation can retrieve Cisco sandbox IOS XE router information. Lab 3 now begins the durable project that learners will extend through Lab 12. Learners create a separate GitLab repository named `network_automation_project`, define one or more loopback interfaces in YAML, validate the data, render IOS XE commands with a Jinja2 template, configure a reserved router with Netmiko, and verify the resulting interface state.
+Lab 2 confirmed that the workstation can retrieve Cisco sandbox IOS XE router information. Lab 3 now begins the durable project that learners will extend through Lab 9. Learners create a separate GitLab repository named `network_automation_project`, define one or more loopback interfaces in YAML, validate the data, render IOS XE commands with a Jinja2 template, configure a reserved router with Netmiko, and verify the resulting interface state.
 
 This first version uses `data/loopbacks.yaml` as a small source of truth. Lab 4 will replace that file as the active data source with NetBox. Lab 5 will replace environment-file device credentials with Vault. Lab 6 will add NETCONF-based OSPF configuration, and Lab 7 will place the complete workflow into GitLab CI/CD.
 
@@ -88,7 +88,7 @@ network_automation_project/
 
 ## Diagnostic Logging Used Throughout the Project
 
-This lab introduces the shared logging component that remains in the cumulative project through Lab 13. Each executable Python script initializes logging before it reads intent or contacts a device. Console messages remain concise at `INFO` level, while optional file logging preserves detailed `DEBUG` evidence for study and troubleshooting.
+This lab introduces the shared logging component that remains in the cumulative project through Lab 9. Each executable Python script initializes logging before it reads intent or contacts a device. Console messages remain concise at `INFO` level, while optional file logging preserves detailed `DEBUG` evidence for study and troubleshooting.
 
 Retain these controls in the existing `.env` file:
 
@@ -132,11 +132,11 @@ git clone \
 cd network_automation_project
 ```
 
-This repository is separate from `lab2_warm_up` and becomes the only repository extended in Labs 4–8.
+This repository is separate from `lab2_warm_up` and becomes the only repository extended in Labs 4–11.
 
 ## Task 2: Copy the Baseline Project
 
-Using the VS Code Explorer, copy and paste `.env.example`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `logs/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–12.
+Using the VS Code Explorer, copy and paste `.env.example`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `logs/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–9.
 
 ```bash
 tree -a -I '.git'
@@ -347,7 +347,7 @@ not from the completed feature branch.
 
 ## Key Takeaways
 
-- `network_automation_project` begins in Lab 3 and continues through Lab 12.
+- `network_automation_project` begins in Lab 3 and continues through Lab 9.
 - YAML provides a simple first source of truth for one or many loopbacks.
 - Validation and preview happen before device access.
 - Jinja2 owns iteration and separates intent from IOS XE syntax.

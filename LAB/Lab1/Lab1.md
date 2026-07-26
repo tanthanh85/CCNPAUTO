@@ -340,7 +340,7 @@ TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, In
 
 ### Option A: Deploy the Complete TIG Stack Locally
 
-This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the appropriate choice when Lab 13 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.
+This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the appropriate choice when Lab 10 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.
 
 The supplied Compose file pins explicit application versions rather than using `latest`. This is particularly important for InfluxDB because its maintainers announced that the `latest` image tag would move from InfluxDB 2 to InfluxDB 3 Core. A silent major-version change would invalidate the initialization variables and Flux configuration used in this lab.
 
@@ -418,7 +418,7 @@ Start it again from `~/lab-services/tig` with `docker compose --env-file .env -f
 
 ### Option B: Use the Cisco DevNet Sandbox TIG Stack
 
-The Cisco Catalyst C8KV sandbox already integrates Telegraf, InfluxDB, and Grafana. For Lab 13, the sandbox router sends gRPC dial-out telemetry to Telegraf at `10.10.20.50` on TCP port `57500`, while learners inspect the stored data through Grafana:
+The Cisco Catalyst C8KV sandbox already integrates Telegraf, InfluxDB, and Grafana. For Lab 10, the sandbox router sends gRPC dial-out telemetry to Telegraf at `10.10.20.50` on TCP port `57500`, while learners inspect the stored data through Grafana:
 
 ```text
 Telegraf: 10.10.20.50:57500/tcp

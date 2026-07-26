@@ -10,12 +10,17 @@ The immediate requirement sounds simple: manage loopback interfaces and OSPF on 
 - How are credentials protected?
 - How can a proposed change be validated before it reaches a device?
 - Which interface should be used when a platform supports CLI, RESTCONF, and NETCONF?
-- What happens when an API times out or rejects requests?
 - How can the team prove what changed, who initiated it, and whether it succeeded?
-- How can drift, performance problems, and operational failures be detected?
+- How can performance problems and operational failures be detected?
 - Where can containers, telemetry, and AI add value without weakening control?
 
-Across this lab program, you will build that workflow in stages. The project begins as a small Python application and develops into a source-of-truth-driven automation service with secret management, model-driven configuration, CI/CD, Ansible orchestration, resilience, logging, observability, containerization, compliance reporting, telemetry, and a controlled AI interface.
+Across this lab program, you will build that workflow in stages. The project
+begins as a small Python application and develops into a
+source-of-truth-driven automation service with secret management,
+model-driven configuration, CI/CD, Ansible orchestration, a reproducible
+container runtime, telemetry, and a controlled AI interface. A final
+standalone API lab then makes pagination and rate-limit recovery observable
+through timestamped evidence.
 
 You are not completing unrelated exercises. You are delivering successive releases of the same enterprise capability.
 
@@ -38,7 +43,7 @@ flowchart LR
     Generate --> Apply["Apply through CLI<br/>or NETCONF"]
     Apply --> IOSXE["Cisco IOS XE"]
     IOSXE --> Verify["Verify observed state"]
-    Verify --> Evidence["Logs, reports,<br/>metrics, artifacts"]
+    Verify --> Evidence["Logs, reports,<br/>and artifacts"]
 
     IOSXE --> Telemetry["Model-driven telemetry"]
     Telemetry --> TIG["Telegraf, InfluxDB,<br/>and Grafana"]
@@ -92,11 +97,18 @@ Labs 3–6 create the first useful automation product in `network_automation_pro
 
 ### Workstream 3: Make the Product Operable
 
-Labs 7–13 convert the application into a production-style service. GitLab CI/CD responds to intent changes, Ansible takes over orchestration, API calls become resilient, execution becomes observable, the runtime is containerized, drift is reported, and device telemetry is visualized.
+Labs 7–9 convert the application into a production-style service. GitLab
+CI/CD responds to intent changes, Ansible takes over orchestration, and the
+execution environment is packaged as a controlled container image. Lab 10
+then extends the operational view with model-driven device telemetry.
 
 ### Workstream 4: Add a Controlled AI Interface
 
-Lab 14 is a separate application called `ai_route_assistant`. It demonstrates how an LLM can answer operational routing questions while FastMCP—not the model—controls access to RESTCONF and live network evidence.
+Lab 11 is a separate application called `ai_route_assistant`. It demonstrates
+how an LLM can answer operational routing questions while FastMCP—not the
+model—controls access to RESTCONF and live network evidence. Optional Lab 20
+is also standalone: it provides a deterministic local API for practising
+pagination and HTTP `429` recovery.
 
 The complete learning path is shown below. Every required lab is displayed separately because each one introduces a distinct release of the system. The optional labs branch from the completed core program and can be selected according to platform access, course time, and learner interest.
 
@@ -110,22 +122,20 @@ flowchart TD
     L6["Lab 6<br/>NETCONF and YANG OSPF"]
     L7["Lab 7<br/>Event-driven GitLab CI/CD"]
     L8["Lab 8<br/>Ansible orchestration"]
-    L9["Lab 9<br/>API resilience"]
-    L10["Lab 10<br/>Logging and observability"]
-    L11["Lab 11<br/>Containerized runtime"]
-    L12["Lab 12<br/>Drift and compliance"]
-    L13["Lab 13<br/>Model-driven telemetry"]
-    L14["Lab 14<br/>AI route assistant"]
+    L9["Lab 9<br/>Containerized runtime"]
+    L10["Lab 10<br/>Model-driven telemetry"]
+    L11["Lab 11<br/>AI route assistant"]
     FINAL["Final Assessment<br/>Enterprise automation delivery"]
     OPTIONAL["Optional specialist labs"]
-    L15["Lab 15<br/>ACI with Terraform"]
-    L16["Lab 16<br/>Cisco NSO OSPF service"]
-    L17["Lab 17<br/>NETCONF data in Splunk"]
-    L18["Lab 18<br/>IOS XE application hosting"]
-    L19["Lab 19<br/>Kubernetes with Minikube"]
-    L20["Lab 20<br/>pyATS CRC testing"]
-    L21["Lab 21<br/>RESTCONF with trusted TLS"]
-    L22["Lab 22<br/>Asynchronous RESTCONF"]
+    L12["Optional Lab 12<br/>ACI with Terraform"]
+    L13["Optional Lab 13<br/>Cisco NSO OSPF service"]
+    L14["Optional Lab 14<br/>NETCONF data in Splunk"]
+    L15["Optional Lab 15<br/>IOS XE application hosting"]
+    L16["Optional Lab 16<br/>Kubernetes with Minikube"]
+    L17["Optional Lab 17<br/>pyATS CRC testing"]
+    L18["Optional Lab 18<br/>RESTCONF with trusted TLS"]
+    L19["Optional Lab 19<br/>Asynchronous RESTCONF"]
+    L20["Optional Lab 20<br/>Pagination and HTTP 429"]
 
     L1 --> L2
     L2 --> L3
@@ -137,22 +147,23 @@ flowchart TD
     L8 --> L9
     L9 --> L10
     L10 --> L11
-    L11 --> L12
-    L12 --> L13
-    L13 --> L14
-    L14 --> FINAL
-    L14 --> OPTIONAL
+    L11 --> FINAL
+    L11 --> OPTIONAL
+    OPTIONAL --> L12
+    OPTIONAL --> L13
+    OPTIONAL --> L14
     OPTIONAL --> L15
     OPTIONAL --> L16
     OPTIONAL --> L17
     OPTIONAL --> L18
     OPTIONAL --> L19
     OPTIONAL --> L20
-    OPTIONAL --> L21
-    L21 --> L22
 ```
 
-Follow the required labs in order. Labs 3–12 modify the same repository, so each release assumes that the preceding release exists. Lab 13, Lab 14, and the optional labs are separate exercises or projects.
+Follow the required labs in order. Labs 3–9 modify the same repository, so
+each release assumes that the preceding release exists. Labs 10 and 11 are
+separate projects. Optional Labs 12–20 can be selected according to platform
+access, available time, and learner interest.
 
 ## Required Project Journey
 
@@ -285,56 +296,19 @@ This is not a rewrite of the business process. It is a change of implementation 
 
 **Delivery evidence:** syntactically valid playbooks, successful CLI and NETCONF tasks, idempotent repeat execution where supported, verification output, and CI/CD artifacts.
 
-### Phase 5 — Engineer for Failure and Operations
+### Phase 5 — Standardize the Runtime and Observe the Network
 
-#### Lab 9: Add API Resilience
+#### Lab 9: Containerize the Runtime
 
-In [Lab 9](Lab9/Lab9.md), intermittent API failures begin causing unpredictable pipeline results. You implement explicit connection and read timeouts, bounded retries, exponential backoff, jitter, and `Retry-After` processing for HTTP `429`.
-
-The application must distinguish a temporary service condition from an unrecoverable request. A `503` can justify a controlled retry; invalid credentials, invalid data, or an unsupported resource should fail clearly rather than repeat indefinitely. The objective is not to hide failure but to make failure behavior deliberate.
-
-**Delivery evidence:** simulated retry scenarios, meaningful logs, bounded recovery, and clear terminal errors.
-
-#### Lab 10: Make Automation Observable
-
-In [Lab 10](Lab10/Lab10.md), the service desk asks why a change failed last night and how long successful deployments usually take. Console output alone cannot answer those questions reliably.
-
-You extend the timestamped diagnostic logs with JSON Lines audit events, GitLab artifacts, InfluxDB measurements, and Grafana dashboards. Human-readable job output supports immediate diagnosis, detailed Python logs expose program behavior, structured events record discrete actions, and metrics reveal trends across many executions.
-
-```mermaid
-flowchart LR
-    Run["Automation run"] --> Console["Job output"]
-    Run --> Text["Timestamped debug log"]
-    Run --> JSONL["Structured audit events"]
-    Run --> Metrics["Duration and outcome metrics"]
-    JSONL --> Artifacts["GitLab artifacts"]
-    Metrics --> Influx["InfluxDB"]
-    Influx --> Grafana["Grafana dashboard"]
-```
-
-**Delivery evidence:** correlated execution ID, timestamped logs, structured events, retained pipeline artifacts, metrics, and a working dashboard.
-
-#### Lab 11: Containerize the Runtime
-
-In [Lab 11](Lab11/Lab11.md), two runners produce different results because their Python packages and Ansible collections are not identical. You package the automation runtime in a Docker image with controlled dependencies.
+In [Lab 9](Lab9/Lab9.md), two runners produce different results because their Python packages and Ansible collections are not identical. You package the automation runtime in a Docker image with controlled dependencies.
 
 The application code remains in Git, secrets remain outside the image, and the container uses host networking so it can follow the learner workstation’s DevNet VPN and local-service routes. A reproducible runtime makes pipeline behavior easier to test, transfer, and support.
 
 **Delivery evidence:** buildable image, pinned dependencies, host-networked execution, successful automation from the container, and no embedded secrets.
 
-#### Lab 12: Detect Drift and Report Compliance
+#### Lab 10: Add Model-Driven Telemetry
 
-In [Lab 12](Lab12/Lab12.md), an engineer changes the router outside the approved workflow. NetBox still contains the desired state, but the device has drifted.
-
-You build a read-only compliance pipeline that compares intended loopback and OSPF state with observed IOS XE state. The report identifies missing, unexpected, and inconsistent configuration and preserves machine-readable evidence. It does not automatically repair the router.
-
-This separation is intentional. Detection establishes facts; remediation changes production. In many enterprises, the latter requires a separate approval, maintenance window, or ownership decision.
-
-**Delivery evidence:** deterministic comparison logic, human-readable summary, structured drift report, and pipeline artifacts without automatic remediation.
-
-#### Lab 13: Add Model-Driven Telemetry
-
-In [Lab 13](Lab13/Lab13.md), the network operations team needs continuous visibility into CPU, memory, and `GigabitEthernet1` traffic. Polling occasional show commands cannot provide an effective operational timeline.
+In [Lab 10](Lab10/Lab10.md), the network operations team needs continuous visibility into CPU, memory, and `GigabitEthernet1` traffic. Polling occasional show commands cannot provide an effective operational timeline.
 
 You use Yangsuite to discover the required operational paths, examine NETCONF and gNMI dial-in collection, and manually configure gRPC dial-out subscriptions beginning with subscription ID 201. In the Cisco Catalyst C8KV sandbox, telemetry is sent to the pre-integrated Telegraf service at `10.10.20.50:57500` and displayed in Grafana at `http://10.10.20.50:3000`. If you use a locally hosted C8KV, you start the local TIG services from Lab 1 and send telemetry to the workstation on TCP port `57000`.
 
@@ -352,9 +326,9 @@ At the end of the lab, you can explain the trade-off between a collector request
 
 ### Phase 6 — Add AI Without Giving Up Control
 
-#### Lab 14: Build an AI Route Assistant
+#### Lab 11: Build an AI Route Assistant
 
-In [Lab 14](Lab14/Lab14.md), operations staff want to ask natural-language questions such as “How many static routes exist?”, “Which next hop reaches this prefix?”, and “Show connected routes with their metrics.”
+In [Lab 11](Lab11/Lab11.md), operations staff want to ask natural-language questions such as “How many static routes exist?”, “Which next hop reaches this prefix?”, and “Show connected routes with their metrics.”
 
 You build `ai_route_assistant`, a Flask application with a professional dark interface. The assistant can use local Qwen through Ollama or a learner-owned OpenAI or Anthropic account. A smaller local Qwen model can be selected when workstation resources are limited.
 
@@ -391,29 +365,28 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | Lab 6 | NETCONF and native YANG configure OSPF | Structured, model-driven change |
 | Lab 7 | NetBox event triggers GitLab CI/CD | Repeatable and traceable delivery |
 | Lab 8 | Ansible coordinates the workflow | An operator-friendly orchestration layer |
-| Lab 9 | Timeouts, retries, backoff, and rate-limit handling | Predictable behavior during dependency failures |
-| Lab 10 | Logs, audit events, artifacts, metrics, and dashboards | Troubleshooting and operational accountability |
-| Lab 11 | Containerized execution environment | Reproducibility across runners |
-| Lab 12 | Read-only drift comparison | Compliance evidence without unsafe auto-remediation |
-| Lab 13 | Streaming model-driven telemetry | Continuous network visibility |
-| Lab 14 | FastMCP-backed route assistant | Controlled natural-language operations |
+| Lab 9 | Containerized execution environment | Reproducibility across runners |
+| Lab 10 | Streaming model-driven telemetry | Continuous network visibility |
+| Lab 11 | FastMCP-backed route assistant | Controlled natural-language operations |
+| Optional Lab 20 | Pagination and HTTP 429 simulation | Evidence-based API resilience |
 
 ## Repositories and Deliverables
 
 | Repository | Labs | Role in the program |
 |---|---|---|
 | `lab2_warm_up` | Lab 2 | Disposable readiness exercise for Git, Python, CLI parsing, Postman, and RESTCONF |
-| `network_automation_project` | Labs 3–12 | The main enterprise project, enhanced one release at a time |
-| `ai_route_assistant` | Lab 14 | Standalone Flask, FastMCP, RESTCONF, and LLM application |
-| `optional_lab15_aci_terraform` | Optional Lab 15 | Cisco ACI infrastructure-as-code project |
-| `optional_lab17_splunk_netconf` | Optional Lab 17 | NETCONF telemetry collector and Splunk integration |
-| `optional_lab18_iosxe_app_hosting` | Optional Lab 18 | IOS XE IOx loopback recovery application |
-| `optional_lab19_minikube` | Optional Lab 19 | Standalone beginner Kubernetes workload |
-| `optional_lab20_pyats_crc` | Optional Lab 20 | pyATS/Genie CRC counter test |
-| `optional_lab21_restconf_pki` | Optional Lab 21 | Local CA and certificate-validating RESTCONF client |
-| `optional_lab22_async_restconf` | Optional Lab 22 | Trusted asynchronous RESTCONF collector |
+| `network_automation_project` | Labs 3–9 | The main enterprise project, enhanced one release at a time |
+| `ai_route_assistant` | Lab 11 | Standalone Flask, FastMCP, RESTCONF, and LLM application |
+| `standalone_http_resilience` | Optional Lab 20 | Local Flask simulation, pagination client, bounded backoff, and CSV evidence |
+| `optional_lab12_aci_terraform` | Optional Lab 12 | Cisco ACI infrastructure-as-code project |
+| `optional_lab14_splunk_netconf` | Optional Lab 14 | NETCONF telemetry collector and Splunk integration |
+| `optional_lab15_iosxe_app_hosting` | Optional Lab 15 | IOS XE IOx loopback recovery application |
+| `optional_lab16_minikube` | Optional Lab 16 | Standalone beginner Kubernetes workload |
+| `optional_lab17_pyats_crc` | Optional Lab 17 | pyATS/Genie CRC counter test |
+| `optional_lab18_restconf_pki` | Optional Lab 18 | Local CA and certificate-validating RESTCONF client |
+| `optional_lab19_async_restconf` | Optional Lab 19 | Trusted asynchronous RESTCONF collector |
 
-Optional Lab 16 uses an NSO development runtime and service package rather than a conventional standalone application repository.
+Optional Lab 13 uses an NSO development runtime and service package rather than a conventional standalone application repository.
 
 ## Optional Specialist Assignments
 
@@ -421,14 +394,28 @@ The optional labs apply the same engineering principles to specialist roles. The
 
 | Assignment | Enterprise situation | Capability delivered |
 |---|---|---|
-| [Optional Lab 15](Lab15/Lab15.md) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
-| [Optional Lab 16](Lab16/Lab16.md) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
-| [Optional Lab 17](Lab17/Lab17.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
-| [Optional Lab 18](Lab18/Lab18.md) | A branch needs a lightweight recovery function close to the device. | An IOx Docker application receives IOS XE syslog and uses Netmiko to re-enable `Loopback1`. |
-| [Optional Lab 19](Lab19/Lab19.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
-| [Optional Lab 20](Lab20/Lab20.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC counters and preserve structured evidence. |
-| [Optional Lab 21](Lab21/Lab21.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
-| [Optional Lab 22](Lab22/Lab22.md) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 21. |
+| [Optional Lab 12](Lab12/Lab12.md) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
+| [Optional Lab 13](Lab13/Lab13.md) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
+| [Optional Lab 14](Lab14/Lab14.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
+| [Optional Lab 15](Lab15/Lab15.md) | A branch needs a lightweight recovery function close to the device. | An IOx Docker application receives IOS XE syslog and uses Netmiko to re-enable `Loopback1`. |
+| [Optional Lab 16](Lab16/Lab16.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
+| [Optional Lab 17](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC counters and preserve structured evidence. |
+| [Optional Lab 18](Lab18/Lab18.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
+| [Optional Lab 19](Lab19/Lab19.md) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 18. |
+
+## Optional Standalone API Resilience Assignment
+
+[Optional Lab 20](Lab20/Lab20.md) is independent of the Cisco sandboxes and the
+cumulative project. A local Flask API exposes 100 interface records in pages
+of 20 and deliberately returns `429 Too Many Requests` when a client exceeds
+its allowance. Learners follow server-provided pagination links, respect
+`Retry-After`, apply bounded backoff, run 100 logical requests, and preserve
+timestamped CSV evidence of successful, limited, recovered, and failed
+attempts.
+
+The local simulation is intentional. It guarantees that every learner can
+observe a rate limit without sending abusive traffic to a shared controller
+or depending on an external platform's changing policy.
 
 ## Final Assessment: Production Acceptance
 
@@ -456,7 +443,7 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Docker | Local services and repeatable automation runtime | Host networking where DevNet VPN access is required; bridge networking for NetBox |
 | Ollama or cloud LLM | Route-assistant language model | Learner-selected provider |
 
-Containers that must follow the workstation’s Cisco DevNet VPN route use Linux host networking. NetBox remains on its standard Compose bridge network and publishes only `127.0.0.1:8080`; Docker bridge networking still permits its worker to call GitLab.com. Minikube in Optional Lab 19 manages its own Kubernetes network.
+Containers that must follow the workstation’s Cisco DevNet VPN route use Linux host networking. NetBox remains on its standard Compose bridge network and publishes only `127.0.0.1:8080`; Docker bridge networking still permits its worker to call GitLab.com. Minikube in Optional Lab 16 manages its own Kubernetes network.
 
 ## Start Only What the Current Release Needs
 
@@ -481,9 +468,9 @@ Treat every token as a credential. Give it only the permissions required by the 
 | GitLab pipeline trigger | **Settings > CI/CD > Pipeline trigger tokens** | Private NetBox webhook URL |
 | InfluxDB | **Load Data > API Tokens > Generate Custom API Token** with write access only to the required bucket | Masked `INFLUX_TOKEN` |
 | Grafana | No API token is required for normal browser dashboard work. | Interactive dashboard creation |
-| OpenAI | Create a project API key in the learner’s OpenAI API platform account. | `OPENAI_API_KEY` in Lab 14’s untracked `.env` |
-| Anthropic | Create a lab-specific key in the Anthropic Console workspace. | `ANTHROPIC_API_KEY` in Lab 14’s untracked `.env` |
-| Splunk HEC | **Settings > Data Inputs > HTTP Event Collector** in Splunk Web | `SPLUNK_HEC_TOKEN` in Optional Lab 17 |
+| OpenAI | Create a project API key in the learner’s OpenAI API platform account. | `OPENAI_API_KEY` in Lab 11’s untracked `.env` |
+| Anthropic | Create a lab-specific key in the Anthropic Console workspace. | `ANTHROPIC_API_KEY` in Lab 11’s untracked `.env` |
+| Splunk HEC | **Settings > Data Inputs > HTTP Event Collector** in Splunk Web | `SPLUNK_HEC_TOKEN` in Optional Lab 14 |
 
 Cisco DevNet sandbox Yangsuite and Grafana use credentials supplied with the reservation; the standard lab does not require a separately generated API token.
 
@@ -530,11 +517,12 @@ After completing the required labs, you will have more than a collection of scri
 - CLI automation for broad compatibility and NETCONF/YANG for structured configuration.
 - An event-driven GitLab CI/CD path from approved intent to verified device state.
 - Equivalent orchestration patterns in Python and Ansible.
-- Resilient API behavior under timeouts, server errors, and rate limits.
-- Diagnostic logs, audit events, retained artifacts, and operational dashboards.
 - A reproducible containerized execution environment.
-- Read-only drift and compliance reporting.
 - Model-driven network telemetry and Grafana visualization.
 - An AI assistant whose access to live network data is constrained by FastMCP tools.
 
 Most importantly, you will be able to explain why each component exists and what risk it addresses. That is the difference between running an automation script and engineering a network automation system.
+
+Learners who complete Optional Lab 20 can additionally demonstrate a
+resilient API client that follows pagination, recovers from HTTP `429`, and
+preserves request-level evidence.

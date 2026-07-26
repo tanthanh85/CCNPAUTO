@@ -1,6 +1,8 @@
-.env
-.terraform/
-*.tfstate
-*.tfstate.*
-*.plan
-crash.log
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+package.tar
+*.tar
+package_config.ini

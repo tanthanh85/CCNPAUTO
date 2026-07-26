@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 def main() -> int:
     load_dotenv()
-    configure_logging("check_lab14")
-    logger.info("Starting Lab 14 readiness validation")
+    configure_logging("check_lab11")
+    logger.info("Starting Lab 11 readiness validation")
 
     failures: list[str] = []
 
@@ -53,14 +53,14 @@ def main() -> int:
                 )
 
     if failures:
-        logger.error("Lab 14 readiness failed failures=%s", failures)
-        print("Lab 14 readiness check failed:")
+        logger.error("Lab 11 readiness failed failures=%s", failures)
+        print("Lab 11 readiness check failed:")
         for failure in failures:
             print(f"- {failure}")
         return 1
 
-    logger.info("Lab 14 readiness passed provider=%s", provider)
-    print(f"Lab 14 readiness check passed for provider: {provider}.")
+    logger.info("Lab 11 readiness passed provider=%s", provider)
+    print(f"Lab 11 readiness check passed for provider: {provider}.")
     return 0
 
 

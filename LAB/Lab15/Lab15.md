@@ -1,226 +1,366 @@
-# Optional Lab 15: Provision Cisco ACI with Terraform
+# Optional Lab 15: Host a Loopback Recovery Application on IOS XE
 
 ## Lab Introduction
 
-An application team needs an isolated three-tier network in Cisco ACI. Creating the tenant, VRF, bridge domain, subnet, application profile, and endpoint groups manually would be repeatable only through an operator's memory. In this optional lab, learners express the same ACI policy as Terraform configuration and deploy it to a Cisco DevNet reservable ACI Simulator sandbox.
+A branch router uses `Loopback1` as a stable management and routing identifier. If an administrator accidentally enters `shutdown` under the interface, routing adjacencies and monitoring can be affected. In this lab, learners host a small closed-loop remediation application directly on an IOx-capable IOS XE router.
 
-Terraform is useful here because the configuration describes the intended end state and records the relationship among ACI managed objects. The provider translates Terraform resources into APIC API operations, while the state file records which remote objects Terraform manages. Consequently, learners must review the plan before applying it and must not treat the state file as a disposable log.
+The application runs as a Docker container with its own IP address. IOS XE sends native syslog directly to the container. When the service recognizes the `%LINK` message indicating that `Loopback1` became administratively down, it uses Netmiko to open an SSH session to IOS XE and sends `interface Loopback1` followed by `no shutdown`.
 
-This lab is standalone and does not modify `network_automation_project`.
+The lab intentionally remains simple. The application does not store audit files, does not use EEM, and does not run through Guest Shell. Runtime messages are visible through the application console and container output only.
 
 ## Learning Objectives
 
-- Explain how the Terraform provider maps resources to ACI managed objects.
-- Authenticate to APIC without placing credentials in HCL files.
-- Create an ACI tenant, VRF, bridge domain, subnet, application profile, and EPGs.
-- Interpret `terraform plan`, `apply`, `state`, and `destroy`.
-- Verify the deployed policy in APIC and through Terraform outputs.
-- Explain why Terraform state must be protected and coordinated.
+- Package a Python service as a Cisco IOx Docker application.
+- Give the application its own routed address through `VirtualPortGroup0`.
+- Send IOS XE syslog directly to the hosted service.
+- Recognize a specific interface shutdown message.
+- Use Netmiko to apply `no shutdown` to a specific interface.
+- Verify a complete observe, decide, act, and verify workflow.
+- Operate and remove an IOx application safely.
 
-## Architecture
+## Application Flow
 
 ```mermaid
-flowchart LR
-    HCL["Terraform HCL<br/>desired ACI policy"] --> TF["Terraform Core"]
-    State["Local state<br/>managed-object identity"] <--> TF
-    TF --> Provider["CiscoDevNet ACI provider"]
-    Provider -->|"HTTPS REST API"| APIC["APIC<br/>reservable ACI simulator"]
-    APIC --> Fabric["Simulated ACI fabric"]
+sequenceDiagram
+    participant O as Operator
+    participant R as IOS XE
+    participant A as IOx application 192.168.200.2
+
+    O->>R: shutdown Loopback1
+    R-->>A: UDP 5514 LINK syslog
+    A->>A: Match administrative-down event
+    A->>R: Netmiko SSH session
+    A->>R: interface Loopback1<br/>no shutdown
+    R-->>A: CLI result
+    R->>R: Loopback1 returns to up
 ```
 
-## Prerequisites
+## Supplied Files
+
+```text
+Lab15/
+├── .dockerignore
+├── .gitignore
+├── Dockerfile
+├── Lab15.md
+├── loopback_recovery.py
+├── package.yaml
+├── package_config.ini
+├── requirements.txt
+├── scripts/
+│   └── send_test_syslog.py
+└── tests/
+    └── test_loopback_recovery.py
+```
+
+## Prerequisites and Platform Boundary
 
 - Ubuntu workstation prepared in Lab 1.
-- Terraform installed and available in the terminal.
-- A GitLab.com account.
-- An active **Cisco ACI Simulator reservable sandbox** reservation.
-- VPN access and the APIC URL and credentials shown in the reservation.
-- Basic understanding of ACI tenants, VRFs, bridge domains, application profiles, and EPGs.
+- Docker and `ioxclient`.
+- A dedicated IOx-capable IOS XE application-hosting platform.
+- Permission to install a custom application and change `Loopback1`.
+- An IOS XE account dedicated to the lab application.
 
-Create a standalone GitLab.com repository named `optional_lab15_aci_terraform`, clone it under `~/ccnpauto-workspace`, and use the VS Code Explorer to copy the files from `CCNPAUTO/LAB/Lab15/` into it, including the hidden `.env.example` file.
+Not every Cisco IOS XE sandbox supports custom application hosting. First verify `show iox`, `show app-hosting infra`, and `show app-hosting list`. Recent platforms may require signed application packages. Do not disable signature enforcement; use an instructor-approved signing workflow or compatible development platform.
 
-## Task 1: Inspect the ACI Object Model
+This lab uses the following isolated subnet unless it conflicts with the selected router:
 
-Before running Terraform, sign in to APIC with the reservation credentials. Inspect these locations:
+| Component | Address |
+|---|---:|
+| IOS XE `VirtualPortGroup0` | `192.168.200.1/30` |
+| IOx application `eth0` | `192.168.200.2/30` |
 
-1. Open **Tenants** and confirm that the learner tenant does not already exist.
-2. Open an existing tenant and examine **Networking > VRFs**.
-3. Examine **Networking > Bridge Domains** and the subnets below a bridge domain.
-4. Examine **Application Profiles** and the endpoint groups below a profile.
+## Task 1: Create the Repository
 
-The hierarchy matters because APIC identifies objects by distinguished names. For example:
+Create a private GitLab.com project named `optional_lab15_iosxe_app_hosting`. Clone it under `~/ccnpauto-workspace`, then use VS Code to copy and paste the contents of `CCNPAUTO/LAB/Lab15/` into the repository.
+
+The supplied `.gitignore` excludes `package_config.ini`, package archives, caches, and local runtime data. The configuration file contains a password after Task 5 and must never be committed.
+
+## Task 2: Install the Python Dependencies and Run Tests
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m py_compile loopback_recovery.py scripts/send_test_syslog.py
+python -m pytest -q
+```
+
+The tests confirm that the parser reacts only to the `Loopback1` administrative-down event and that Netmiko receives this command list:
 
 ```text
-uni/tn-ccnpauto-<learner-id>
-uni/tn-ccnpauto-<learner-id>/ctx-PROD-VRF
-uni/tn-ccnpauto-<learner-id>/BD-PROD-BD
-uni/tn-ccnpauto-<learner-id>/ap-THREE-TIER-APP/epg-WEB-EPG
+interface Loopback1
+no shutdown
 ```
 
-Terraform dependencies reproduce this hierarchy. A child resource uses the parent resource ID instead of reconstructing the distinguished name manually.
+The test also confirms that the SSH session disconnects after the change.
 
-## Task 2: Protect APIC Credentials
+## Task 3: Review the Application
 
-Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and insert the values from the active reservation:
+Open `loopback_recovery.py`. The service accepts syslog only from `192.168.200.1` and ignores every event except:
 
 ```text
-ACI_URL=https://<apic-address>
-ACI_USERNAME=<sandbox-username>
-ACI_PASSWORD=<sandbox-password>
-ACI_INSECURE=true
-TF_VAR_learner_id=<short-lowercase-identifier>
+%LINK-5-CHANGED: Interface Loopback1, changed state to administratively down
 ```
 
-`ACI_INSECURE=true` is acceptable only for this simulator because its certificate might not be trusted by the workstation. A production workflow should validate APIC TLS with the organization's CA. Do not commit `.env`.
+The recovery class builds a familiar Netmiko device dictionary and passes it to `ConnectHandler(**device)`. It then calls:
 
-Load the variables into the current shell:
+```python
+connection.send_config_set(
+    ["interface Loopback1", "no shutdown"]
+)
+```
+
+Because the command changes only the administrative state, the existing description and IP address remain unchanged. The script verifies the interface with `show interfaces Loopback1 | include line protocol` and always disconnects in a `finally` block.
+
+## Task 4: Prepare IOS XE
+
+Verify IOx and enable the required services:
+
+```text
+show iox
+show app-hosting infra
+show app-hosting list
+configure terminal
+iox
+end
+```
+
+Create a lab-only account. Replace the sample secret with a unique password:
+
+```text
+configure terminal
+username apphost privilege 15 secret <unique-lab-password>
+end
+```
+
+Privilege 15 keeps the optional exercise straightforward. A production system should use an AAA command policy restricted to the required interface commands.
+
+Confirm that the SSH server is available:
+
+```text
+show ip ssh
+```
+
+The router already uses SSH for learner access in most application-hosting environments. If SSH is disabled, configure the platform’s approved hostname, domain name, RSA key, and SSH version before continuing.
+
+Prepare `Loopback1` without changing an existing address:
+
+```text
+show running-config interface Loopback1
+configure terminal
+interface Loopback1
+ logging event link-status
+ no shutdown
+end
+```
+
+If the interface does not exist, create it only with an instructor-approved address.
+
+## Task 5: Configure the Application
+
+Open `package_config.ini` and replace only the password:
+
+```ini
+[router]
+host = 192.168.200.1
+port = 22
+username = apphost
+password = <unique-lab-password>
+device_type = cisco_ios
+timeout = 10
+```
+
+IOx exposes the bootstrap file through `CAF_APP_CONFIG_FILE`. The application reads that location at startup. Do not commit the edited file or place the password in `Dockerfile`, `package.yaml`, or Python code.
+
+## Task 6: Build and Package the Application
+
+The architecture required here is the IOS XE application-hosting architecture, which can differ from the learner workstation architecture. Check it on the router:
+
+```text
+show app-hosting infra
+```
+
+When the output reports `x86_64`, set `cpuarch: x86_64` in `package.yaml` and build the x86-64/AMD64 image:
 
 ```bash
-set -a
-source .env
-set +a
+docker build \
+  --platform linux/amd64 \
+  -t loopback1-auto-recovery:1.0 .
+ioxclient docker package loopback1-auto-recovery:1.0 .
+tar -tf package.tar
 ```
 
-The ACI provider reads `ACI_URL`, `ACI_USERNAME`, `ACI_PASSWORD`, and `ACI_INSECURE`. Terraform reads variables prefixed with `TF_VAR_`, so `TF_VAR_learner_id` becomes the `learner_id` input without a password appearing in a `.tf` file.
-
-## Task 3: Review the Terraform Configuration
-
-Open `versions.tf`, `variables.tf`, `main.tf`, and `outputs.tf`. The configuration uses the current `ciscodevnet/aci` provider resource model. The main dependency path is:
-
-```mermaid
-flowchart TD
-    Tenant["aci_tenant"] --> VRF["aci_vrf"]
-    Tenant --> BD["aci_bridge_domain"]
-    VRF --> BD
-    BD --> Subnet["aci_subnet"]
-    Tenant --> AP["aci_application_profile"]
-    AP --> EPGs["aci_application_epg<br/>WEB, APP, DB"]
-    BD --> EPGs
-```
-
-The `for_each` expression creates three EPG resources from one map. Each EPG is still a separately addressable Terraform resource and ACI managed object.
-
-## Task 4: Initialize and Validate
-
-Run formatting and initialization:
+When the output reports `aarch64`, set `cpuarch: aarch64` in `package.yaml` and build the ARM64 image:
 
 ```bash
-terraform fmt -recursive
-terraform init
-terraform validate
+docker build \
+  --platform linux/arm64 \
+  -t loopback1-auto-recovery:1.0 .
+ioxclient docker package loopback1-auto-recovery:1.0 .
+tar -tf package.tar
 ```
 
-`terraform init` installs the provider version allowed by `versions.tf` and creates `.terraform.lock.hcl`. Commit the lock file because it records provider selection. Do not commit `.terraform/`, `.env`, plan files, or state files.
+Docker BuildKit can build for a target architecture different from the workstation only when the required builder and emulation support are available. Whenever possible, build natively for the architecture reported by IOS XE. Do not package an ARM64 image for an `x86_64` IOx host or an AMD64 image for an `aarch64` IOx host.
 
-## Task 5: Review the Execution Plan
+Sign the resulting package when the device enforces application signatures. Never commit or share the signing private key.
 
-Create a saved plan:
+## Task 7: Transfer the Package
+
+Enable SCP only when permitted:
+
+```text
+configure terminal
+ip scp server enable
+end
+```
+
+From Ubuntu:
 
 ```bash
-terraform plan -out=aci.plan
-terraform show aci.plan
+export IOSXE_HOST=<router-address>
+export IOSXE_SSH_PORT=<ssh-port>
+export IOSXE_USERNAME=<administrator-username>
+
+scp -O -P "$IOSXE_SSH_PORT" \
+  package.tar \
+  "$IOSXE_USERNAME@$IOSXE_HOST:loopback1-auto-recovery.tar"
 ```
 
-Confirm that the plan creates only the learner-prefixed resources. A plan containing deletion or modification of a shared sandbox object must not be applied. Record the number of resources to add, change, and destroy.
+Verify it on the router:
 
-The saved plan binds the reviewed proposal to the subsequent apply. If HCL or variables change, create a new plan rather than applying an old one.
+```text
+dir bootflash:loopback1-auto-recovery.tar
+```
 
-## Task 6: Apply and Interpret the Result
+## Task 8: Configure the Application Address
 
-Apply the reviewed plan:
+```text
+configure terminal
+interface VirtualPortGroup0
+ description LAB18_IOX_GATEWAY
+ ip address 192.168.200.1 255.255.255.252
+ no shutdown
+exit
+app-hosting appid loopback1-recovery
+ app-vnic gateway0 virtualportgroup 0 guest-interface 0
+  guest-ipaddress 192.168.200.2 netmask 255.255.255.252
+ exit
+ app-default-gateway 192.168.200.1 guest-interface 0
+end
+```
+
+If the platform uses different vNIC syntax, follow its application-hosting configuration guide rather than guessing.
+
+## Task 9: Install and Start the Application
+
+```text
+app-hosting install appid loopback1-recovery package bootflash:loopback1-auto-recovery.tar
+app-hosting activate appid loopback1-recovery
+app-hosting start appid loopback1-recovery
+show app-hosting list
+show app-hosting detail appid loopback1-recovery
+```
+
+Connect to the application:
+
+```text
+app-hosting connect appid loopback1-recovery session
+```
+
+Inside the container, verify `eth0`, UDP port `5514`, and the Python process:
 
 ```bash
-terraform apply aci.plan
-terraform output
-terraform state list
+ip address show eth0
+ss -lun
+ps
 ```
 
-The output should contain the tenant distinguished name, bridge-domain distinguished name, subnet address, application-profile distinguished name, and EPG distinguished names. The state list should include one resource address for each managed object.
+Exit the container.
 
-Inspect one object:
+## Task 10: Send Syslog Directly to the Application
 
-```bash
-terraform state show aci_application_epg.tier["web"]
+```text
+configure terminal
+service timestamps log datetime msec show-timezone year
+logging trap notifications
+logging source-interface VirtualPortGroup0
+logging host 192.168.200.2 transport udp port 5514
+end
 ```
 
-The resource address includes the `for_each` key. The remote `id` is the APIC distinguished name that associates the Terraform address with the ACI object.
+Verify:
 
-## Task 7: Verify in APIC
-
-In APIC:
-
-1. Open **Tenants > ccnpauto-\<learner-id\>**.
-2. Under **Networking > VRFs**, verify `PROD-VRF`.
-3. Under **Networking > Bridge Domains**, open `PROD-BD`; verify the VRF relationship and `10.50.0.1/24` subnet.
-4. Under **Application Profiles**, open `THREE-TIER-APP`.
-5. Verify `WEB-EPG`, `APP-EPG`, and `DB-EPG`.
-6. Open each EPG and confirm that it is associated with `PROD-BD`.
-
-Terraform reports API completion, while APIC verification confirms that the policy is visible in the controller's operational model.
-
-## Task 8: Make a Controlled Change
-
-Add a fourth entry to the `epgs` map in `variables.tf`:
-
-```hcl
-tools = "TOOLS-EPG"
+```text
+show running-config | section ^logging
+show logging
 ```
 
-Then run:
+No EEM applet is required. IOS XE sends the interface event directly to the application IP.
 
-```bash
-terraform fmt -recursive
-terraform validate
-terraform plan -out=aci-change.plan
+## Task 11: Test Closed-Loop Recovery
+
+Open one session for the interface change and another for observation. Enter:
+
+```text
+configure terminal
+interface Loopback1
+ shutdown
+end
 ```
 
-The plan should add exactly one EPG and leave the existing resources unchanged. Apply the saved plan, verify the new EPG in APIC, and inspect `terraform state list` again.
+Within a few seconds, the application should receive the syslog, open an SSH session to IOS XE, and apply `no shutdown`. Verify:
 
-## Task 9: Detect Out-of-Band Change
-
-In APIC, change the description of `TOOLS-EPG`. Do not delete the object. Run:
-
-```bash
-terraform plan
+```text
+show interfaces Loopback1
+show running-config interface Loopback1
+show logging | include Loopback1
 ```
 
-Interpret whether the provider detects and proposes correction of the changed attribute. Terraform can only detect drift for attributes represented in the resource schema and configuration. An APIC property that is computed, ignored, or absent from HCL might not produce a plan difference.
+The running configuration must not contain `shutdown`, and the interface should return to `up/up`. Enter the application session and review its runtime messages. A successful cycle reports the detected shutdown, Netmiko configuration output, and interface verification.
 
-## Task 10: Clean Up Safely
+If the interface remains down, troubleshoot in this order:
 
-Because the ACI simulator is shared for the duration of the reservation, remove only the objects created by this configuration:
+1. Confirm the application is `RUNNING`.
+2. Confirm IOS XE generated the `%LINK` message.
+3. Confirm the syslog source and destination configuration.
+4. Confirm the container listens on UDP `5514`.
+5. Confirm the application configuration contains the correct password.
+6. Confirm IOS XE accepts SSH from `192.168.200.2`.
+7. Inspect authentication, timeout, configuration, and verification messages.
 
-```bash
-terraform plan -destroy -out=destroy.plan
-terraform show destroy.plan
-terraform apply destroy.plan
+## Task 12: Clean Up
+
+Remove only this syslog destination, application, account, and package:
+
+```text
+configure terminal
+no logging host 192.168.200.2 transport udp port 5514
+no username apphost
+end
+app-hosting stop appid loopback1-recovery
+app-hosting deactivate appid loopback1-recovery
+app-hosting uninstall appid loopback1-recovery
+configure terminal
+no app-hosting appid loopback1-recovery
+no interface VirtualPortGroup0
+end
+delete /force bootflash:loopback1-auto-recovery.tar
 ```
 
-Verify that the plan targets only the learner tenant and its children. APIC deletes children with the tenant, but Terraform still evaluates its dependency graph and removes every managed resource from state.
-
-## Troubleshooting
-
-| Symptom | Investigate |
-|---|---|
-| Provider authentication fails | Reservation credentials, APIC URL, VPN, and loaded `ACI_*` variables |
-| Provider installation fails | Internet access, proxy trust, and Terraform Registry availability |
-| `403 Forbidden` | Sandbox role permissions or an attempt to modify protected shared policy |
-| Plan proposes unexpected objects | `learner_id`, current working directory, state file, and active workspace |
-| EPG exists without the expected bridge domain | `relation_to_bridge_domain` and provider-version schema |
-| APIC object exists but Terraform wants to create it | Wrong state, different resource address, or unmanaged pre-existing object |
+Do not disable IOx or SSH when another lab, management workflow, or hosted application requires them.
 
 ## Key Takeaways
 
-- Terraform resources map to APIC managed objects and preserve their identities in state.
-- ACI object hierarchy should be represented with resource references rather than hard-coded distinguished names.
-- Provider credentials belong in protected environment variables, not HCL.
-- A saved plan should be reviewed before apply, especially on a shared controller.
-- Terraform state contains sensitive infrastructure metadata and requires controlled storage.
-- `destroy` is a real controller change and must receive the same review as creation.
+- A true hosted application has its own process, lifecycle, resources, vNIC, and IP address.
+- Native IOS XE syslog can trigger a small closed-loop remediation service without EEM.
+- Netmiko can apply the small CLI change through a standard device dictionary.
+- Narrow event matching and source validation prevent unrelated syslog from triggering configuration.
+- Runtime verification must cover the event, application, SSH action, and final interface state.
 
-## References
+## Further Reading
 
-- [Cisco DevNet ACI Sandboxes](https://developer.cisco.com/docs/aci/sandbox/)
-- [CiscoDevNet ACI Provider](https://registry.terraform.io/providers/CiscoDevNet/aci/latest/docs)
-- [Cisco DevNet Terraform Learning](https://developer.cisco.com/automation-terraform/)
-- [Terraform State](https://developer.hashicorp.com/terraform/language/state)
+- [Cisco IOS XE Application Hosting](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1717/b_1717_programmability_cg/application-hosting.html)
+- [Cisco IOx Package Descriptor](https://developer.cisco.com/docs/iox/package-descriptor/)
+- [Netmiko Documentation](https://ktbyers.github.io/netmiko/)

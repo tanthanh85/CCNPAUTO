@@ -1,458 +1,363 @@
-# Lab 14: Build an AI Network Route Assistant
+# Optional Lab 14: Stream IOS XE CPU Data into Splunk with NETCONF Dial-In
 
 ## Lab Introduction
 
-In this lab, learners build a small but realistic AI network assistant. The assistant runs on the learner workstation, displays a professional dark-theme web interface, and asks a FastMCP tool layer for routing information. Learners can use a local Qwen 8B model through Ollama or connect the same application to a paid OpenAI or Anthropic API. The FastMCP server is the only component that retrieves live routing information from a Cisco IOS XE reservable sandbox router through RESTCONF.
+An operations team already uses Splunk for centralized search and dashboards. It now wants near-real-time CPU visibility from an IOS XE router without configuring a persistent dial-out receiver on the device. In this optional lab, a Python collector opens a NETCONF session to the Cisco IOS XE reservable sandbox, establishes a dynamic YANG-push subscription for five-second CPU utilization, and forwards each normalized notification to Splunk HTTP Event Collector (HEC).
 
-The important design choice is that neither the language model nor the Flask application connects directly to the router. Instead, Flask asks an MCP client abstraction for route context, the MCP client calls controlled tools exposed by `mcp_server.py`, and the MCP server retrieves the route data through RESTCONF. A small provider module then sends the same question and MCP context to the selected model. This reinforces the Chapter 17 principle that AI should operate through narrow, auditable tools rather than unrestricted device access.
+The direction of the sessions is important. The Python collector initiates NETCONF toward IOS XE, so the telemetry subscription is **dial-in**. Splunk does not act as a NETCONF client; it receives normalized events over HEC. If the collector or NETCONF session stops, the dynamic subscription disappears.
 
-By the end of the lab, learners can ask questions such as:
-
-- How many routes are in the routing table?
-- Which routes are static?
-- Which routes are connected?
-- What are the next hops for the static routes?
-- What is the metric for each route?
-- Show the details for a specific prefix.
+Splunk Enterprise is installed with its trial license. Learners must review the current trial terms before installation and should stop the service when the optional lab is complete.
 
 ## Learning Objectives
 
-- Run Qwen 8B locally through Ollama or select an approved OpenAI or Anthropic API model.
-- Build a Flask-based AI assistant web UI.
-- Retrieve IOS XE routing information through a FastMCP tool layer that uses RESTCONF.
-- Normalize route data from YANG-modeled JSON responses.
-- Expose route-information tools with Python FastMCP.
-- Use an LLM to explain live route data without giving the model direct router access.
-- Compare local and cloud models for accuracy, latency, resource use, privacy, and cost.
-- Recognize the security boundary between the AI assistant, MCP tools, credentials, and the network device.
+- Explain NETCONF dial-in subscription lifecycle.
+- Use Yangsuite to confirm the IOS XE CPU XPath.
+- Install Splunk Enterprise and create a dedicated index and HEC token.
+- Establish a periodic YANG-push subscription with `ncclient`.
+- Parse XML notifications and normalize CPU values.
+- Send structured events to Splunk HEC.
+- Search the indexed events and build a CPU dashboard.
+- Distinguish collector, transport, storage, and visualization failures.
 
-## Lab Topology
+## Data Flow
 
 ```mermaid
-flowchart LR
-    Browser["Learner browser"] --> Flask["Flask AI assistant<br/>dark web UI"]
-    Flask --> Gateway["LLM provider module"]
-    Gateway --> Ollama["Local Ollama<br/>Qwen 8B or smaller"]
-    Gateway --> OpenAI["OpenAI API<br/>learner-selected model"]
-    Gateway --> Claude["Anthropic API<br/>learner-selected Claude model"]
-    Flask --> MCPClient["MCP client abstraction"]
-    MCPClient --> MCPServer["FastMCP route server<br/>controlled tools"]
-    MCPServer --> RESTCONF["RESTCONF HTTPS"]
-    RESTCONF --> IOSXE["Cisco IOS XE<br/>reservable sandbox"]
-```
+sequenceDiagram
+    participant C as Python collector
+    participant R as IOS XE NETCONF server
+    participant H as Splunk HEC
+    participant S as Splunk index
+    participant D as Splunk dashboard
 
-The Flask application does not retrieve network data directly. It asks the MCP tool layer for route context, and the MCP server owns the RESTCONF interaction with IOS XE. This separation keeps the AI-facing application simple while preserving a clean operational boundary.
+    C->>R: NETCONF SSH session
+    C->>R: establish-subscription<br/>CPU XPath, period 500
+    R-->>C: subscription-result and ID
+    loop Every five seconds
+        R-->>C: XML push-update notification
+        C->>C: Parse and normalize CPU value
+        C->>H: JSON event
+        H->>S: Index event
+    end
+    D->>S: SPL search
+    S-->>D: Time series and statistics
+```
 
 ## Prerequisites
 
-Before starting, learners should have:
+- Ubuntu workstation prepared in Lab 1.
+- An active Cisco IOS XE reservable sandbox and VPN connection.
+- NETCONF enabled on the sandbox router.
+- Access to local or Cisco DevNet Sandbox Yangsuite.
+- A Splunk.com account permitted to download the Splunk Enterprise trial.
+- At least 4 GB of free memory and sufficient disk for a short lab data set.
 
-- Ubuntu workstation prepared from Lab 1.
-- Access to a Cisco IOS XE reservable sandbox.
-- RESTCONF enabled on the sandbox router.
-- Python virtual environment knowledge from earlier labs.
-- Basic understanding of Chapter 17 MCP concepts.
+This lab is standalone. Create a GitLab.com repository named `optional_lab14_splunk_netconf`, clone it under `~/ccnpauto-workspace`, and copy the contents of `CCNPAUTO/LAB/Lab14/` into it with VS Code, including the hidden `.env.example` file.
 
-The lab assumes the learner works under:
+## Task 1: Confirm the CPU YANG Path
 
-```bash
-mkdir -p ~/ccnpauto-workspace
-cd ~/ccnpauto-workspace
+Open local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`. Add the reserved IOS XE device and build a YANG set from the device-advertised modules. In **Explore YANG**:
+
+1. Load `Cisco-IOS-XE-process-cpu-oper`.
+2. Expand `cpu-usage`.
+3. Expand `cpu-utilization`.
+4. Select `five-seconds`.
+5. Confirm the XPath:
+
+```text
+/process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds
 ```
 
-## Task 1: Create the Lab Repository on GitLab.com
+The module prefix used inside an XML RPC is locally declared as `cpu`, so the collector sends the equivalent expression:
 
-Lab 14 is a separate application and does not use NetBox, Vault, TIG, or GitLab Runner. Stop those services before loading the local Qwen model:
-
-```bash
-test -d "$HOME/lab-services/netbox-docker" && \
-  (cd "$HOME/lab-services/netbox-docker" && docker compose stop)
-test -d "$HOME/lab-services/tig" && \
-  (cd "$HOME/lab-services/tig" && docker compose stop)
-sudo systemctl stop gitlab-runner
+```text
+/cpu:cpu-usage/cpu-utilization/five-seconds
 ```
 
-Start local Yangsuite only when a RESTCONF route URI needs model verification; otherwise use Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
+The namespace binding, not the spelling of the prefix, identifies the YANG module.
 
-Create a new GitLab.com project named `ai_route_assistant`. Then clone it to the workstation:
+## Task 2: Download and Install Splunk Enterprise
+
+First confirm the workstation architecture:
 
 ```bash
-cd ~/ccnpauto-workspace
-git clone git@gitlab.com:<your-namespace>/ai_route_assistant.git
-cd ai_route_assistant
+dpkg --print-architecture
+uname -m
 ```
 
-Using the VS Code Explorer, copy and paste the contents of `CCNPAUTO/LAB/Lab14/` into the cloned `ai_route_assistant/` repository. Include `.env.example`, `.gitignore`, `requirements.txt`, all Python files, and the `logs/`, `templates/`, `static/`, and `scripts/` folders. Keep the supplied hierarchy and do not create a second requirements file.
+This lab requires an x86-64 workstation. The expected results are `amd64` and `x86_64`. Current Splunk Enterprise support for Ubuntu is x86-64; ARM64 packages available for other Splunk components must not be assumed to be a supported Splunk Enterprise server. If the learner workstation reports `arm64` and `aarch64`, run this optional lab in an instructor-approved Ubuntu x86-64 VM instead.
 
-The repository now contains a small web application, an MCP client abstraction, a FastMCP server, and a RESTCONF route backend used only behind the MCP server.
+Sign in at Splunk.com, select the current Splunk Enterprise Linux x86-64 `.deb` package, and download it to `~/Downloads`. Splunk's current documentation states that a new Enterprise installation starts with a time-limited trial license; read the displayed license and indexing limits before accepting it.
 
-## Task 2: Prepare Python and Environment Variables
-
-Create and activate a virtual environment:
+Install the exact downloaded filename:
 
 ```bash
+sudo dpkg -i ~/Downloads/splunk-<VERSION>-linux-amd64.deb
+sudo /opt/splunk/bin/splunk start --accept-license
+```
+
+The release filename can contain additional build identifiers. Replace the placeholder with the exact x86-64 `.deb` filename shown in `~/Downloads`; do not rename an ARM package to include `amd64`.
+
+During first start, create a unique Splunk administrator password. Do not reuse a device, GitLab, or Vault password.
+
+Open Splunk Web:
+
+```text
+http://127.0.0.1:8000
+```
+
+For this single-workstation exercise, Splunk Web and HEC are local. Production Splunk architecture, TLS, clustering, retention, and role separation are outside this lab.
+
+## Task 3: Create a Dedicated Index
+
+In Splunk Web:
+
+1. Open **Settings > Indexes**.
+2. Select **New Index**.
+3. Set **Index Name** to `network_telemetry`.
+4. Retain instructor-approved storage and retention values.
+5. Save the index.
+
+A dedicated index separates lab telemetry from Splunk internal data and makes access and retention easier to control.
+
+## Task 4: Enable HEC and Create a Token
+
+In Splunk Web:
+
+1. Open **Settings > Data Inputs**.
+2. Select **HTTP Event Collector**.
+3. Select **Global Settings**.
+4. Set **All Tokens** to **Enabled**.
+5. Retain HTTPS unless the instructor explicitly approves local HTTP.
+6. Save the global settings.
+7. Select **New Token**.
+8. Set the name to `iosxe-netconf-cpu`.
+9. On **Input Settings**, select the `network_telemetry` index.
+10. Complete the wizard and copy the token once.
+
+The token authorizes event ingestion; it is not an administrator password. Store it only in the untracked `.env`.
+
+## Task 5: Prepare the Collector
+
+Create and activate the lab virtual environment:
+
+```bash
+cd ~/ccnpauto-workspace/optional_lab14_splunk_netconf
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then protect and modify `.env`:
-
-```bash
-chmod 600 .env
-nano .env
-```
-
-Update the IOS XE values based on the reservable sandbox reservation. Select only one LLM provider in Task 3:
+Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and enter the reservation and Splunk values:
 
 ```text
-IOSXE_HOST=<sandbox-management-ip-or-hostname>
-IOSXE_RESTCONF_PORT=443
+IOSXE_HOST=<sandbox-host>
+IOSXE_NETCONF_PORT=830
 IOSXE_USERNAME=<sandbox-username>
 IOSXE_PASSWORD=<sandbox-password>
-IOSXE_VERIFY_TLS=false
+IOSXE_HOSTKEY_VERIFY=false
 
-LLM_PROVIDER=ollama
-LLM_TIMEOUT_SECONDS=120
-LLM_MAX_TOKENS=800
+SPLUNK_HEC_URL=https://127.0.0.1:8088
+SPLUNK_HEC_TOKEN=<hec-token>
+SPLUNK_HEC_VERIFY_TLS=false
+SPLUNK_INDEX=network_telemetry
 
-OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen3:8b
-
-OPENAI_API_KEY=
-OPENAI_MODEL=
-
-ANTHROPIC_API_KEY=
-ANTHROPIC_MODEL=
-
-ENABLE_FILE_LOGGING=false
-ENABLE_CONSOLE_LOGGING=true
-LOG_LEVEL=DEBUG
-LOG_CONSOLE_LEVEL=INFO
-LOG_DIR=logs
+SUBSCRIPTION_PERIOD=500
+NOTIFICATION_TIMEOUT=30
 ```
 
-For a lab sandbox, `IOSXE_VERIFY_TLS=false` is commonly required because the device may present a self-signed certificate. In a production design, TLS verification should be enabled with a trusted CA bundle.
+`SUBSCRIPTION_PERIOD=500` means 500 centiseconds, or five seconds, in the IOS XE YANG-push implementation. Disabling TLS verification is limited to the local lab HEC certificate. Production code must validate a trusted certificate.
 
-Set `ENABLE_FILE_LOGGING=true` while studying or troubleshooting. Each Flask, MCP, readiness-check, or supporting Python process then creates a separate timestamped text file under `logs/`. The logs record request IDs, tool selection, RESTCONF resources and status, route counts, provider name, timing, and exceptions. They intentionally omit authorization headers, API keys, passwords, and complete provider response bodies.
+## Task 6: Understand the Subscription RPC
 
-Open the supplied `.gitignore` in VS Code and confirm that `.env`, `.venv/`, Python cache files, and generated contents under `logs/` remain ignored. Do not replace the existing file.
+Open `netconf_to_splunk.py` and inspect `SUBSCRIPTION_RPC`:
 
-## Task 3: Choose and Configure an LLM Provider
+```xml
+<establish-subscription
+    xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications"
+    xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push"
+    xmlns:cpu="http://cisco.com/ns/yang/Cisco-IOS-XE-process-cpu-oper">
+  <stream>yp:yang-push</stream>
+  <yp:xpath-filter>/cpu:cpu-usage/cpu-utilization/five-seconds</yp:xpath-filter>
+  <yp:period>500</yp:period>
+</establish-subscription>
+```
 
-The supplied `llm_providers.py` module gives the application one stable function, `ask_llm()`, while isolating provider-specific URLs, headers, payloads, and response parsing. To change providers, edit `LLM_PROVIDER` and the corresponding variables in `.env`, then restart Flask. No MCP or RESTCONF code changes are required.
+The collector sends this operation on an established NETCONF session. IOS XE returns a subscription ID, followed by notifications on that same session. The collector must continue reading the session; repeatedly polling `<get>` would be a different design.
 
-### Option A: Run Qwen 8B Locally with Ollama
+## Task 7: Validate HEC Before Opening NETCONF
 
-This is the default option. Route context remains on the learner workstation, there is no per-request API charge, and the exercise continues to work without cloud API access. In return, generation speed and answer quality depend on workstation CPU, memory, and model size.
-
-Install Ollama from the official installer:
+Run the supplied Python validation:
 
 ```bash
-dpkg --print-architecture
-uname -m
-curl -fsSL https://ollama.com/install.sh -o /tmp/install-ollama.sh
-sh /tmp/install-ollama.sh
+python check_splunk.py
 ```
 
-The official installer detects the workstation architecture. On x86-64 Ubuntu, `dpkg --print-architecture` returns `amd64` and the installer selects the x86-64 Ollama build. On ARM64 Ubuntu, it returns `arm64` and selects the ARM64 build. After installation, run `ollama --version`; do not copy an ARM64 binary from another workstation onto an x86-64 learner system.
+The script sends one synthetic event through the same HEC endpoint and token used by the collector. In Splunk Search, run:
 
-If the workstation is behind a proxy or TLS inspection device, the download may fail with a certificate error. In that case, install the organization’s trusted CA certificate first, then retry the command. Do not permanently disable TLS verification for software installation.
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu"
+| sort - _time
+| head 10
+```
 
-Start and test Ollama:
+Confirm an event with `device="hec-self-test"` and `cpu_five_seconds=0`. This isolates HEC configuration from NETCONF troubleshooting.
+
+## Task 8: Run the Dial-In Collector
+
+Start the collector:
 
 ```bash
-ollama --version
-ollama serve
+python netconf_to_splunk.py
 ```
 
-Open a second terminal and pull the Qwen 8B model:
-
-```bash
-ollama pull qwen3:8b
-ollama run qwen3:8b "Explain what a connected route is in one sentence."
-```
-
-If `qwen3:8b` is slow, use a smaller Qwen model without changing the application code. `qwen3:4b` provides a useful balance for many CPU-only workstations, while `qwen3:1.7b` uses less memory and starts faster:
-
-```bash
-ollama pull qwen3:4b
-ollama run qwen3:4b "Explain what a connected route is in one sentence."
-```
-
-Then set `OLLAMA_MODEL=qwen3:4b` in `.env` and restart Flask. If necessary, repeat with `qwen3:1.7b`. Smaller models normally improve latency and reduce memory use, but they may miscount routes or omit details more often, so compare every answer with the MCP evidence.
-
-Keep these values in `.env`:
+Expected console behavior:
 
 ```text
-LLM_PROVIDER=ollama
-OLLAMA_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen3:8b
+Connected to IOS XE NETCONF at <host>:830
+Subscription established: <subscription-id>
+Forwarded CPU sample: device=<host> cpu_five_seconds=<value>
 ```
 
-### Option B: Use the OpenAI API
+Leave it running for at least five minutes. Press `Ctrl+C` to stop it cleanly. Stopping the program closes the NETCONF session and ends the dynamic subscription.
 
-Create an API key in the OpenAI API platform:
+On IOS XE, `show telemetry ietf subscription all` should show a dynamic subscription only while the collector is connected.
 
-1. Sign in at `https://platform.openai.com/`.
-2. Select the project that will own the lab usage.
-3. Open **API keys** and select **Create new secret key**.
-4. Give it a lab-specific name, apply the narrowest permissions offered by the account, and copy it once into `.env`.
-5. Confirm that API billing or project credits are available, and use an exact model ID enabled for that project.
+## Task 9: Search and Interpret the Events
 
-A ChatGPT web subscription does not automatically include API credits because ChatGPT and API billing are managed separately. Never paste the key into source code or commit it to Git.
+In Splunk Search:
 
-```text
-LLM_PROVIDER=openai
-OPENAI_API_KEY=<your-api-key>
-OPENAI_MODEL=<model-id-available-to-your-api-account>
-OPENAI_BASE_URL=https://api.openai.com/v1
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| timechart span=5s latest(cpu_five_seconds) AS cpu_percent BY device
 ```
 
-The provider module uses the OpenAI Responses API. Because model availability changes, learners should copy the exact model ID shown in their API account instead of assuming that a model available in the ChatGPT web interface is also enabled for API use.
+Then inspect delivery statistics:
 
-### Option C: Use the Anthropic API
-
-Create an API key in the Anthropic Console:
-
-1. Sign in at `https://console.anthropic.com/`.
-2. Select the appropriate workspace.
-3. Open **API Keys**, select **Create Key**, and assign a lab-specific name.
-4. Copy the key once into `.env`, then confirm that the workspace has usable credits and an enabled model.
-
-Access to the Claude web application alone is not a substitute for an API key.
-
-```text
-LLM_PROVIDER=anthropic
-ANTHROPIC_API_KEY=<your-api-key>
-ANTHROPIC_MODEL=<model-id-available-to-your-api-account>
-ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
-ANTHROPIC_VERSION=2023-06-01
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| stats count AS samples
+        min(cpu_five_seconds) AS minimum
+        avg(cpu_five_seconds) AS average
+        max(cpu_five_seconds) AS maximum
+  BY device
 ```
 
-The provider module uses Anthropic's Messages API. As with OpenAI, use the exact model ID presented by the provider account.
+A gap in the time series can indicate a stopped collector, a NETCONF disconnect, an XPath problem, or failed HEC delivery. Splunk cannot infer which layer failed without collector logs.
 
-When a cloud provider is selected, the route context returned by the MCP server leaves the workstation and is processed by that provider. Although the code never sends router credentials, routing tables can still reveal internal topology. Use only course sandbox data unless the organization has approved the provider, account, region, retention policy, and data classification.
+## Task 10: Build a Splunk App and Dashboard in the UI
 
-## Task 4: Validate MCP-to-RESTCONF Reachability
+Build the visualization entirely in Splunk Web. This lab does not import HTML, XML, or another external dashboard file.
 
-From the project directory, load the environment and run the readiness check:
+1. Open **Apps > Manage Apps**.
+2. Select **Create app**.
+3. Enter `IOS XE Telemetry` as the name and `ios_xe_telemetry` as the folder name.
+4. Select the visible navigation option, retain the standard template, and save.
+5. Open the new **IOS XE Telemetry** app.
+6. Open **Dashboards**, select **Create New Dashboard**, and name it `IOS XE NETCONF CPU`.
+7. Choose a dashboard editor available in the installed trial version. The Classic editor is sufficient for this lab.
+8. Add a line-chart panel named `Five-Second CPU Trend` with:
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| timechart span=5s latest(cpu_five_seconds) AS cpu_percent BY device
+```
+
+9. Set the Y-axis minimum to `0`, maximum to `100`, and unit to percent when the selected editor exposes those options.
+10. Add a single-value panel named `Latest CPU` with:
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| stats latest(cpu_five_seconds) AS cpu_percent
+```
+
+11. Add a statistics-table panel named `Collection Health` with:
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| stats count AS samples
+        latest(_time) AS last_event
+        avg(cpu_five_seconds) AS average_cpu
+        max(cpu_five_seconds) AS peak_cpu
+  BY device
+| convert ctime(last_event)
+```
+
+12. Set the dashboard time picker to **Last 15 minutes**, save it, and confirm that all three panels populate while the collector is running.
+
+Use these additional SPL searches directly in the Search view when troubleshooting. They do not require another dashboard:
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu"
+| stats count BY device, source, sourcetype, index
+```
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| eval delay_seconds=now()-_time
+| stats latest(_time) AS last_event latest(delay_seconds) AS ingestion_delay BY device
+| convert ctime(last_event)
+```
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| bucket _time span=30s
+| stats count AS samples BY _time, device
+| where samples < 5
+```
+
+The final search highlights intervals that received fewer samples than expected. It is an indicator rather than proof of packet loss because collector startup, shutdown, search-window boundaries, and processing delay can also reduce the count.
+
+## Task 11: Test a Failure
+
+With the collector running, stop Splunk:
 
 ```bash
-source .venv/bin/activate
-set -a
-source .env
-set +a
-python scripts/check_lab14.py
+sudo /opt/splunk/bin/splunk stop
 ```
 
-With file logging enabled, open `logs/` in VS Code and inspect the newest `check_lab14_*.log`. Repeat the command and confirm that a new filename is created. If the check fails, use its component and exception chain to determine whether the problem is configuration, RESTCONF, MCP, Ollama, or a cloud provider.
-
-Then test the route path through the MCP client abstraction:
+Observe that the collector reports an HEC delivery failure instead of silently discarding it. Restart Splunk:
 
 ```bash
-python - <<'PY'
-from pprint import pprint
-from mcp_client import call_route_tool
-
-pprint(call_route_tool("get_route_summary"))
-PY
+sudo /opt/splunk/bin/splunk start
 ```
 
-The output should show a total route count and route counts grouped by protocol. This confirms that the MCP tool path can reach the RESTCONF backend. If the script reports that no supported route endpoint returned data, use either a local Yangsuite installation or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect the routing operational models supported by the current IOS XE sandbox release. IOS XE releases can differ in the exact operational YANG path used for RIB data.
+The simple lab collector continues with subsequent notifications but does not queue failed events to disk. A production collector needs buffering, retry limits, durable offsets, health metrics, and secure TLS.
 
-## Task 5: Inspect the MCP and RESTCONF Boundary
+## Task 12: Stop Services and Protect Data
 
-Open `mcp_server.py`, `mcp_client.py`, and `restconf_routes.py` together. The Flask app calls `mcp_client.py`; the MCP client calls controlled route tools in `mcp_server.py`; and `mcp_server.py` imports the RESTCONF backend from `restconf_routes.py`. Therefore, the web assistant does not retrieve route data directly from IOS XE.
-
-The MCP server exposes these tools:
-
-```python
-get_route_summary()
-get_routes_by_protocol("static")
-get_routes_by_protocol("connected")
-get_route_detail("10.10.10.0/24")
-get_all_routes()
-```
-
-This design keeps the AI prompt grounded in live data while preserving the right trust boundary. The LLM receives a JSON context produced by the MCP tool layer and is instructed to answer only from that context. The LLM does not receive the router password, does not send RESTCONF requests, and cannot create or change routes.
-
-## Task 6: Start the FastMCP Route Server
-
-Run the FastMCP server:
+Stop the collector with `Ctrl+C`, then stop Splunk:
 
 ```bash
-source .venv/bin/activate
-set -a
-source .env
-set +a
-python mcp_server.py
+sudo /opt/splunk/bin/splunk stop
 ```
 
-The server exposes four route tools:
-
-| MCP tool | Purpose |
-|---|---|
-| `get_route_summary` | Returns total route count and counts grouped by protocol |
-| `get_routes_by_protocol` | Returns static, connected, local, OSPF, or other matching routes |
-| `get_route_detail` | Returns details for one exact destination prefix |
-| `get_all_routes` | Returns all normalized routes collected through RESTCONF |
-
-During development, learners can also inspect the server with the MCP SDK tooling:
-
-```bash
-mcp dev mcp_server.py
-```
-
-The point is not to give the model a generic command tool. The point is to expose controlled route-information tools that return structured data.
-
-## Task 7: Run the Flask AI Assistant
-
-In a separate terminal, start the Flask application:
-
-```bash
-source .venv/bin/activate
-set -a
-source .env
-set +a
-python app.py
-```
-
-Open the web interface:
-
-```text
-http://127.0.0.1:5050
-```
-
-The page should display a dark professional assistant interface. The left panel shows a live route summary returned by the MCP tool layer. The chat area lets learners ask route-related questions.
-
-The MCP server and Flask application are separate processes and therefore create separate log files. Correlate them by timestamp and nonsecret request context. This boundary helps prove whether a route fact came from RESTCONF and MCP before evaluating the LLM's wording.
-
-Ask:
-
-```text
-How many routes are in the routing table?
-```
-
-Then ask:
-
-```text
-Show me the static routes and next hops.
-```
-
-The Flask application selects the appropriate MCP tool, receives route context from the MCP layer, sends that context to the configured provider, and returns a natural-language explanation. The answer header shows the provider, model, and elapsed generation time. If the context does not include the requested detail, the assistant should say what is missing rather than inventing a route.
-
-## Task 8: Understand the Assistant Workflow
-
-The request path is intentionally simple:
-
-```mermaid
-sequenceDiagram
-    participant U as Learner
-    participant W as Flask Web UI
-    participant C as MCP Client
-    participant M as FastMCP Server
-    participant D as IOS XE RESTCONF
-    participant L as Configured LLM provider
-
-    U->>W: Ask route question
-    W->>C: Select route-information tool
-    C->>M: Call controlled MCP tool
-    M->>D: RESTCONF GET routing data
-    D-->>M: YANG-modeled JSON
-    M-->>C: Normalized route context
-    C-->>W: Route context
-    W->>L: Question + route context
-    L-->>W: Explanation + elapsed time
-    W-->>U: Answer in web UI
-```
-
-This workflow avoids a risky pattern where the LLM directly decides which network endpoint to call. The MCP server is the deterministic software boundary that decides what data can be retrieved, how much data can be returned, and how RESTCONF errors are handled.
-
-## Task 9: Compare Local and Cloud Models
-
-Good AI-assisted operations depend on good questions and good data. Try the following:
-
-```text
-List connected routes with their metrics.
-```
-
-```text
-What next hops are used by the static routes?
-```
-
-```text
-Show details for 0.0.0.0/0.
-```
-
-```text
-Which protocols appear in the routing table?
-```
-
-If an answer seems vague, inspect the JSON context shown in the left panel. The assistant can only explain the data that was successfully retrieved and normalized from RESTCONF.
-
-Run the same questions against at least two providers when API access is available. For each provider, edit `.env`, restart Flask, and repeat the questions without changing the IOS XE reservation. Record the observations:
-
-| Provider and model | Route count correct | Static next hops correct | Unsupported detail acknowledged | Response time | Operational observation |
-|---|---|---|---|---:|---|
-| Ollama / `qwen3:8b` |  |  |  |  |  |
-| OpenAI / selected model |  |  |  |  |  |
-| Anthropic / selected model |  |  |  |  |  |
-
-Accuracy is determined by comparing each answer with the MCP context shown in the left panel, not by choosing the most fluent answer. A model fails the accuracy check if it changes a prefix, invents a next hop, miscounts routes, or presents an absent metric as fact. Performance includes elapsed time as well as local CPU and memory impact. Finally, account for privacy and cost: local inference consumes workstation resources, whereas cloud inference sends route context outside the workstation and may create token charges.
-
-## Task 10: Commit the Lab Project
-
-Commit the working project:
-
-```bash
-git status
-git add .gitignore requirements.txt logging_config.py app.py llm_providers.py \
-  restconf_routes.py mcp_client.py mcp_server.py logs/.gitkeep templates static scripts
-git commit -m "Build multi-provider AI route assistant with FastMCP"
-git push -u origin main
-```
-
-Confirm that `.env` was not committed:
-
-```bash
-git ls-files | grep '^.env$' || echo ".env is not tracked"
-```
+Do not commit `.env`, Splunk tokens, indexed data, or Splunk administrator credentials. If the trial is no longer required, follow Splunk's official uninstall instructions rather than deleting `/opt/splunk` manually.
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Action |
-|---|---|---|
-| `curl` cannot download Ollama | Missing CA certificate or proxy TLS inspection | Install trusted CA certificate and retry |
-| `ollama run qwen3:8b` is slow | Workstation memory or CPU is limited | Stop unused services and select `qwen3:4b` or `qwen3:1.7b` in `.env` |
-| Flask reports Ollama connection failure | Ollama service is not running | Start `ollama serve` |
-| Readiness check reports a missing cloud variable | Provider-specific API key or model ID is absent | Complete the selected provider section in `.env` |
-| Cloud API returns `401` | API key is invalid, revoked, or belongs to the wrong service | Create a new provider API key and update `.env` |
-| Cloud API returns `429` | Account quota or provider rate limit was reached | Check provider billing and limits, wait, then retry |
-| RESTCONF returns `401` or `403` | Wrong sandbox credentials | Check reservation details and `.env` |
-| RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect routing operational models |
-| Assistant invents details | Prompt lacks enough route context or model is too creative | Keep temperature low and verify against JSON context |
+| Symptom | Investigate |
+|---|---|
+| HEC check returns `401` or `403` | Token value, token enabled state, and index permission |
+| HEC connection is refused | Splunk service and HEC global enablement |
+| NETCONF RPC returns `unknown-element` | IOS XE release, advertised telemetry modules, and Yangsuite-generated RPC |
+| Subscription succeeds but no notifications arrive | XPath, period, active NETCONF session, and notification timeout |
+| XML arrives without `five-seconds` | Device model revision or a different notification payload structure |
+| Splunk events exist but dashboard is empty | Time range, index, sourcetype, and field extraction |
+| Repeated TLS warnings | Lab-only self-signed certificate; install a trusted certificate for production |
 
 ## Key Takeaways
 
-- A useful AI network assistant should be grounded in live operational data, not guesses.
-- RESTCONF provides structured routing data that can be normalized by the MCP server before being sent to the model.
-- FastMCP exposes controlled network-information tools and creates the safety boundary between the AI assistant and the network.
-- The model should not receive device credentials or unrestricted access to network commands.
-- A provider abstraction allows the same MCP-grounded workflow to use local or cloud models without changing network-access code.
-- Model quality must be measured against MCP evidence; latency, privacy, resource use, and API cost also affect provider selection.
-- A professional AI workflow still requires validation, least privilege, clear error handling, and human verification.
+- NETCONF dial-in means the collector initiates and owns the subscription session.
+- IOS XE sends structured XML notifications rather than Splunk events.
+- A collector is required to normalize NETCONF data and forward it to Splunk HEC.
+- HEC tokens should be scoped to a dedicated index and protected like credentials.
+- Dashboard gaps are symptoms; collector logs and subscription state locate the failed layer.
+- A development collector without durable buffering is not a production telemetry pipeline.
 
 ## References
 
-- [Ollama](https://ollama.com/) - local model runtime.
-- [Qwen Models on Ollama](https://ollama.com/library/qwen3) - Qwen model family availability in Ollama.
-- [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses) - OpenAI request and response structure.
-- [OpenAI API Billing](https://help.openai.com/en/articles/8156019) - distinction between ChatGPT and API billing.
-- [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages) - Anthropic request and response structure.
-- [Anthropic Models](https://platform.claude.com/docs/en/about-claude/models/overview) - current model IDs and model selection.
-- [Model Context Protocol](https://modelcontextprotocol.io/) - MCP concepts and architecture.
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - Python SDK and FastMCP examples.
-- [Cisco IOS XE RESTCONF Programmability](https://developer.cisco.com/docs/ios-xe/) - IOS XE programmability documentation.
-- [Cisco Yangsuite](https://developer.cisco.com/yangsuite/) - YANG model discovery and RESTCONF/NETCONF testing.
+- [Cisco IOS XE Model-Driven Telemetry](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1715/b_1715_programmability_cg/model-driven-telemetry.html)
+- [Cisco DevNet IOS XE Programmability](https://developer.cisco.com/iosxe/)
+- [Splunk Enterprise Linux Installation](https://help.splunk.com/en/splunk-enterprise/administer/install-and-upgrade/10.2/install-splunk-enterprise-on-linux-or-macos)
+- [Splunk HTTP Event Collector](https://help.splunk.com/en/splunk-enterprise/get-data-in/get-started-with-getting-data-in/10.2/get-data-with-http-event-collector/set-up-and-use-http-event-collector-from-the-cli)

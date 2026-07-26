@@ -1,5 +1,0 @@
-observe-automation:
-  stage: observe
-  script:
-    - set -o pipefail
-    - python scripts/publish_audit_metrics.py 2>&1 | tee artifacts/metrics-publish.log

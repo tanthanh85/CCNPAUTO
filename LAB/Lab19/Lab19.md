@@ -1,253 +1,202 @@
-# Optional Lab 19: Learn Kubernetes Fundamentals with Minikube
+# Optional Lab 19: Make Trusted RESTCONF Requests Asynchronously
 
 ## Lab Introduction
 
-Network automation services are often delivered as containers, but a container alone does not provide scheduling, health checks, scaling, or controlled rollout. Kubernetes adds these capabilities through declarative objects. This standalone beginner lab uses Minikube to run a small local cluster and deploy a simple network-status web service.
+Optional Lab 18 created a trusted HTTPS relationship and used `requests` for one RESTCONF operation at a time. A sequential client is easy to understand, but total collection time grows when an automation process must retrieve independent resources from many endpoints.
 
-The application is intentionally stateless. It returns the pod name, namespace, and a message supplied by a ConfigMap. Learners can therefore see Kubernetes distribute requests across replicas while practicing the basic operational workflow.
+This standalone enhancement uses `aiohttp` and `asyncio` to retrieve four IOS XE resources concurrently. It retains the local CA trust established in Lab 18; asynchronous execution must not weaken certificate validation. Learners compare concurrency one with concurrency four, inspect per-request outcomes, and preserve a structured JSON result.
 
 ## Learning Objectives
 
-- Explain pods, Deployments, Services, ConfigMaps, probes, and namespaces.
-- Create a local Kubernetes cluster with Minikube.
-- Build an image directly into the Minikube image store.
-- Deploy and expose a two-replica application.
-- Inspect desired and observed state with `kubectl`.
-- Scale, update, roll back, and test self-healing.
-- Stop and delete the standalone cluster safely.
+- Explain the difference between synchronous and asynchronous I/O.
+- Reuse a local CA certificate with an `ssl.SSLContext`.
+- Reuse one `aiohttp.ClientSession`.
+- Schedule independent RESTCONF GET operations concurrently.
+- Bound concurrency with a semaphore and connector limit.
+- Handle HTTP, TLS, timeout, transport, and JSON errors per request.
+- Compare sequential and concurrent elapsed time.
 
-## Architecture
+## Request Flow
 
 ```mermaid
-flowchart LR
-    U["Learner browser"] --> S["NodePort Service"]
-    S --> P1["Pod 1<br/>Flask :8080"]
-    S --> P2["Pod 2<br/>Flask :8080"]
-    C["ConfigMap"] --> P1
-    C --> P2
-    D["Deployment<br/>replicas: 2"] --> P1
-    D --> P2
+sequenceDiagram
+    participant P as Python asyncio
+    participant S as aiohttp ClientSession
+    participant R as IOS XE RESTCONF
+
+    P->>S: Schedule four GET coroutines
+    par Hostname
+        S->>R: GET native hostname
+    and Configured interfaces
+        S->>R: GET native interfaces
+    and Interface state
+        S->>R: GET ietf interfaces-state
+    and CPU
+        S->>R: GET CPU operational data
+    end
+    R-->>S: Independently validated HTTPS responses
+    S-->>P: Gather structured results
 ```
 
 ## Prerequisites
 
-- Ubuntu 26.04 workstation with Docker.
-- At least 2 CPU cores, 4 GB free memory, and 10 GB free disk for Minikube.
-- Internet access for installation and base-image download.
-- Basic familiarity with containers and YAML.
+- Completed Optional Lab 18 or equivalent trusted IOS XE HTTPS configuration.
+- `iosxe.lab.local` resolves to the router.
+- The local CA public certificate is available.
+- RESTCONF credentials with read access.
 
-This lab does not use a Cisco sandbox, GitLab Runner, NetBox, Vault, or the main course repository.
+The local CA private key is not required and must not be copied into this repository. A RESTCONF client needs only the public root certificate.
 
 ## Task 1: Create the Repository
 
-Create a private GitLab.com project named `optional_lab19_minikube`, clone it under `~/ccnpauto-workspace`, and copy the contents of `CCNPAUTO/LAB/Lab19/` into it using VS Code.
+Create a private standalone project named `optional_lab19_async_restconf`, clone it under `~/ccnpauto-workspace`, and copy the Lab 19 files into it with VS Code, including the hidden `.env.example` file.
 
-## Task 2: Install `kubectl` and Minikube
-
-Install `kubectl` with the current official Kubernetes instructions. On an Ubuntu workstation with Snap available:
+## Task 2: Install Dependencies
 
 ```bash
-sudo snap install kubectl --classic
-kubectl version --client
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m py_compile async_restconf.py
 ```
 
-Determine the workstation architecture. Ubuntu uses `amd64` to identify x86-64:
+`aiohttp` provides the asynchronous HTTP client. `asyncio`, `ssl`, and JSON support come from the Python standard library.
 
-```bash
-dpkg --print-architecture
-uname -m
+## Task 3: Add the Public CA Certificate
+
+Create a `ca` folder in the Lab 19 repository using VS Code. Copy and paste only this file from Lab 18:
+
+```text
+Lab18/ca/certs/ccnpauto-root-ca.crt.pem
 ```
 
-If the results are `amd64` and `x86_64`, download and install the x86-64 Minikube binary:
+Place it at:
 
-```bash
-wget -O minikube \
-  https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-sudo install minikube /usr/local/bin/minikube
-minikube version
+```text
+Lab19/ca/ccnpauto-root-ca.crt.pem
 ```
 
-If the results are `arm64` and `aarch64`, download and install the ARM64 Minikube binary:
+Do not copy the CA private key, router CSR, or server certificate. The root certificate is sufficient to validate the chain presented by IOS XE.
 
-```bash
-wget -O minikube \
-  https://storage.googleapis.com/minikube/releases/latest/minikube-linux-arm64
-sudo install minikube /usr/local/bin/minikube
-minikube version
+## Task 4: Configure `.env`
+
+Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then update `.env`:
+
+```text
+IOSXE_BASE_URL=https://iosxe.lab.local
+IOSXE_USERNAME=<restconf-username>
+IOSXE_PASSWORD=<restconf-password>
+CA_BUNDLE=ca/ccnpauto-root-ca.crt.pem
+REQUEST_TIMEOUT=15
 ```
 
-Use only the block matching the workstation. Remove the downloaded working copy after installation through the file manager.
+If RESTCONF uses a nondefault port, add it to the base URL. The DNS name must still match a SAN in the IOS XE certificate.
 
-## Task 3: Start the Cluster
+## Task 5: Review Trusted Asynchronous TLS
 
-```bash
-minikube start \
-  --driver=docker \
-  --cpus=2 \
-  --memory=4096
+The script creates the SSL context:
+
+```python
+ssl_context = ssl.create_default_context(cafile=str(ca_bundle))
+connector = aiohttp.TCPConnector(
+    ssl=ssl_context,
+    limit=concurrency,
+)
 ```
 
-Minikube’s Docker driver creates a local Kubernetes node inside a managed container. Kubernetes must create and control its own pod and service networks, so Minikube does not use the host-network pattern employed by automation containers that must follow DevNet VPN routes.
+It does not use `ssl=False`. Therefore, every connection created by the pool validates the same CA chain and hostname as Lab 18.
 
-Verify the cluster:
+One `ClientSession` holds authentication, headers, timeout, connector, and connection pool. Creating a new session for every GET would discard pooling benefits and can exhaust sockets in a larger workflow.
 
-```bash
-minikube status
-kubectl cluster-info
-kubectl get nodes -o wide
-kubectl get namespaces
+## Task 6: Review Concurrency Control
+
+Each resource is represented by a coroutine:
+
+```python
+tasks = [
+    fetch_resource(session, semaphore, name, base_url + path)
+    for name, path in RESOURCES.items()
+]
+results = await asyncio.gather(*tasks)
 ```
 
-The node should report `Ready`.
+`asyncio.gather()` waits for all tasks. The semaphore and connector limit prevent unbounded simultaneous requests. This is essential when a controller or device has session limits.
 
-## Task 4: Review the Application and Manifests
+The code catches request-level failures inside each coroutine, so one unsupported URI does not discard every successful response.
 
-`app.py` provides:
+## Task 7: Establish the Sequential Baseline
 
-- `/` for application identity and pod information;
-- `/health` for readiness and liveness probes.
-
-The Kubernetes folder contains:
-
-- `configmap.yaml`, which separates a message from the image;
-- `deployment.yaml`, which requests two replicas and defines health probes;
-- `service.yaml`, which gives changing pods a stable virtual endpoint.
-
-Validate the YAML on the client:
+Concurrency one uses the asynchronous code but permits only one active request:
 
 ```bash
-kubectl apply --dry-run=client -f kubernetes/
+python async_restconf.py --concurrency 1
 ```
 
-## Task 5: Build the Image Inside Minikube
+Record total and per-resource times. Open the generated JSON file under `results/`. Confirm that certificate validation succeeds and identify any model that the selected IOS XE release does not support.
+
+An HTTP `404` is recorded as a resource failure; it is not a TLS failure. Use Yangsuite or the device module library to validate a URI when necessary.
+
+## Task 8: Run Concurrent Collection
 
 ```bash
-minikube image build -t network-status:1.0 .
-minikube image ls | grep network-status
+python async_restconf.py --concurrency 4
 ```
 
-Building into Minikube avoids pushing this learning image to a public registry. `imagePullPolicy: IfNotPresent` tells the node to use the local image.
+Compare total elapsed time with concurrency one. Concurrent execution is most beneficial when request waiting time dominates processing time. It does not make IOS XE generate data faster, and a small local lab may show only a modest difference.
 
-## Task 6: Deploy the Application
+## Task 9: Interpret Error Isolation
 
-Create a dedicated namespace:
+Temporarily misspell only the `cpu_usage` path in `RESOURCES`, then run the client. The other resources should still succeed while CPU reports `404`. Restore the correct path afterward.
 
-```bash
-kubectl create namespace network-lab
-kubectl config set-context --current --namespace=network-lab
-```
+Next, temporarily point `CA_BUNDLE` to an unrelated public certificate. TLS connections should fail. Restore the trusted CA; never replace the SSL context with an unverified connector.
 
-Apply the objects:
+The distinction is operationally important:
 
-```bash
-kubectl apply -f kubernetes/configmap.yaml
-kubectl apply -f kubernetes/deployment.yaml
-kubectl apply -f kubernetes/service.yaml
-kubectl rollout status deployment/network-status
-```
+| Result | Layer |
+|---|---|
+| Certificate or hostname error | TLS identity |
+| Timeout or connection error | Transport or reachability |
+| `401` or `403` | Authentication or authorization |
+| `404` | RESTCONF resource/model |
+| Invalid JSON | Representation or unexpected server response |
 
-Inspect the resources:
+## Task 10: Choose Safe Concurrency
 
-```bash
-kubectl get deployments
-kubectl get replicasets
-kubectl get pods -o wide
-kubectl get services
-kubectl describe deployment network-status
-```
+Increase concurrency only within device and policy limits. Hundreds of simultaneous requests can consume HTTPS sessions, CPU, memory, and control-plane resources. For network automation:
 
-The Deployment is the desired-state controller. The ReplicaSet maintains two pods, while the Service selects them through the `app: network-status` label.
+- start with a small bound;
+- reuse sessions;
+- apply total and connection timeouts;
+- respect `429` and `Retry-After` where implemented;
+- retry only safe operations;
+- add jittered backoff;
+- measure device impact.
 
-## Task 7: Access the Service
+GET is normally safe to retry. Configuration methods require additional idempotency and verification logic.
 
-```bash
-minikube service network-status --url -n network-lab
-```
+## Task 11: Commit the Client
 
-Open the displayed URL in a browser. Refresh several times and compare the `pod` value. The Service can send successive requests to different ready replicas.
-
-Inspect a pod’s logs:
+`ca/`, `.env`, and `results/` are excluded from Git. Commit only reusable source and documentation:
 
 ```bash
-kubectl logs deployment/network-status --tail=20
-```
-
-## Task 8: Explore Configuration and Probes
-
-View the configuration:
-
-```bash
-kubectl get configmap network-status-config -o yaml
-kubectl describe pod -l app=network-status
-```
-
-Readiness determines whether a pod may receive Service traffic. Liveness determines whether Kubernetes should restart the container. Resource requests help scheduling, while limits constrain consumption.
-
-## Task 9: Scale the Deployment
-
-```bash
-kubectl scale deployment network-status --replicas=3
-kubectl rollout status deployment/network-status
-kubectl get pods -o wide
-```
-
-Scaling changes the desired replica count. Kubernetes creates one additional pod without changing the Service.
-
-## Task 10: Observe Self-Healing
-
-Choose one pod name and delete it:
-
-```bash
-kubectl get pods
-kubectl delete pod <one-pod-name>
-kubectl get pods --watch
-```
-
-Press `Ctrl+C` after the replacement becomes `Running` and `Ready`. The Deployment controller creates a replacement because the observed number of replicas temporarily fell below the desired number.
-
-## Task 11: Perform a Controlled Update
-
-Edit `kubernetes/configmap.yaml` and change `APP_MESSAGE`. Apply it:
-
-```bash
-kubectl apply -f kubernetes/configmap.yaml
-kubectl rollout restart deployment/network-status
-kubectl rollout status deployment/network-status
-```
-
-Environment variables are read when a container starts, so the controlled restart makes the new ConfigMap value visible. Refresh the service URL.
-
-Inspect rollout history:
-
-```bash
-kubectl rollout history deployment/network-status
-```
-
-## Task 12: Clean Up
-
-```bash
-kubectl delete namespace network-lab
-kubectl config set-context --current --namespace=default
-minikube stop
-```
-
-`minikube stop` preserves the cluster for later use. When it is no longer required:
-
-```bash
-minikube delete
+git status
+git add .
+git commit -m "Add trusted asynchronous RESTCONF client"
+git push
 ```
 
 ## Key Takeaways
 
-- Deployments continuously reconcile desired replicas with observed pods.
-- Services provide a stable endpoint in front of replaceable pods.
-- ConfigMaps separate nonsecret settings from container images.
-- Readiness and liveness probes serve different operational purposes.
-- Minikube provides a safe local environment for practicing Kubernetes lifecycle operations.
+- Asynchronous I/O overlaps waiting time for independent requests.
+- A shared `ClientSession` enables connection reuse and consistent policy.
+- Concurrency must be bounded to protect the device control plane.
+- Each task should preserve its own status, timing, payload, or error.
+- Moving from `requests` to `aiohttp` must not remove CA or hostname validation.
 
 ## Further Reading
 
-- [Minikube Documentation](https://minikube.sigs.k8s.io/docs/)
-- [Kubernetes Deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-- [Kubernetes Services](https://kubernetes.io/docs/concepts/services-networking/service/)
-- [Configure Liveness and Readiness Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+- [aiohttp Client Documentation](https://docs.aiohttp.org/en/stable/client.html)
+- [Python asyncio](https://docs.python.org/3/library/asyncio.html)
+- [Python SSL Context](https://docs.python.org/3/library/ssl.html#ssl.create_default_context)
+- [Cisco IOS XE RESTCONF](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/176/b_176_programmability_cg/m_176_prog_restconf.html)

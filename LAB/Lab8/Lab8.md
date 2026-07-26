@@ -529,7 +529,8 @@ not from the completed feature branch.
 
 The cumulative project now demonstrates two complete implementation styles and shows how an automation platform can evolve without replacing its source of truth, secret store, transport models, or delivery controls.
 
-Lab 9 keeps the Ansible event flow and adds timeout handling, rate-limit awareness, bounded retries, and exponential backoff to API access.
+Lab 9 keeps the Ansible event flow and packages its dependencies in a
+controlled container runtime.
 
 ## References
 

@@ -1,366 +1,341 @@
-# Optional Lab 18: Host a Loopback Recovery Application on IOS XE
+# Optional Lab 18: Secure IOS XE RESTCONF with a Local Certificate Authority
 
 ## Lab Introduction
 
-A branch router uses `Loopback1` as a stable management and routing identifier. If an administrator accidentally enters `shutdown` under the interface, routing adjacencies and monitoring can be affected. In this lab, learners host a small closed-loop remediation application directly on an IOx-capable IOS XE router.
+Many lab scripts use `verify=False` to bypass certificate validation. Although convenient, that setting prevents the client from proving that it has reached the intended RESTCONF server. An attacker who can redirect traffic could present another certificate and intercept credentials or configuration data.
 
-The application runs as a Docker container with its own IP address. IOS XE sends native syslog directly to the container. When the service recognizes the `%LINK` message indicating that `Loopback1` became administratively down, it uses Netmiko to open an SSH session to IOS XE and sends `interface Loopback1` followed by `no shutdown`.
-
-The lab intentionally remains simple. The application does not store audit files, does not use EEM, and does not run through Guest Shell. Runtime messages are visible through the application console and container output only.
+In this standalone lab, learners create a local root certificate authority with OpenSSL, generate an IOS XE certificate-signing request, sign the router certificate, bind it to the IOS XE HTTPS server, and build a Python `requests` client that trusts only the local CA. The client validates the certificate chain, validity period, and subject alternative name.
 
 ## Learning Objectives
 
-- Package a Python service as a Cisco IOx Docker application.
-- Give the application its own routed address through `VirtualPortGroup0`.
-- Send IOS XE syslog directly to the hosted service.
-- Recognize a specific interface shutdown message.
-- Use Netmiko to apply `no shutdown` to a specific interface.
-- Verify a complete observe, decide, act, and verify workflow.
-- Operate and remove an IOx application safely.
+- Explain the roles of a root CA, server key, CSR, server certificate, and trust store.
+- Create and protect a local OpenSSL root CA.
+- Create an IOS XE RSA key pair and PKI trustpoint.
+- Sign and import an IOS XE HTTPS certificate.
+- Bind the trustpoint to the RESTCONF HTTPS server.
+- Validate RESTCONF with `requests` and a CA bundle.
+- Diagnose chain, hostname, expiry, and connection failures.
 
-## Application Flow
+## Trust Flow
 
 ```mermaid
-sequenceDiagram
-    participant O as Operator
-    participant R as IOS XE
-    participant A as IOx application 192.168.200.2
-
-    O->>R: shutdown Loopback1
-    R-->>A: UDP 5514 LINK syslog
-    A->>A: Match administrative-down event
-    A->>R: Netmiko SSH session
-    A->>R: interface Loopback1<br/>no shutdown
-    R-->>A: CLI result
-    R->>R: Loopback1 returns to up
+flowchart LR
+    CA["Local root CA<br/>private key protected"] -->|"Signs CSR"| C["IOS XE server certificate"]
+    C --> R["IOS XE HTTPS/RESTCONF"]
+    CA -->|"Public root certificate"| P["Python trust bundle"]
+    P -->|"Validates chain and SAN"| R
 ```
 
-## Supplied Files
+## Prerequisites and Safety
 
-```text
-Lab18/
-├── .dockerignore
-├── .gitignore
-├── Dockerfile
-├── Lab18.md
-├── loopback_recovery.py
-├── package.yaml
-├── package_config.ini
-├── requirements.txt
-├── scripts/
-│   └── send_test_syslog.py
-└── tests/
-    └── test_loopback_recovery.py
-```
+- Ubuntu workstation with OpenSSL and Python.
+- Dedicated or reservable IOS XE router on which PKI and HTTPS changes are permitted.
+- Direct HTTPS reachability to the router IP and a lab-only RESTCONF account.
+- Permission to edit the workstation’s `/etc/hosts`.
 
-## Prerequisites and Platform Boundary
-
-- Ubuntu workstation prepared in Lab 1.
-- Docker and `ioxclient`.
-- A dedicated IOx-capable IOS XE application-hosting platform.
-- Permission to install a custom application and change `Loopback1`.
-- An IOS XE account dedicated to the lab application.
-
-Not every Cisco IOS XE sandbox supports custom application hosting. First verify `show iox`, `show app-hosting infra`, and `show app-hosting list`. Recent platforms may require signed application packages. Do not disable signature enforcement; use an instructor-approved signing workflow or compatible development platform.
-
-This lab uses the following isolated subnet unless it conflicts with the selected router:
-
-| Component | Address |
-|---|---:|
-| IOS XE `VirtualPortGroup0` | `192.168.200.1/30` |
-| IOx application `eth0` | `192.168.200.2/30` |
+This is a learning CA, not an enterprise PKI. Protect its private key, never commit it, and never use it to issue production certificates. The router certificate must contain the DNS name or IP used in the Python URL. Certificate validation correctly fails when they do not match.
 
 ## Task 1: Create the Repository
 
-Create a private GitLab.com project named `optional_lab18_iosxe_app_hosting`. Clone it under `~/ccnpauto-workspace`, then use VS Code to copy and paste the contents of `CCNPAUTO/LAB/Lab18/` into the repository.
+Create a private standalone project named `optional_lab18_restconf_pki`, clone it under `~/ccnpauto-workspace`, and copy the Lab 18 files into it using VS Code, including the hidden `.env.example` file.
 
-The supplied `.gitignore` excludes `package_config.ini`, package archives, caches, and local runtime data. The configuration file contains a password after Task 5 and must never be committed.
-
-## Task 2: Install the Python Dependencies and Run Tests
+Create and activate the environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python -m py_compile loopback_recovery.py scripts/send_test_syslog.py
-python -m pytest -q
 ```
 
-The tests confirm that the parser reacts only to the `Loopback1` administrative-down event and that Netmiko receives this command list:
+## Task 2: Choose the RESTCONF Identity
+
+This lab uses:
 
 ```text
-interface Loopback1
-no shutdown
+iosxe.lab.local
 ```
 
-The test also confirms that the SSH session disconnects after the change.
-
-## Task 3: Review the Application
-
-Open `loopback_recovery.py`. The service accepts syslog only from `192.168.200.1` and ignores every event except:
-
-```text
-%LINK-5-CHANGED: Interface Loopback1, changed state to administratively down
-```
-
-The recovery class builds a familiar Netmiko device dictionary and passes it to `ConnectHandler(**device)`. It then calls:
-
-```python
-connection.send_config_set(
-    ["interface Loopback1", "no shutdown"]
-)
-```
-
-Because the command changes only the administrative state, the existing description and IP address remain unchanged. The script verifies the interface with `show interfaces Loopback1 | include line protocol` and always disconnects in a `finally` block.
-
-## Task 4: Prepare IOS XE
-
-Verify IOx and enable the required services:
-
-```text
-show iox
-show app-hosting infra
-show app-hosting list
-configure terminal
-iox
-end
-```
-
-Create a lab-only account. Replace the sample secret with a unique password:
-
-```text
-configure terminal
-username apphost privilege 15 secret <unique-lab-password>
-end
-```
-
-Privilege 15 keeps the optional exercise straightforward. A production system should use an AAA command policy restricted to the required interface commands.
-
-Confirm that the SSH server is available:
-
-```text
-show ip ssh
-```
-
-The router already uses SSH for learner access in most application-hosting environments. If SSH is disabled, configure the platform’s approved hostname, domain name, RSA key, and SSH version before continuing.
-
-Prepare `Loopback1` without changing an existing address:
-
-```text
-show running-config interface Loopback1
-configure terminal
-interface Loopback1
- logging event link-status
- no shutdown
-end
-```
-
-If the interface does not exist, create it only with an instructor-approved address.
-
-## Task 5: Configure the Application
-
-Open `package_config.ini` and replace only the password:
+Open `ca/iosxe-san.cnf` and replace `REPLACE_WITH_ROUTER_IP` with the directly reachable IOS XE address. Keep both entries:
 
 ```ini
-[router]
-host = 192.168.200.1
-port = 22
-username = apphost
-password = <unique-lab-password>
-device_type = cisco_ios
-timeout = 10
+DNS.1 = iosxe.lab.local
+IP.1 = <router-ip>
 ```
 
-IOx exposes the bootstrap file through `CAF_APP_CONFIG_FILE`. The application reads that location at startup. Do not commit the edited file or place the password in `Dockerfile`, `package.yaml`, or Python code.
+Map the DNS name locally:
 
-## Task 6: Build and Package the Application
+```bash
+sudo nano /etc/hosts
+```
 
-The architecture required here is the IOS XE application-hosting architecture, which can differ from the learner workstation architecture. Check it on the router:
+Add:
 
 ```text
-show app-hosting infra
+<router-ip> iosxe.lab.local
 ```
 
-When the output reports `x86_64`, set `cpuarch: x86_64` in `package.yaml` and build the x86-64/AMD64 image:
+If the sandbox exposes RESTCONF through a nondefault port, include that port in `IOSXE_BASE_URL`; the certificate identity remains `iosxe.lab.local`.
+
+## Task 3: Create the Local Root CA
+
+Create the working directories:
 
 ```bash
-docker build \
-  --platform linux/amd64 \
-  -t loopback1-auto-recovery:1.0 .
-ioxclient docker package loopback1-auto-recovery:1.0 .
-tar -tf package.tar
+mkdir -p ca/private ca/certs ca/csr
+chmod 700 ca/private
 ```
 
-When the output reports `aarch64`, set `cpuarch: aarch64` in `package.yaml` and build the ARM64 image:
+Generate an encrypted 4096-bit CA private key:
 
 ```bash
-docker build \
-  --platform linux/arm64 \
-  -t loopback1-auto-recovery:1.0 .
-ioxclient docker package loopback1-auto-recovery:1.0 .
-tar -tf package.tar
+openssl genrsa \
+  -aes256 \
+  -out ca/private/ccnpauto-root-ca.key.pem \
+  4096
+chmod 600 ca/private/ccnpauto-root-ca.key.pem
 ```
 
-Docker BuildKit can build for a target architecture different from the workstation only when the required builder and emulation support are available. Whenever possible, build natively for the architecture reported by IOS XE. Do not package an ARM64 image for an `x86_64` IOx host or an AMD64 image for an `aarch64` IOx host.
+Use a unique passphrase and store it in an approved password manager. Generate the self-signed root certificate:
 
-Sign the resulting package when the device enforces application signatures. Never commit or share the signing private key.
+```bash
+openssl req \
+  -x509 \
+  -new \
+  -sha256 \
+  -days 3650 \
+  -key ca/private/ccnpauto-root-ca.key.pem \
+  -out ca/certs/ccnpauto-root-ca.crt.pem \
+  -subj "/C=AU/O=CCNPAUTO Lab/CN=CCNPAUTO Lab Root CA" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign"
+```
 
-## Task 7: Transfer the Package
+Inspect it:
 
-Enable SCP only when permitted:
+```bash
+openssl x509 \
+  -in ca/certs/ccnpauto-root-ca.crt.pem \
+  -noout -subject -issuer -dates -fingerprint -sha256
+```
+
+The subject and issuer are identical because this is a self-signed root.
+
+## Task 4: Create the IOS XE Trustpoint and Key
+
+On IOS XE:
 
 ```text
 configure terminal
-ip scp server enable
+crypto key generate rsa general-keys label RESTCONF-RSA modulus 2048
+crypto pki trustpoint CCNPAUTO-RESTCONF
+ enrollment terminal
+ subject-name cn=iosxe.lab.local
+ fqdn iosxe.lab.local
+ revocation-check none
+ rsakeypair RESTCONF-RSA
+ hash sha256
 end
 ```
 
-From Ubuntu:
+`revocation-check none` is limited to this offline learning CA, which does not publish CRL or OCSP services.
+
+## Task 5: Trust the Root CA on IOS XE
+
+Display the root certificate on Ubuntu:
 
 ```bash
-export IOSXE_HOST=<router-address>
-export IOSXE_SSH_PORT=<ssh-port>
-export IOSXE_USERNAME=<administrator-username>
-
-scp -O -P "$IOSXE_SSH_PORT" \
-  package.tar \
-  "$IOSXE_USERNAME@$IOSXE_HOST:loopback1-auto-recovery.tar"
+openssl x509 \
+  -in ca/certs/ccnpauto-root-ca.crt.pem \
+  -outform PEM
 ```
 
-Verify it on the router:
+On IOS XE:
 
 ```text
-dir bootflash:loopback1-auto-recovery.tar
+crypto pki authenticate CCNPAUTO-RESTCONF
 ```
 
-## Task 8: Configure the Application Address
+Paste the complete root certificate, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines. Enter a blank line, confirm the displayed fingerprint against Ubuntu, and accept the certificate only when it matches.
+
+Verify:
+
+```text
+show crypto pki certificates CCNPAUTO-RESTCONF
+```
+
+## Task 6: Generate and Save the IOS XE CSR
+
+On IOS XE:
+
+```text
+crypto pki enroll CCNPAUTO-RESTCONF
+```
+
+Accept enrollment and choose to display the certificate request. Copy the complete base64 request. In VS Code, create `ca/csr/iosxe.csr.pem` and paste:
+
+```text
+-----BEGIN CERTIFICATE REQUEST-----
+<router-generated-base64>
+-----END CERTIFICATE REQUEST-----
+```
+
+Inspect the CSR:
+
+```bash
+openssl req \
+  -in ca/csr/iosxe.csr.pem \
+  -noout -subject -text
+```
+
+## Task 7: Sign the Router Certificate
+
+Confirm the IP in `ca/iosxe-san.cnf`, then sign:
+
+```bash
+openssl x509 \
+  -req \
+  -in ca/csr/iosxe.csr.pem \
+  -CA ca/certs/ccnpauto-root-ca.crt.pem \
+  -CAkey ca/private/ccnpauto-root-ca.key.pem \
+  -CAcreateserial \
+  -out ca/certs/iosxe-restconf.crt.pem \
+  -days 825 \
+  -sha256 \
+  -extfile ca/iosxe-san.cnf \
+  -extensions v3_server
+```
+
+Validate the chain and inspect SAN:
+
+```bash
+openssl verify \
+  -CAfile ca/certs/ccnpauto-root-ca.crt.pem \
+  ca/certs/iosxe-restconf.crt.pem
+
+openssl x509 \
+  -in ca/certs/iosxe-restconf.crt.pem \
+  -noout -subject -issuer -dates -ext subjectAltName
+```
+
+The verification result must be `OK`, and the SAN must contain the selected DNS name and router IP.
+
+## Task 8: Import and Bind the Server Certificate
+
+Display the signed server certificate:
+
+```bash
+openssl x509 \
+  -in ca/certs/iosxe-restconf.crt.pem \
+  -outform PEM
+```
+
+On IOS XE:
+
+```text
+crypto pki import CCNPAUTO-RESTCONF certificate
+```
+
+Paste the complete server certificate and finish with a blank line. Then bind the trustpoint:
 
 ```text
 configure terminal
-interface VirtualPortGroup0
- description LAB18_IOX_GATEWAY
- ip address 192.168.200.1 255.255.255.252
- no shutdown
-exit
-app-hosting appid loopback1-recovery
- app-vnic gateway0 virtualportgroup 0 guest-interface 0
-  guest-ipaddress 192.168.200.2 netmask 255.255.255.252
- exit
- app-default-gateway 192.168.200.1 guest-interface 0
-end
-```
-
-If the platform uses different vNIC syntax, follow its application-hosting configuration guide rather than guessing.
-
-## Task 9: Install and Start the Application
-
-```text
-app-hosting install appid loopback1-recovery package bootflash:loopback1-auto-recovery.tar
-app-hosting activate appid loopback1-recovery
-app-hosting start appid loopback1-recovery
-show app-hosting list
-show app-hosting detail appid loopback1-recovery
-```
-
-Connect to the application:
-
-```text
-app-hosting connect appid loopback1-recovery session
-```
-
-Inside the container, verify `eth0`, UDP port `5514`, and the Python process:
-
-```bash
-ip address show eth0
-ss -lun
-ps
-```
-
-Exit the container.
-
-## Task 10: Send Syslog Directly to the Application
-
-```text
-configure terminal
-service timestamps log datetime msec show-timezone year
-logging trap notifications
-logging source-interface VirtualPortGroup0
-logging host 192.168.200.2 transport udp port 5514
+ip http secure-server
+ip http secure-trustpoint CCNPAUTO-RESTCONF
+restconf
 end
 ```
 
 Verify:
 
 ```text
-show running-config | section ^logging
-show logging
+show crypto pki certificates CCNPAUTO-RESTCONF
+show running-config | include ip http|restconf
 ```
 
-No EEM applet is required. IOS XE sends the interface event directly to the application IP.
+The trustpoint should contain both the CA certificate and an identity certificate associated with `RESTCONF-RSA`.
 
-## Task 11: Test Closed-Loop Recovery
+## Task 9: Configure the Secure Python Client
 
-Open one session for the interface change and another for observation. Enter:
+Open `.env.example`, create a new `.env` file in the repository root, and copy and paste the example content into it. Then update `.env`:
+
+```text
+IOSXE_BASE_URL=https://iosxe.lab.local
+IOSXE_USERNAME=<restconf-username>
+IOSXE_PASSWORD=<restconf-password>
+CA_BUNDLE=ca/certs/ccnpauto-root-ca.crt.pem
+REQUEST_TIMEOUT=15
+```
+
+Do not add `VERIFY=false`. The client passes the root CA file to `requests`:
+
+```python
+response = session.get(
+    url,
+    verify=str(ca_bundle),
+    timeout=15,
+)
+```
+
+The root CA certificate is public and can be distributed to clients. Its private key must remain secret.
+
+## Task 10: Run and Interpret the Request
+
+```bash
+python secure_restconf.py
+```
+
+A successful result reports HTTP `200` and lists configured interfaces. The TLS handshake occurred before RESTCONF authentication or JSON parsing.
+
+To prove validation is active, temporarily change the URL to the router IP while removing its IP SAN, or set `CA_BUNDLE` to an unrelated CA file. The request should fail with `SSLError`. Restore the correct settings immediately; do not solve the failure with `verify=False`.
+
+## Task 11: Troubleshoot by Failure Type
+
+| Evidence | Likely cause |
+|---|---|
+| `certificate verify failed: unable to get local issuer` | Wrong CA bundle or incomplete chain |
+| `IP address mismatch` or `hostname mismatch` | URL identity absent from SAN |
+| Certificate expired or not yet valid | Clock or validity problem |
+| HTTP `401` | TLS succeeded; RESTCONF credentials failed |
+| HTTP `403` | TLS and authentication succeeded; authorization failed |
+| Connection refused or timeout | Address, port, route, or HTTPS service issue |
+| HTTP `404` | RESTCONF resource or model path issue |
+
+Use OpenSSL for an independent TLS check:
+
+```bash
+openssl s_client \
+  -connect iosxe.lab.local:443 \
+  -servername iosxe.lab.local \
+  -CAfile ca/certs/ccnpauto-root-ca.crt.pem \
+  </dev/null
+```
+
+The final verification code should be `0 (ok)`.
+
+## Task 12: Protect and Clean Up
+
+Do not commit `.env`, private keys, CSRs, issued certificates, or serial files. Commit the Python source, requirements, guide, and SAN template only.
+
+When the instructor requires cleanup, first bind HTTPS to an approved replacement trustpoint. Removing the active trustpoint before replacement can disrupt RESTCONF. Then remove only the lab identity:
 
 ```text
 configure terminal
-interface Loopback1
- shutdown
+no crypto pki trustpoint CCNPAUTO-RESTCONF
 end
+crypto key zeroize rsa RESTCONF-RSA
 ```
-
-Within a few seconds, the application should receive the syslog, open an SSH session to IOS XE, and apply `no shutdown`. Verify:
-
-```text
-show interfaces Loopback1
-show running-config interface Loopback1
-show logging | include Loopback1
-```
-
-The running configuration must not contain `shutdown`, and the interface should return to `up/up`. Enter the application session and review its runtime messages. A successful cycle reports the detected shutdown, Netmiko configuration output, and interface verification.
-
-If the interface remains down, troubleshoot in this order:
-
-1. Confirm the application is `RUNNING`.
-2. Confirm IOS XE generated the `%LINK` message.
-3. Confirm the syslog source and destination configuration.
-4. Confirm the container listens on UDP `5514`.
-5. Confirm the application configuration contains the correct password.
-6. Confirm IOS XE accepts SSH from `192.168.200.2`.
-7. Inspect authentication, timeout, configuration, and verification messages.
-
-## Task 12: Clean Up
-
-Remove only this syslog destination, application, account, and package:
-
-```text
-configure terminal
-no logging host 192.168.200.2 transport udp port 5514
-no username apphost
-end
-app-hosting stop appid loopback1-recovery
-app-hosting deactivate appid loopback1-recovery
-app-hosting uninstall appid loopback1-recovery
-configure terminal
-no app-hosting appid loopback1-recovery
-no interface VirtualPortGroup0
-end
-delete /force bootflash:loopback1-auto-recovery.tar
-```
-
-Do not disable IOx or SSH when another lab, management workflow, or hosted application requires them.
 
 ## Key Takeaways
 
-- A true hosted application has its own process, lifecycle, resources, vNIC, and IP address.
-- Native IOS XE syslog can trigger a small closed-loop remediation service without EEM.
-- Netmiko can apply the small CLI change through a standard device dictionary.
-- Narrow event matching and source validation prevent unrelated syslog from triggering configuration.
-- Runtime verification must cover the event, application, SSH action, and final interface state.
+- TLS authentication requires both a trusted issuer and a matching SAN.
+- A CA private key signs certificates and must never be distributed to clients.
+- IOS XE uses a trustpoint to associate CA trust, identity certificate, and private key.
+- `requests` accepts a CA bundle path through `verify`; `verify=False` removes server authentication.
+- HTTP status troubleshooting begins only after the TLS handshake succeeds.
 
 ## Further Reading
 
-- [Cisco IOS XE Application Hosting](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1717/b_1717_programmability_cg/application-hosting.html)
-- [Cisco IOx Package Descriptor](https://developer.cisco.com/docs/iox/package-descriptor/)
-- [Netmiko Documentation](https://ktbyers.github.io/netmiko/)
+- [Python Requests SSL Certificate Verification](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification)
+- [OpenSSL Documentation](https://docs.openssl.org/)
+- [Cisco IOS XE PKI Configuration Guide](https://www.cisco.com/c/en/us/support/docs/security-vpn/public-key-infrastructure-pki/221852-configure-and-verify-certificate-sign.html)

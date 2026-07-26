@@ -1,154 +1,226 @@
-# Lab 12: Detect Configuration Drift and Report Compliance
+# Optional Lab 12: Provision Cisco ACI with Terraform
 
 ## Lab Introduction
 
-The project can now configure and observe IOS XE, but it still assumes that state remains correct between deployments. Manual commands, another automation system, or a sandbox reset can cause configuration drift. Lab 12 adds a strictly read-only pipeline that compares NetBox intent with observed loopback and OSPF state, produces structured evidence, and fails visibly without correcting the router.
+An application team needs an isolated three-tier network in Cisco ACI. Creating the tenant, VRF, bridge domain, subnet, application profile, and endpoint groups manually would be repeatable only through an operator's memory. In this optional lab, learners express the same ACI policy as Terraform configuration and deploy it to a Cisco DevNet reservable ACI Simulator sandbox.
+
+Terraform is useful here because the configuration describes the intended end state and records the relationship among ACI managed objects. The provider translates Terraform resources into APIC API operations, while the state file records which remote objects Terraform manages. Consequently, learners must review the plan before applying it and must not treat the state file as a disposable log.
+
+This lab is standalone and does not modify `network_automation_project`.
 
 ## Learning Objectives
 
-- Distinguish drift detection from automatic remediation.
-- Parse observed IOS XE configuration into normalized records.
-- Detect missing, mismatched, and unmanaged resources.
-- Produce machine-readable compliance evidence.
-- Run scheduled pipelines without invoking deployment jobs.
-- Publish compliance status while protecting credentials.
+- Explain how the Terraform provider maps resources to ACI managed objects.
+- Authenticate to APIC without placing credentials in HCL files.
+- Create an ACI tenant, VRF, bridge domain, subnet, application profile, and EPGs.
+- Interpret `terraform plan`, `apply`, `state`, and `destroy`.
+- Verify the deployed policy in APIC and through Terraform outputs.
+- Explain why Terraform state must be protected and coordinated.
 
-## Compliance Model
+## Architecture
 
 ```mermaid
 flowchart LR
-    N["NetBox intended state"] --> C["Ansible compliance playbook"]
-    R["IOS XE observed state"] --> C
-    C --> J["JSON drift report"]
-    C --> A["GitLab audit artifacts"]
-    C --> M["Compliance metric"]
-    C -. "No automatic changes" .-> R
+    HCL["Terraform HCL<br/>desired ACI policy"] --> TF["Terraform Core"]
+    State["Local state<br/>managed-object identity"] <--> TF
+    TF --> Provider["CiscoDevNet ACI provider"]
+    Provider -->|"HTTPS REST API"| APIC["APIC<br/>reservable ACI simulator"]
+    APIC --> Fabric["Simulated ACI fabric"]
 ```
 
-The lab treats every tagged NetBox loopback as managed. A compliant router contains the intended interface, `/32` address, administrative state, and OSPF area 0 network statement. A loopback present on IOS XE but absent from the managed NetBox set is reported as unmanaged rather than deleted.
+## Prerequisites
 
-## Task 1: Add the Drift Components
+- Ubuntu workstation prepared in Lab 1.
+- Terraform installed and available in the terminal.
+- A GitLab.com account.
+- An active **Cisco ACI Simulator reservable sandbox** reservation.
+- VPN access and the APIC URL and credentials shown in the reservation.
+- Basic understanding of ACI tenants, VRFs, bridge domains, application profiles, and EPGs.
 
-Start and verify the read-only audit dependencies:
+Create a standalone GitLab.com repository named `optional_lab12_aci_terraform`, clone it under `~/ccnpauto-workspace`, and use the VS Code Explorer to copy the files from `CCNPAUTO/LAB/Lab12/` into it, including the hidden `.env.example` file.
 
-```bash
-cd "$HOME/lab-services/netbox-docker"
-docker compose up -d
-vault status
-sudo systemctl start gitlab-runner
-sudo gitlab-runner verify
-```
+## Task 1: Inspect the ACI Object Model
 
-Start TIG only if compliance metrics will be published. Local Yangsuite is not required.
+Before running Terraform, sign in to APIC with the reservation credentials. Inspect these locations:
 
-```bash
-cd ~/ccnpauto-workspace/network_automation_project
-git switch main && git pull --ff-only
-git switch -c feature/drift-compliance
-mkdir -p filter_plugins tests playbooks
-```
+1. Open **Tenants** and confirm that the learner tenant does not already exist.
+2. Open an existing tenant and examine **Networking > VRFs**.
+3. Examine **Networking > Bridge Domains** and the subnets below a bridge domain.
+4. Examine **Application Profiles** and the endpoint groups below a profile.
 
-Using the VS Code Explorer, copy and paste `filter_plugins/drift_filters.py`, `tests/test_drift_filters.py`, and `playbooks/drift.yml` from `CCNPAUTO/LAB/Lab12/` into the matching project folders.
-
-Retain the shared logger. The custom filter records comparison counts and classifications at diagnostic level, while the playbook artifact records the resulting compliant, missing, unexpected, and mismatched items. Detailed logs explain how a result was derived; the compliance report states the result.
-
-The filter converts CLI configuration to dictionaries before comparison. This is more reliable than searching for unrelated substrings, but it remains platform-specific. Structured YANG operational data would be preferable when the required state is consistently exposed by the device model.
-
-## Task 2: Test the Comparison Logic
-
-```bash
-source ~/.venvs/ccnpauto/bin/activate
-pytest -q tests/test_drift_filters.py
-ansible-playbook --syntax-check playbooks/drift.yml
-```
-
-The tests cover a compliant router and a router with both missing and unmanaged state. Add a third test for an incorrect address before continuing.
-
-## Task 3: Run a Read-Only Audit
-
-Set the same NetBox, Vault, and IOS XE environment variables used by Lab 8 and run:
-
-```bash
-mkdir -p artifacts
-ansible-playbook playbooks/drift.yml
-jq . artifacts/drift-report.json
-```
-
-The playbook retrieves credentials because read-only device access still requires authentication. It does not invoke `ios_config`, `netconf_config`, RESTCONF PATCH, or any other write operation.
-
-## Task 4: Create Controlled Drift
-
-On the reserved sandbox, change the description or address of one managed loopback, or create an unmanaged `Loopback999`. Run the audit again. The play should fail and identify the exact category while leaving the router untouched. Restore state with the normal NetBox-triggered pipeline, then confirm the next drift audit passes.
-
-## Task 5: Add Scheduled Compliance
-
-Add an `assess` stage and the supplied `drift-compliance` job to `.gitlab-ci.yml`. Tag the successful Lab 11 runtime image as `network-automation-runtime:stable` in the build job:
-
-```bash
-docker tag "$AUTOMATION_IMAGE" network-automation-runtime:stable
-```
-
-Scheduled pipelines must not run normal build, deploy, or test jobs. Add this rule to change-capable jobs:
-
-```yaml
-rules:
-  - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    when: never
-  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-```
-
-In GitLab.com, open **Build > Pipeline schedules**, create `Nightly IOS XE compliance`, select `main`, and use an instructor-approved schedule. Protected variables and the protected Runner must be available to scheduled pipelines.
-
-## Task 6: Retain and Observe Results
-
-Retain `drift-report.json`, JSONL audit events, and the console log for 30 days. Extend the Lab 10 metrics publisher with a compliance measurement if desired:
-
-Retain the associated timestamped files in `logs/` as well. When drift appears, correlate the pipeline time, comparison decisions, observed values, and final failure before deciding whether the device or source of truth should change.
+The hierarchy matters because APIC identifies objects by distinguished names. For example:
 
 ```text
-network_compliance,device=iosxe-sandbox compliant=1i,missing=0i,mismatched=0i,unmanaged=0i
+uni/tn-ccnpauto-<learner-id>
+uni/tn-ccnpauto-<learner-id>/ctx-PROD-VRF
+uni/tn-ccnpauto-<learner-id>/BD-PROD-BD
+uni/tn-ccnpauto-<learner-id>/ap-THREE-TIER-APP/epg-WEB-EPG
 ```
 
-Grafana can then display current compliance, failure count, and time since the last successful audit.
+Terraform dependencies reproduce this hierarchy. A child resource uses the parent resource ID instead of reconstructing the distinguished name manually.
 
-## Task 7: Commit and Merge
+## Task 2: Protect APIC Credentials
+
+Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and insert the values from the active reservation:
+
+```text
+ACI_URL=https://<apic-address>
+ACI_USERNAME=<sandbox-username>
+ACI_PASSWORD=<sandbox-password>
+ACI_INSECURE=true
+TF_VAR_learner_id=<short-lowercase-identifier>
+```
+
+`ACI_INSECURE=true` is acceptable only for this simulator because its certificate might not be trusted by the workstation. A production workflow should validate APIC TLS with the organization's CA. Do not commit `.env`.
+
+Load the variables into the current shell:
 
 ```bash
-git add filter_plugins tests playbooks .gitlab-ci.yml
-git commit -m "Add scheduled configuration drift reporting"
-git push -u origin feature/drift-compliance
+set -a
+source .env
+set +a
 ```
 
-Review the merge request and prove that scheduled execution cannot reach a deployment job.
+The ACI provider reads `ACI_URL`, `ACI_USERNAME`, `ACI_PASSWORD`, and `ACI_INSECURE`. Terraform reads variables prefixed with `TF_VAR_`, so `TF_VAR_learner_id` becomes the `learner_id` input without a password appearing in a `.tf` file.
 
-## Finish on the Latest Main Branch
+## Task 3: Review the Terraform Configuration
 
-After the compliance pipeline succeeds and GitLab shows the merge request as
-**Merged**, synchronize the final cumulative project release:
+Open `versions.tf`, `variables.tf`, `main.tf`, and `outputs.tf`. The configuration uses the current `ciscodevnet/aci` provider resource model. The main dependency path is:
+
+```mermaid
+flowchart TD
+    Tenant["aci_tenant"] --> VRF["aci_vrf"]
+    Tenant --> BD["aci_bridge_domain"]
+    VRF --> BD
+    BD --> Subnet["aci_subnet"]
+    Tenant --> AP["aci_application_profile"]
+    AP --> EPGs["aci_application_epg<br/>WEB, APP, DB"]
+    BD --> EPGs
+```
+
+The `for_each` expression creates three EPG resources from one map. Each EPG is still a separately addressable Terraform resource and ACI managed object.
+
+## Task 4: Initialize and Validate
+
+Run formatting and initialization:
 
 ```bash
-cd ~/ccnpauto-workspace/network_automation_project
-git switch main
-git pull --ff-only
-git status
+terraform fmt -recursive
+terraform init
+terraform validate
 ```
 
-Confirm that `git status` reports `main` is up to date with `origin/main` and
-that the working tree is clean. Preserve this synchronized branch as the
-project baseline for later review and troubleshooting.
+`terraform init` installs the provider version allowed by `versions.tf` and creates `.terraform.lock.hcl`. Commit the lock file because it records provider selection. Do not commit `.terraform/`, `.env`, plan files, or state files.
+
+## Task 5: Review the Execution Plan
+
+Create a saved plan:
+
+```bash
+terraform plan -out=aci.plan
+terraform show aci.plan
+```
+
+Confirm that the plan creates only the learner-prefixed resources. A plan containing deletion or modification of a shared sandbox object must not be applied. Record the number of resources to add, change, and destroy.
+
+The saved plan binds the reviewed proposal to the subsequent apply. If HCL or variables change, create a new plan rather than applying an old one.
+
+## Task 6: Apply and Interpret the Result
+
+Apply the reviewed plan:
+
+```bash
+terraform apply aci.plan
+terraform output
+terraform state list
+```
+
+The output should contain the tenant distinguished name, bridge-domain distinguished name, subnet address, application-profile distinguished name, and EPG distinguished names. The state list should include one resource address for each managed object.
+
+Inspect one object:
+
+```bash
+terraform state show aci_application_epg.tier["web"]
+```
+
+The resource address includes the `for_each` key. The remote `id` is the APIC distinguished name that associates the Terraform address with the ACI object.
+
+## Task 7: Verify in APIC
+
+In APIC:
+
+1. Open **Tenants > ccnpauto-\<learner-id\>**.
+2. Under **Networking > VRFs**, verify `PROD-VRF`.
+3. Under **Networking > Bridge Domains**, open `PROD-BD`; verify the VRF relationship and `10.50.0.1/24` subnet.
+4. Under **Application Profiles**, open `THREE-TIER-APP`.
+5. Verify `WEB-EPG`, `APP-EPG`, and `DB-EPG`.
+6. Open each EPG and confirm that it is associated with `PROD-BD`.
+
+Terraform reports API completion, while APIC verification confirms that the policy is visible in the controller's operational model.
+
+## Task 8: Make a Controlled Change
+
+Add a fourth entry to the `epgs` map in `variables.tf`:
+
+```hcl
+tools = "TOOLS-EPG"
+```
+
+Then run:
+
+```bash
+terraform fmt -recursive
+terraform validate
+terraform plan -out=aci-change.plan
+```
+
+The plan should add exactly one EPG and leave the existing resources unchanged. Apply the saved plan, verify the new EPG in APIC, and inspect `terraform state list` again.
+
+## Task 9: Detect Out-of-Band Change
+
+In APIC, change the description of `TOOLS-EPG`. Do not delete the object. Run:
+
+```bash
+terraform plan
+```
+
+Interpret whether the provider detects and proposes correction of the changed attribute. Terraform can only detect drift for attributes represented in the resource schema and configuration. An APIC property that is computed, ignored, or absent from HCL might not produce a plan difference.
+
+## Task 10: Clean Up Safely
+
+Because the ACI simulator is shared for the duration of the reservation, remove only the objects created by this configuration:
+
+```bash
+terraform plan -destroy -out=destroy.plan
+terraform show destroy.plan
+terraform apply destroy.plan
+```
+
+Verify that the plan targets only the learner tenant and its children. APIC deletes children with the tenant, but Terraform still evaluates its dependency graph and removes every managed resource from state.
+
+## Troubleshooting
+
+| Symptom | Investigate |
+|---|---|
+| Provider authentication fails | Reservation credentials, APIC URL, VPN, and loaded `ACI_*` variables |
+| Provider installation fails | Internet access, proxy trust, and Terraform Registry availability |
+| `403 Forbidden` | Sandbox role permissions or an attempt to modify protected shared policy |
+| Plan proposes unexpected objects | `learner_id`, current working directory, state file, and active workspace |
+| EPG exists without the expected bridge domain | `relation_to_bridge_domain` and provider-version schema |
+| APIC object exists but Terraform wants to create it | Wrong state, different resource address, or unmanaged pre-existing object |
 
 ## Key Takeaways
 
-- Drift detection should be read-only by default.
-- NetBox intent and IOS XE observations must be normalized before comparison.
-- Missing, mismatched, and unmanaged resources require different operator decisions.
-- Compliance failure is evidence, not authorization to delete or overwrite configuration.
-- Scheduled pipelines need explicit rules that exclude change-capable jobs.
-
-Lab 13 builds on the course's model-driven foundations by collecting live IOS XE operational data through dial-in and dial-out telemetry.
+- Terraform resources map to APIC managed objects and preserve their identities in state.
+- ACI object hierarchy should be represented with resource references rather than hard-coded distinguished names.
+- Provider credentials belong in protected environment variables, not HCL.
+- A saved plan should be reviewed before apply, especially on a shared controller.
+- Terraform state contains sensitive infrastructure metadata and requires controlled storage.
+- `destroy` is a real controller change and must receive the same review as creation.
 
 ## References
 
-- [Ansible Cisco IOS command module](https://docs.ansible.com/ansible/latest/collections/cisco/ios/ios_command_module.html)
-- [GitLab pipeline schedules](https://docs.gitlab.com/ci/pipelines/schedules/)
-- [GitLab job artifacts](https://docs.gitlab.com/ci/jobs/job_artifacts/)
+- [Cisco DevNet ACI Sandboxes](https://developer.cisco.com/docs/aci/sandbox/)
+- [CiscoDevNet ACI Provider](https://registry.terraform.io/providers/CiscoDevNet/aci/latest/docs)
+- [Cisco DevNet Terraform Learning](https://developer.cisco.com/automation-terraform/)
+- [Terraform State](https://developer.hashicorp.com/terraform/language/state)

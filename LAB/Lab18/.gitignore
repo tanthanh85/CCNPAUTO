@@ -1,8 +1,9 @@
 .venv/
+.env
 __pycache__/
 *.py[cod]
 .pytest_cache/
-*.log
-package.tar
-*.tar
-package_config.ini
+ca/private/
+ca/certs/
+ca/csr/
+ca/*.srl

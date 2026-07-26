@@ -3,14 +3,13 @@ from __future__ import annotations
 import ast
 import contextlib
 import importlib
+import importlib.util
 import io
 import os
 import sys
 from pathlib import Path
 
-import yaml
 from dotenv import dotenv_values
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from netmiko.exceptions import (
     NetmikoAuthenticationException,
     NetmikoTimeoutException,
@@ -35,16 +34,54 @@ def print_result(
         print(f"  Expected for full points: {expected}")
 
 
+def grade_dependency() -> int:
+    if importlib.util.find_spec("jinja2") is None:
+        print_result(
+            "Task 1 Python dependency",
+            0,
+            10,
+            "the template-rendering module imported by apply_vlans.py is unavailable",
+            "Read the ModuleNotFoundError and scripts/apply_vlans.py, identify "
+            "which distribution supplies the missing template module, and "
+            "install it in the active final_lab environment.",
+        )
+        return 0
+
+    try:
+        template_module = importlib.import_module("jinja2")
+    except ImportError as exc:
+        print_result(
+            "Task 1 Python dependency",
+            0,
+            10,
+            f"the template-rendering module could not be imported: {exc}",
+            "Install the package that supplies the imported template module "
+            "in the active final_lab environment.",
+        )
+        return 0
+
+    version = getattr(template_module, "__version__", "unknown")
+    print_result(
+        "Task 1 Python dependency",
+        10,
+        10,
+        f"required template module is importable (version {version})",
+        "The missing template-rendering dependency is installed in final_lab.",
+    )
+    return 10
+
+
 def grade_env() -> int:
     env_file = ROOT / ".env"
     if not env_file.exists():
         print_result(
-            "Task 1 credentials",
+            "Task 2 runtime configuration",
             0,
-            5,
-            ".env file not found",
-            "Create .env from .env.example and provide non-placeholder "
-            "NXOS_HOST, NXOS_USERNAME, NXOS_PASSWORD, and numeric NXOS_PORT.",
+            10,
+            "required local runtime configuration file not found",
+            "Trace scripts/apply_vlans.py through src/device.py and "
+            "src/settings.py, then create the local dotenv file with every "
+            "runtime value expected by the settings class.",
         )
         return 0
 
@@ -59,27 +96,30 @@ def grade_env() -> int:
 
     if missing or placeholders:
         print_result(
-            "Task 1 credentials",
+            "Task 2 runtime configuration",
             0,
-            5,
+            10,
             f"missing or placeholder fields: {missing + placeholders}",
-            "Replace every required NX-OS value in .env with the active "
+            "Replace every required NX-OS runtime value with the active "
             "sandbox reservation value.",
         )
         return 0
 
     print_result(
-        "Task 1 credentials",
-        5,
-        5,
-        ".env contains required NX-OS connection values",
-        "All four required .env values are present and are not placeholders.",
+        "Task 2 runtime configuration",
+        10,
+        10,
+        "runtime configuration contains required NX-OS connection values",
+        "All four required values are present and are not placeholders.",
     )
-    return 5
+    return 10
 
 
 def grade_template() -> int:
     try:
+        import yaml
+        from jinja2 import Environment, FileSystemLoader, StrictUndefined
+
         data = yaml.safe_load((ROOT / "data/vlans.yaml").read_text(encoding="utf-8"))
         env = Environment(
             loader=FileSystemLoader(ROOT / "templates"),
@@ -90,7 +130,7 @@ def grade_template() -> int:
         rendered = env.get_template("vlans.j2").render(vlans=data["vlans"])
     except Exception as exc:
         print_result(
-            "Task 2 Jinja2 template",
+            "Task 3 Jinja2 template",
             0,
             10,
             f"template could not render: {type(exc).__name__}: {exc}",
@@ -103,7 +143,7 @@ def grade_template() -> int:
     missing = [item for item in required_fragments if item not in rendered]
     if missing:
         print_result(
-            "Task 2 Jinja2 template",
+            "Task 3 Jinja2 template",
             0,
             10,
             f"rendered output is missing: {missing}",
@@ -114,7 +154,7 @@ def grade_template() -> int:
 
     if "{%" not in (ROOT / "templates/vlans.j2").read_text(encoding="utf-8"):
         print_result(
-            "Task 2 Jinja2 template",
+            "Task 3 Jinja2 template",
             5,
             10,
             "required output exists, but no Jinja2 statement was detected",
@@ -124,7 +164,7 @@ def grade_template() -> int:
         return 5
 
     print_result(
-        "Task 2 Jinja2 template",
+        "Task 3 Jinja2 template",
         10,
         10,
         "template renders VLAN configuration correctly with Jinja2",
@@ -143,12 +183,12 @@ def grade_device_dictionary() -> int:
         from src.device import device
     except Exception as exc:
         print_result(
-            "Task 3 device dictionary",
+            "Task 4 device dictionary",
             0,
-            5,
+            10,
             f"device dictionary could not be imported: {type(exc).__name__}: {exc}",
-            "Define device with device_type='cisco_nxos' and map host, "
-            "username, password, and integer port from settings.",
+            "Keep the settings-based connection values and add the Netmiko "
+            "platform identifier required for Cisco Nexus NX-OS.",
         )
         return 0
 
@@ -162,23 +202,24 @@ def grade_device_dictionary() -> int:
     missing_or_wrong = [key for key, value in expected.items() if device.get(key) != value]
     if missing_or_wrong:
         print_result(
-            "Task 3 device dictionary",
+            "Task 4 device dictionary",
             0,
-            5,
+            10,
             f"missing or incorrect keys: {missing_or_wrong}",
-            "ConnectHandler(**device) needs device_type='cisco_nxos', host, "
-            "username, password, and integer port.",
+            "Compare the dictionary with ConnectHandler requirements and "
+            "Netmiko's supported-platform list. Preserve the host, username, "
+            "password, and integer port mappings from settings.",
         )
         return 0
 
     print_result(
-        "Task 3 device dictionary",
-        5,
-        5,
+        "Task 4 device dictionary",
+        10,
+        10,
         "Netmiko device dictionary is correct",
         "The dictionary supplies all five values expected by ConnectHandler.",
     )
-    return 5
+    return 10
 
 
 def _exception_names(node: ast.expr | None) -> set[str]:
@@ -236,7 +277,7 @@ def grade_exception_handling() -> int:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except Exception as exc:
         print_result(
-            "Task 4 Netmiko exceptions",
+            "Task 5 Netmiko exceptions",
             0,
             10,
             f"script could not be parsed: {type(exc).__name__}: {exc}",
@@ -276,7 +317,7 @@ def grade_exception_handling() -> int:
         details.append(f"{class_name}: {detail}")
 
     print_result(
-        "Task 4 Netmiko exceptions",
+        "Task 5 Netmiko exceptions",
         score,
         10,
         "; ".join(details),
@@ -291,13 +332,14 @@ def main() -> None:
     print("Project 1 Self-Grading")
     print("=" * 60)
     score = (
-        grade_env()
+        grade_dependency()
+        + grade_env()
         + grade_template()
         + grade_device_dictionary()
         + grade_exception_handling()
     )
     print("=" * 60)
-    print(f"Project 1 score: {score}/30")
+    print(f"Project 1 score: {score}/50")
     incomplete = [result for result in RESULTS if result[1] < result[2]]
     if incomplete:
         print("\nIncomplete requirements:")

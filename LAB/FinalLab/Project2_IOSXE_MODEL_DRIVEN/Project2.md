@@ -8,13 +8,13 @@ Most of the project is already complete. Your job is to complete the missing mod
 
 ## Points
 
-Project 2 is worth **70 points**.
+Project 2 is worth **50 points**.
 
 | Task | Requirement | Points |
 |---|---|---:|
-| 1 | Build the NETCONF XML payload template with a Jinja2 loop using Cisco IOS XE Native YANG | 20 |
-| 2 | Complete the Vault credential retrieval function | 30 |
-| 3 | Locate and place RESTCONF monitoring URIs for CPU, memory, and GigabitEthernet1 | 20 |
+| 1 | Build the NETCONF XML payload template with a Jinja2 loop using Cisco IOS XE Native YANG | 15 |
+| 2 | Complete the Vault credential retrieval function | 20 |
+| 3 | Locate and place RESTCONF monitoring URIs for CPU, memory, and GigabitEthernet1 | 15 |
 
 ## Project Files
 
@@ -211,7 +211,12 @@ Run:
 python scripts/grade_project2.py
 ```
 
-The grader reports your score out of 70. For every incomplete task, it identifies the missing points and states what is required for full credit. Correct the reported requirement and rerun the grader. The local checks validate structure and completion; they do not replace NETCONF deployment, Vault retrieval, RESTCONF `200 OK`, or portal verification against the reserved router.
+The grader reports your score out of 50. For every incomplete task, it
+identifies the missing points and states what is required for full credit.
+Correct the reported requirement and rerun the grader. The local checks
+validate structure and completion; they do not replace NETCONF deployment,
+Vault retrieval, RESTCONF `200 OK`, or portal verification against the
+reserved router.
 
 ## Notes
 

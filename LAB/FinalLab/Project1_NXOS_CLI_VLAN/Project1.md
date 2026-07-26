@@ -8,21 +8,20 @@ Most of the project has already been written. Your task is to complete the missi
 
 ## Points
 
-Project 1 is worth **30 points**.
+Project 1 is worth **50 points**.
 
 | Task | Requirement | Points |
 |---|---|---:|
-| 1 | Add switch login credentials to `.env` | 5 |
-| 2 | Complete the Jinja2 VLAN configuration template | 10 |
-| 3 | Complete the Netmiko `device` dictionary used by `ConnectHandler(**device)` | 5 |
-| 4 | Handle Netmiko authentication and connection timeout failures | 10 |
+| 1 | Diagnose and install the missing Python dependency | 10 |
+| 2 | Diagnose and supply the missing runtime connection settings | 10 |
+| 3 | Complete the Jinja2 VLAN configuration template | 10 |
+| 4 | Troubleshoot and correct the Netmiko `device` dictionary | 10 |
+| 5 | Handle Netmiko authentication and connection timeout failures | 10 |
 
 ## Project Files
 
 ```text
 Project1_NXOS_CLI_VLAN/
-├── .env.example
-├── .env                 # Learner-created and not committed
 ├── Project1.md
 ├── data/
 │   └── vlans.yaml
@@ -38,7 +37,7 @@ Project1_NXOS_CLI_VLAN/
     └── vlans.j2
 ```
 
-## Task 1: Add NX-OS Login Credentials
+## Task 1: Diagnose the Missing Python Dependency
 
 Before editing project files, create a Python virtual environment and install the required libraries:
 
@@ -49,24 +48,46 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Open `.env.example` in VS Code, create a new file named `.env` in the project root, and copy and paste the complete example content into it. Then modify `.env`:
+Run the application in dry-run mode before changing the starter code:
 
 ```bash
-nano .env
+python scripts/apply_vlans.py --dry-run
 ```
 
-Update the values from your Nexus NX-OS sandbox reservation:
+The application will stop during module import because the library used to
+load and render the VLAN template is deliberately absent from
+`requirements.txt`. Read the complete traceback, identify the missing import,
+inspect `scripts/apply_vlans.py`, and determine which Python package supplies
+that module. Install the missing package into the active `final_lab`
+environment with `python -m pip`.
 
-```text
-NXOS_HOST=<nxos-sandbox-host-or-ip>
-NXOS_USERNAME=<sandbox-username>
-NXOS_PASSWORD=<sandbox-password>
-NXOS_PORT=22
-```
+Confirm that Python can import the module, then run the dry run again. Do not
+install unrelated packages until the error disappears. This task assesses
+whether you can distinguish a missing Python distribution from an application
+logic failure.
 
-Do not commit `.env` to Git.
+## Task 2: Diagnose the Missing Runtime Configuration
 
-## Task 2: Build the VLAN Jinja2 Template
+The starter project deliberately does not include a runtime environment file
+or an example containing the required variable names. Begin at
+`scripts/apply_vlans.py` and follow its imports through `src/device.py` into
+`src/settings.py`.
+
+From the Python code, determine:
+
+- how the application loads local environment values;
+- which local file must be created in the project root;
+- the exact variable names expected by the settings class;
+- which values must come from the active Nexus NX-OS sandbox reservation;
+- the data type and default used for the SSH port.
+
+Create the required local file and enter the active reservation values. Do not
+change `src/settings.py` merely to hard-code the credentials, and do not
+commit the local secret file to Git. This task assesses whether you can trace
+configuration dependencies in an unfamiliar Python application rather than
+copy variable names from an example.
+
+## Task 3: Build the VLAN Jinja2 Template
 
 The VLAN intent is already stored in [data/vlans.yaml](data/vlans.yaml). Your job is to complete [templates/vlans.j2](templates/vlans.j2).
 
@@ -81,7 +102,7 @@ vlan 20
 
 The YAML file may contain more than two VLANs, so the loop must be implemented in the Jinja2 template, not in the Python script.
 
-## Task 3: Complete the Netmiko Device Dictionary
+## Task 4: Troubleshoot the Netmiko Device Dictionary
 
 Open [src/device.py](src/device.py) and complete the `device` dictionary.
 
@@ -91,9 +112,22 @@ Netmiko `ConnectHandler()` accepts connection parameters from a Python dictionar
 ConnectHandler(**device)
 ```
 
-Your job is to complete the dictionary that Netmiko needs. Use the correct Netmiko `device_type` value for Cisco Nexus NX-OS and include the host, username, password, and port from the `settings` object.
+The host, username, password, and port are already mapped from the `settings`
+object, but the starter dictionary is incomplete. Run the application after
+completing Tasks 1–3, read the resulting Netmiko error, and compare the
+dictionary with the arguments required by `ConnectHandler`.
 
-## Task 4: Handle Netmiko Connection Failures
+Identify the missing key and determine the correct Netmiko platform identifier
+for a Cisco Nexus switch running NX-OS. Use Netmiko's supported-platform
+documentation if necessary, then correct the dictionary without replacing the
+existing settings mappings with hard-coded values. The finished script must
+continue to call:
+
+```python
+ConnectHandler(**device)
+```
+
+## Task 5: Handle Netmiko Connection Failures
 
 Open [scripts/apply_vlans.py](scripts/apply_vlans.py). At present, an authentication failure or an unreachable SSH service produces an unhandled traceback. Wrap the `ConnectHandler(**device)` operation and its session body with specific exception handling for:
 
@@ -143,4 +177,9 @@ Run:
 python scripts/grade_project1.py
 ```
 
-The grader checks all four required tasks. It simulates both Netmiko exceptions locally and does not connect to the sandbox while grading. For every incomplete task, it identifies the missing points and states what is required for full credit. Correct the reported requirement and rerun the grader. A full local score does not replace the final VLAN deployment and `show vlan brief` verification on the sandbox.
+The grader checks all five required tasks and reports a score out of 50. It
+simulates both Netmiko exceptions locally and does not connect to the sandbox
+while grading. For every incomplete task, it identifies the missing points
+and states what is required for full credit. Correct the reported requirement
+and rerun the grader. A full local score does not replace the final VLAN
+deployment and `show vlan brief` verification on the sandbox.

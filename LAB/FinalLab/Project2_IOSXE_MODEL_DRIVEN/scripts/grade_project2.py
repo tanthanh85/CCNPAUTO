@@ -35,7 +35,7 @@ def grade_static_route_template() -> int:
         print_result(
             "Task 1 NETCONF payload",
             0,
-            20,
+            15,
             "template is missing the required <config> root element",
             "Keep the supplied NETCONF <config> root and place Cisco-IOS-XE-native "
             "static-route XML inside the existing Jinja2 loop.",
@@ -56,7 +56,7 @@ def grade_static_route_template() -> int:
         print_result(
             "Task 1 NETCONF payload",
             0,
-            20,
+            15,
             f"rendered XML failed validation: {type(exc).__name__}: {exc}",
             "The rendered result must be well-formed XML with IOS XE Native "
             "namespaces and one static-route entry per YAML record.",
@@ -69,34 +69,34 @@ def grade_static_route_template() -> int:
     if missing:
         print_result(
             "Task 1 NETCONF payload",
-            10,
-            20,
+            8,
+            15,
             f"XML is valid but is missing route values: {missing}",
             "Reference route.prefix, route.mask, and route.next_hop inside "
             "the Cisco IOS XE Native static-route hierarchy.",
         )
-        return 10
+        return 8
 
     if "{%" not in template_text:
         print_result(
             "Task 1 NETCONF payload",
+            12,
             15,
-            20,
             "XML works, but the required Jinja2 statement was not detected",
             "Use the supplied Jinja2 for loop so every route in "
             "data/static_routes.yaml renders automatically.",
         )
-        return 15
+        return 12
 
     print_result(
         "Task 1 NETCONF payload",
-        20,
-        20,
+        15,
+        15,
         "static-route template renders valid XML with route values and Jinja2",
         "Valid XML, Cisco IOS XE Native structure, all required values, and "
         "a Jinja2 loop are present.",
     )
-    return 20
+    return 15
 
 
 def grade_vault_function() -> int:
@@ -107,7 +107,7 @@ def grade_vault_function() -> int:
         print_result(
             "Task 2 Vault credentials",
             0,
-            30,
+            20,
             f"Vault module could not be parsed: {type(exc).__name__}: {exc}",
             "Implement get_iosxe_credentials_from_vault() as valid Python.",
         )
@@ -126,7 +126,7 @@ def grade_vault_function() -> int:
         print_result(
             "Task 2 Vault credentials",
             0,
-            30,
+            20,
             "get_iosxe_credentials_from_vault() was not found",
             "Keep and complete the supplied function with hvac KV v2 retrieval.",
         )
@@ -146,7 +146,7 @@ def grade_vault_function() -> int:
         for node in ast.walk(function)
     )
     if not placeholder:
-        score += 10
+        score += 5
         details.append("placeholder removed")
     else:
         details.append("placeholder remains")
@@ -164,7 +164,7 @@ def grade_vault_function() -> int:
         for call in calls
     )
     if has_hvac_client:
-        score += 10
+        score += 5
         details.append("executed hvac.Client call detected")
     else:
         details.append("executed hvac.Client call not detected")
@@ -200,7 +200,7 @@ def grade_vault_function() -> int:
     print_result(
         "Task 2 Vault credentials",
         score,
-        30,
+        20,
         "; ".join(details),
         "Remove the placeholder, create an authenticated hvac.Client, read "
         "VAULT_SECRET_PATH from KV v2, extract data.data, validate username "
@@ -227,7 +227,7 @@ def grade_restconf_uris() -> int:
         print_result(
             "Task 3 RESTCONF monitoring URIs",
             0,
-            20,
+            15,
             f"monitor module could not be parsed: {type(exc).__name__}: {exc}",
             "Define three quoted resource paths beginning with '/' in "
             "CPU_URI, MEMORY_URI, and INTERFACE_GIG1_URI.",
@@ -239,7 +239,7 @@ def grade_restconf_uris() -> int:
         "INTERFACE_GIG1_URI": extract_constant(tree, "INTERFACE_GIG1_URI"),
     }
 
-    weights = {"CPU_URI": 7, "MEMORY_URI": 7, "INTERFACE_GIG1_URI": 6}
+    weights = {"CPU_URI": 5, "MEMORY_URI": 5, "INTERFACE_GIG1_URI": 5}
     points = 0
     detail = []
     for name, value in constants.items():
@@ -258,7 +258,7 @@ def grade_restconf_uris() -> int:
     print_result(
         "Task 3 RESTCONF monitoring URIs",
         points,
-        20,
+        15,
         "; ".join(detail),
         "Use Yangsuite-validated device resource paths only. Each constant "
         "must begin with '/', omit scheme/host and /restconf/data, and identify "
@@ -269,10 +269,10 @@ def grade_restconf_uris() -> int:
 
 def main() -> None:
     print("Project 2 Self-Grading")
-    print("=" * 70)
+    print("=" * 60)
     score = grade_static_route_template() + grade_vault_function() + grade_restconf_uris()
-    print("=" * 70)
-    print(f"Project 2 score: {score}/70")
+    print("=" * 60)
+    print(f"Project 2 score: {score}/50")
     incomplete = [result for result in RESULTS if result[1] < result[2]]
     if incomplete:
         print("\nIncomplete requirements:")

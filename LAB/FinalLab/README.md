@@ -16,8 +16,8 @@ You have **4 hours** to complete the final lab.
 
 | Project | Topic | Platform | Max Points |
 |---|---|---|---:|
-| Project 1 | CLI automation for legacy devices | Cisco Nexus NX-OS sandbox switch | 30 |
-| Project 2 | Model-driven automation and monitoring | Cisco IOS XE reservable sandbox router | 70 |
+| Project 1 | CLI automation for legacy devices | Cisco Nexus NX-OS sandbox switch | 50 |
+| Project 2 | Model-driven automation and monitoring | Cisco IOS XE reservable sandbox router | 50 |
 | **Total** |  |  | **100** |
 
 ## Required Lab Access
@@ -56,39 +56,56 @@ Create one GitLab.com repository named `ccnpauto_final_assessment` if your instr
 
 ## Python Environment and Required Libraries
 
-Each project includes its own `requirements.txt` file. Install the required libraries before running the project scripts or self-graders. You may use one shared virtual environment for the final assessment, or you may create a separate virtual environment inside each project folder.
+Each project includes its own `requirements.txt` file. Use a separate virtual
+environment inside each project folder so one project's dependencies do not
+hide a dependency fault in the other project. Name both isolated environments
+`final_lab`.
 
-Recommended shared environment:
+Prepare Project 1 first:
 
 ```bash
-cd ~/ccnpauto-workspace/final_assessment
+cd ~/ccnpauto-workspace/final_assessment/Project1_NXOS_CLI_VLAN
 python3 -m venv final_lab
 source final_lab/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r Project1_NXOS_CLI_VLAN/requirements.txt
-python -m pip install -r Project2_IOSXE_MODEL_DRIVEN/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-Keep the virtual environment active while working on both projects:
+After finishing Project 1, deactivate its environment and prepare Project 2:
 
 ```bash
-source ~/ccnpauto-workspace/final_assessment/final_lab/bin/activate
+deactivate
+cd ~/ccnpauto-workspace/final_assessment/Project2_IOSXE_MODEL_DRIVEN
+python3 -m venv final_lab
+source final_lab/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Each project supplies `.env.example` with placeholder variable names. Create a local `.env` inside each project and copy and paste the corresponding example content into it before entering sandbox credentials. Never place real credentials in `.env.example`.
+Project 1 deliberately omits a runtime-configuration example. Learners must
+trace the Python imports and settings code to determine the configuration
+mechanism, local filename, and variable names expected by the NX-OS
+application. Project 2 supplies `.env.example` because its assessment focus is
+Vault, NETCONF, RESTCONF, and monitoring rather than environment discovery.
+Never commit a local secret file or place real credentials in an example
+file.
 
 ## Project 1 Overview: CLI automation for legacy devices
 
 Project 1 represents a legacy data-center automation task. The Nexus switch does not use NETCONF or RESTCONF in this project. Your automation must use SSH CLI through Netmiko and create VLANs from YAML intent.
 
-You need to complete four tasks:
+You need to complete five tasks:
 
-1. Add the Nexus switch login credentials to `.env`.
-2. Construct the Jinja2 template that renders VLAN configuration from YAML.
-3. Complete the Netmiko `device` dictionary used by `ConnectHandler(**device)`.
-4. Handle `NetmikoAuthenticationException` and `NetmikoTimeoutException` with clear, failure-specific messages.
+1. Diagnose the missing template-rendering Python dependency and install the
+   package that supplies the imported module.
+2. Trace the Python settings flow, identify the missing runtime configuration,
+   and supply the Nexus reservation values without hard-coding secrets.
+3. Construct the Jinja2 template that renders VLAN configuration from YAML.
+4. Troubleshoot the incomplete Netmiko `device` dictionary and select the
+   correct Nexus NX-OS platform identifier for `ConnectHandler(**device)`.
+5. Handle `NetmikoAuthenticationException` and `NetmikoTimeoutException` with clear, failure-specific messages.
 
-The 30 points are weighted by effort: credentials 5 points, Jinja2 logic 10 points, the device dictionary 5 points, and exception handling 10 points.
+Each Project 1 task is worth 10 points, for a total of 50.
 
 Run the self-grader from the project folder:
 
@@ -98,7 +115,7 @@ python -m pip install -r requirements.txt
 python scripts/grade_project1.py
 ```
 
-Project 1 is worth **30 points**.
+Project 1 is worth **50 points**.
 
 ## Project 2 Overview: Model-Driven Automation and Monitoring
 
@@ -118,7 +135,7 @@ python -m pip install -r requirements.txt
 python scripts/grade_project2.py
 ```
 
-Project 2 is worth **70 points**.
+Project 2 is worth **50 points**.
 
 ## Submission Evidence
 
@@ -134,4 +151,9 @@ Do not submit real passwords, Vault tokens, or private keys.
 
 ## Final Reminder
 
-The assessment is designed to test practical judgment, not memorization. Use the tools you practiced earlier: `.env` files for local variables, Vault for secrets, Jinja2 for rendering, YAML for intent, local or Cisco DevNet Sandbox Yangsuite for model discovery, Netmiko for CLI devices, NETCONF for model-driven configuration, RESTCONF for operational data, and Flask for a simple operational portal.
+The assessment is designed to test practical judgment, not memorization. Use
+the tools you practised earlier: environment-based runtime configuration,
+Vault for secrets, Jinja2 for rendering, YAML for intent, local or Cisco
+DevNet Sandbox Yangsuite for model discovery, Netmiko for CLI devices,
+NETCONF for model-driven configuration, RESTCONF for operational data, and
+Flask for a simple operational portal.

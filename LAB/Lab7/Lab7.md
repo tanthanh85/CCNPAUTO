@@ -162,6 +162,17 @@ The pipeline has three stages:
 2. `deploy-loopback-and-ospf` configures interfaces first and OSPF second.
 3. `verify-network` compares NetBox with CLI interface state and NETCONF OSPF configuration.
 
+The top-level `workflow` rules create pipelines only when the ref is the project's default branch, which is `main` in this course:
+
+```yaml
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+```
+
+This restriction is intentional. The only course runner is protected, so it must not execute code from the unprotected `feature/netbox-cicd` branch or a merge-request pipeline. Learners validate the feature locally, review it through a merge request, and merge it into protected `main`. The merge then creates the first eligible pipeline. The NetBox trigger also uses `ref=main`, so later event-driven pipelines remain eligible.
+
 The deployment job uses:
 
 ```yaml
@@ -178,7 +189,9 @@ git commit -m "Add NetBox-driven deployment pipeline"
 git push -u origin feature/netbox-cicd
 ```
 
-Create a merge request. Review the YAML and confirm no secret values are present. Merge into `main`. The push to main may start a pipeline depending on project settings. Ensure the sandbox reservation, VPN, NetBox, and Vault are active before allowing deployment.
+The feature-branch push should not create a runnable pipeline because the workflow is restricted to the default branch. Create a merge request using the GitLab interface steps practiced in Lab 4. Review the YAML and confirm no secret values are present. Ensure the sandbox reservation, VPN, NetBox, and Vault are active, then approve and merge the change into `main`.
+
+The merge commit on `main` should create the first pipeline. Open **Build > Pipelines**, select the newest pipeline, and confirm that its ref is `main` before waiting for the protected runner.
 
 Inspect all three jobs and download the artifact logs. A passing pipeline proves the cumulative project works before webhook automation is introduced.
 
@@ -274,7 +287,7 @@ Use four evidence sources:
 |---|---|
 | No pipeline appears | NetBox event rule and webhook delivery result |
 | Webhook cannot reach GitLab.com | Test DNS and HTTPS from `netbox-worker` |
-| Job remains pending | Protected shell runner, tag, and branch eligibility |
+| Job remains pending | Open the job and check its ref. A protected runner can execute this lab only when the ref is protected `main`; also confirm the exact `network-deploy` tag and project assignment. |
 | NetBox validation fails | Tagged interface type, name, and assigned `/32` |
 | Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |
 | Netmiko times out | VPN, reservation hostname, and SSH port |

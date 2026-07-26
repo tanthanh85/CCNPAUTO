@@ -3,6 +3,11 @@ stages:
   - deploy
   - verify
 
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - when: never
+
 variables:
   ENABLE_FILE_LOGGING: "true"
   ENABLE_CONSOLE_LOGGING: "true"
@@ -36,7 +41,7 @@ deploy-loopback-and-ospf:
   stage: deploy
   resource_group: iosxe-sandbox
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - set -o pipefail
     - python -m scripts.sync_loopbacks_from_netbox 2>&1 | tee artifacts/deploy-loopbacks.log

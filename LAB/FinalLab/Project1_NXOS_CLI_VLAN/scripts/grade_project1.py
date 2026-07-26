@@ -19,16 +19,33 @@ from netmiko.exceptions import (
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+RESULTS: list[tuple[str, int, int, str]] = []
 
 
-def print_result(name: str, points: int, maximum: int, detail: str) -> None:
+def print_result(
+    name: str,
+    points: int,
+    maximum: int,
+    detail: str,
+    expected: str,
+) -> None:
     print(f"{name}: {points}/{maximum} - {detail}")
+    RESULTS.append((name, points, maximum, expected))
+    if points < maximum:
+        print(f"  Expected for full points: {expected}")
 
 
 def grade_env() -> int:
     env_file = ROOT / ".env"
     if not env_file.exists():
-        print_result("Task 1 credentials", 0, 5, ".env file not found")
+        print_result(
+            "Task 1 credentials",
+            0,
+            5,
+            ".env file not found",
+            "Create the supplied .env file and provide non-placeholder "
+            "NXOS_HOST, NXOS_USERNAME, NXOS_PASSWORD, and numeric NXOS_PORT.",
+        )
         return 0
 
     values = dotenv_values(env_file)
@@ -41,10 +58,23 @@ def grade_env() -> int:
     ]
 
     if missing or placeholders:
-        print_result("Task 1 credentials", 0, 5, f"missing/placeholders: {missing + placeholders}")
+        print_result(
+            "Task 1 credentials",
+            0,
+            5,
+            f"missing or placeholder fields: {missing + placeholders}",
+            "Replace every required NX-OS value in .env with the active "
+            "sandbox reservation value.",
+        )
         return 0
 
-    print_result("Task 1 credentials", 5, 5, ".env contains required NX-OS connection values")
+    print_result(
+        "Task 1 credentials",
+        5,
+        5,
+        ".env contains required NX-OS connection values",
+        "All four required .env values are present and are not placeholders.",
+    )
     return 5
 
 
@@ -59,20 +89,47 @@ def grade_template() -> int:
         )
         rendered = env.get_template("vlans.j2").render(vlans=data["vlans"])
     except Exception as exc:
-        print_result("Task 2 Jinja2 template", 0, 10, f"template failed: {exc}")
+        print_result(
+            "Task 2 Jinja2 template",
+            0,
+            10,
+            f"template could not render: {type(exc).__name__}: {exc}",
+            "templates/vlans.j2 must loop over vlans and render each VLAN ID "
+            "and name as valid NX-OS CLI.",
+        )
         return 0
 
     required_fragments = ["vlan 10", "name IT", "vlan 20", "name HR"]
     missing = [item for item in required_fragments if item not in rendered]
     if missing:
-        print_result("Task 2 Jinja2 template", 0, 10, f"rendered output missing: {missing}")
+        print_result(
+            "Task 2 Jinja2 template",
+            0,
+            10,
+            f"rendered output is missing: {missing}",
+            "Render vlan 10/name IT and vlan 20/name HR from the supplied "
+            "YAML without hard-coding the records in Python.",
+        )
         return 0
 
     if "{%" not in (ROOT / "templates/vlans.j2").read_text(encoding="utf-8"):
-        print_result("Task 2 Jinja2 template", 5, 10, "output works, but no Jinja2 loop was detected")
+        print_result(
+            "Task 2 Jinja2 template",
+            5,
+            10,
+            "required output exists, but no Jinja2 statement was detected",
+            "Use a Jinja2 for loop in templates/vlans.j2 so additional YAML "
+            "VLANs render automatically.",
+        )
         return 5
 
-    print_result("Task 2 Jinja2 template", 10, 10, "template renders VLAN configuration correctly")
+    print_result(
+        "Task 2 Jinja2 template",
+        10,
+        10,
+        "template renders VLAN configuration correctly with Jinja2",
+        "The template renders all supplied VLANs through a Jinja2 loop.",
+    )
     return 10
 
 
@@ -85,7 +142,14 @@ def grade_device_dictionary() -> int:
         sys.modules.pop("src.device", None)
         from src.device import device
     except Exception as exc:
-        print_result("Task 3 device dictionary", 0, 5, f"device dictionary failed: {exc}")
+        print_result(
+            "Task 3 device dictionary",
+            0,
+            5,
+            f"device dictionary could not be imported: {type(exc).__name__}: {exc}",
+            "Define device with device_type='cisco_nxos' and map host, "
+            "username, password, and integer port from settings.",
+        )
         return 0
 
     expected = {
@@ -97,10 +161,23 @@ def grade_device_dictionary() -> int:
     }
     missing_or_wrong = [key for key, value in expected.items() if device.get(key) != value]
     if missing_or_wrong:
-        print_result("Task 3 device dictionary", 0, 5, f"missing/wrong keys: {missing_or_wrong}")
+        print_result(
+            "Task 3 device dictionary",
+            0,
+            5,
+            f"missing or incorrect keys: {missing_or_wrong}",
+            "ConnectHandler(**device) needs device_type='cisco_nxos', host, "
+            "username, password, and integer port.",
+        )
         return 0
 
-    print_result("Task 3 device dictionary", 5, 5, "Netmiko device dictionary is correct")
+    print_result(
+        "Task 3 device dictionary",
+        5,
+        5,
+        "Netmiko device dictionary is correct",
+        "The dictionary supplies all five values expected by ConnectHandler.",
+    )
     return 5
 
 
@@ -158,7 +235,14 @@ def grade_exception_handling() -> int:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except Exception as exc:
-        print_result("Task 4 Netmiko exceptions", 0, 10, f"could not parse script: {exc}")
+        print_result(
+            "Task 4 Netmiko exceptions",
+            0,
+            10,
+            f"script could not be parsed: {type(exc).__name__}: {exc}",
+            "Import and catch NetmikoAuthenticationException and "
+            "NetmikoTimeoutException around the connection/session block.",
+        )
         return 0
 
     handled: set[str] = set()
@@ -191,7 +275,15 @@ def grade_exception_handling() -> int:
             score += 5
         details.append(f"{class_name}: {detail}")
 
-    print_result("Task 4 Netmiko exceptions", score, 10, "; ".join(details))
+    print_result(
+        "Task 4 Netmiko exceptions",
+        score,
+        10,
+        "; ".join(details),
+        "Catch both specific Netmiko exceptions without letting either escape. "
+        "Print 'authentication' for rejected credentials and 'timeout' or "
+        "'timed out' when connection establishment times out.",
+    )
     return score
 
 
@@ -206,6 +298,15 @@ def main() -> None:
     )
     print("=" * 60)
     print(f"Project 1 score: {score}/30")
+    incomplete = [result for result in RESULTS if result[1] < result[2]]
+    if incomplete:
+        print("\nIncomplete requirements:")
+        for name, points, maximum, expected in incomplete:
+            print(f"- {name}: missing {maximum - points} point(s). {expected}")
+        print("Correct the listed requirements and run this grader again.")
+    else:
+        print("All locally gradable Project 1 requirements are complete.")
+        print("The grader does not replace sandbox deployment verification.")
 
 
 if __name__ == "__main__":

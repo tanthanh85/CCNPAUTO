@@ -6,7 +6,7 @@ drift-compliance:
       when: manual
     - when: never
   script:
-    - mkdir -p artifacts
+    - mkdir -p artifacts logs
     - export AUTOMATION_IMAGE="network-automation-runtime:stable"
     - export ANSIBLE_AUDIT_LOG="artifacts/drift-audit.jsonl"
     - bash ci/run_playbook_container.sh playbooks/drift.yml artifacts/drift-audit.log
@@ -17,3 +17,4 @@ drift-compliance:
       - artifacts/drift-report.json
       - artifacts/drift-audit.jsonl
       - artifacts/drift-audit.log
+      - logs/

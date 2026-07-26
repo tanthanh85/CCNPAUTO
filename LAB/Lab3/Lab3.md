@@ -63,6 +63,8 @@ network_automation_project/
 ├── .env
 ├── .gitignore
 ├── requirements.txt
+├── logs/
+│   └── .gitkeep
 ├── data/
 │   └── loopbacks.yaml
 ├── inventory/
@@ -75,12 +77,31 @@ network_automation_project/
 ├── src/
 │   ├── __init__.py
 │   ├── iosxe_cli.py
+│   ├── logging_config.py
 │   ├── loopback_source.py
 │   ├── reporting.py
 │   └── settings.py
 └── templates/
     └── loopback.j2
 ```
+
+## Diagnostic Logging Used Throughout the Project
+
+This lab introduces the shared logging component that remains in the cumulative project through Lab 13. Each executable Python script initializes logging before it reads intent or contacts a device. Console messages remain concise at `INFO` level, while optional file logging preserves detailed `DEBUG` evidence for study and troubleshooting.
+
+Retain these controls in the existing `.env` file:
+
+```text
+ENABLE_FILE_LOGGING=false
+ENABLE_CONSOLE_LOGGING=true
+LOG_LEVEL=DEBUG
+LOG_CONSOLE_LEVEL=INFO
+LOG_DIR=logs
+```
+
+Set `ENABLE_FILE_LOGGING=true` when detailed evidence is required. Every invocation creates a separate text file, such as `logs/apply_loopbacks_20260726_143512_382104.log`. The timestamp includes microseconds, so rerunning a script does not overwrite earlier evidence. A record can include the application, module, function, source line, severity, decision, operation, elapsed time, and exception stack.
+
+Passwords and tokens must never be passed deliberately to a logging call. The supplied redaction filter provides an additional safeguard for secret values loaded from environment variables. The `logs/.gitkeep` file preserves the directory, while `.gitignore` prevents generated logs from entering source control.
 
 ## Task 1: Create the Main GitLab Repository
 
@@ -114,7 +135,7 @@ This repository is separate from `lab2_warm_up` and becomes the only repository 
 
 ## Task 2: Copy the Baseline Project
 
-Using the VS Code Explorer, copy and paste `.env`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–13.
+Using the VS Code Explorer, copy and paste `.env`, `.gitignore`, `requirements.txt`, `data/`, `inventory/`, `logs/`, `scripts/`, `src/`, and `templates/` from `CCNPAUTO/LAB/Lab3/` into the root of `network_automation_project/`. Preserve the supplied hierarchy and use these same files throughout Labs 3–13.
 
 ```bash
 tree -a -I '.git'
@@ -255,6 +276,8 @@ The script:
 7. verifies every intended interface and address.
 
 Run it a second time. Reapplying the same interface commands should not create duplicate interfaces or change the intended result. This is operationally repeatable, but it is not complete reconciliation: interfaces omitted from YAML are not deleted automatically.
+
+For a diagnostic run, set `ENABLE_FILE_LOGGING=true` in `.env`, run the command again, and open the newest `logs/apply_loopbacks_*.log` file in VS Code. Confirm that another execution creates a different filename and that no password appears in either file. Return the setting to `false` when continuous debug files are not required.
 
 ## Task 9: Commit Through a Merge Request
 

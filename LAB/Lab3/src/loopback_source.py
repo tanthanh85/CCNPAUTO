@@ -1,10 +1,14 @@
 """Load, validate, and render the loopback source of truth."""
 
+import logging
 from ipaddress import IPv4Interface
 from pathlib import Path
 
 import yaml
 from jinja2 import Template
+
+
+logger = logging.getLogger(__name__)
 
 
 class LoopbackManager:
@@ -15,7 +19,14 @@ class LoopbackManager:
         self.template_path = Path(template_path)
 
     def load(self, require_entries=True):
-        data = yaml.safe_load(self.yaml_path.read_text()) or {}
+        logger.info(
+            "Loading loopback source path=%s require_entries=%s",
+            self.yaml_path,
+            require_entries,
+        )
+        raw = self.yaml_path.read_text(encoding="utf-8")
+        logger.debug("Read loopback source bytes=%d", len(raw.encode("utf-8")))
+        data = yaml.safe_load(raw) or {}
 
         if not isinstance(data, dict) or set(data) != {"loopbacks"}:
             raise ValueError("The YAML file must contain only the 'loopbacks' key")
@@ -29,6 +40,7 @@ class LoopbackManager:
         seen_ips = set()
 
         for position, item in enumerate(data["loopbacks"], start=1):
+            logger.debug("Validating loopback item position=%d", position)
             loopback = self._validate_item(item, position)
 
             if loopback["id"] in seen_ids:
@@ -40,6 +52,7 @@ class LoopbackManager:
             seen_ips.add(loopback["ipv4"])
             validated.append(loopback)
 
+        logger.info("Validated %d loopback record(s)", len(validated))
         return validated
 
     def _validate_item(self, item, position):
@@ -59,15 +72,32 @@ class LoopbackManager:
             raise ValueError(f"Item {position}: description must be one line")
 
         address = IPv4Interface(f"{item['ipv4']}/{item['prefix_length']}")
-        return {
+        normalized = {
             "id": item["id"],
             "description": item["description"].strip(),
             "ipv4": str(address.ip),
             "netmask": str(address.network.netmask),
             "enabled": item["enabled"],
         }
+        logger.debug(
+            "Normalized loopback position=%d id=%d ipv4=%s netmask=%s enabled=%s",
+            position,
+            normalized["id"],
+            normalized["ipv4"],
+            normalized["netmask"],
+            normalized["enabled"],
+        )
+        return normalized
 
     def render(self, loopbacks):
-        template = Template(self.template_path.read_text())
+        logger.info(
+            "Rendering loopbacks template=%s records=%d",
+            self.template_path,
+            len(loopbacks),
+        )
+        template = Template(self.template_path.read_text(encoding="utf-8"))
         rendered = template.render(loopbacks=loopbacks)
-        return [line.strip() for line in rendered.splitlines() if line.strip()]
+        commands = [line.strip() for line in rendered.splitlines() if line.strip()]
+        logger.info("Rendered %d non-empty configuration line(s)", len(commands))
+        logger.debug("Rendered loopback commands=%s", commands)
+        return commands

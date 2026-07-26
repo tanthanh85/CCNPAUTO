@@ -50,6 +50,8 @@ mkdir -p filter_plugins tests playbooks
 
 Using the VS Code Explorer, copy and paste `filter_plugins/drift_filters.py`, `tests/test_drift_filters.py`, and `playbooks/drift.yml` from `CCNPAUTO/LAB/Lab12/` into the matching project folders.
 
+Retain the shared logger. The custom filter records comparison counts and classifications at diagnostic level, while the playbook artifact records the resulting compliant, missing, unexpected, and mismatched items. Detailed logs explain how a result was derived; the compliance report states the result.
+
 The filter converts CLI configuration to dictionaries before comparison. This is more reliable than searching for unrelated substrings, but it remains platform-specific. Structured YANG operational data would be preferable when the required state is consistently exposed by the device model.
 
 ## Task 2: Test the Comparison Logic
@@ -100,6 +102,8 @@ In GitLab.com, open **Build > Pipeline schedules**, create `Nightly IOS XE compl
 ## Task 6: Retain and Observe Results
 
 Retain `drift-report.json`, JSONL audit events, and the console log for 30 days. Extend the Lab 10 metrics publisher with a compliance measurement if desired:
+
+Retain the associated timestamped files in `logs/` as well. When drift appears, correlate the pipeline time, comparison decisions, observed values, and final failure before deciding whether the device or source of truth should change.
 
 ```text
 network_compliance,device=iosxe-sandbox compliant=1i,missing=0i,mismatched=0i,unmanaged=0i

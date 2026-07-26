@@ -81,6 +81,8 @@ git switch -c feature/netbox-cicd
 
 Using the VS Code Explorer, copy and paste `.gitlab-ci.yml` from `CCNPAUTO/LAB/Lab7/` into the project root, replacing the current pipeline file when prompted. Copy and paste `verify_network.py` from `CCNPAUTO/LAB/Lab7/scripts/` into the existing project `scripts/` folder. Keep the existing project `requirements.txt`; do not replace it.
 
+The supplied pipeline enables detailed file logging and publishes `logs/` as a 14-day artifact beside the concise command transcripts in `artifacts/`. Each Python process creates its own timestamped file, so validation, deployment, and verification evidence remain distinct.
+
 Run locally before involving CI:
 
 ```bash
@@ -258,6 +260,8 @@ Create a virtual interface tagged `automation-managed` but do not assign an addr
 Correct the NetBox record by assigning one `/32`. The next pipeline should pass. This demonstrates why validation is a separate gate rather than part of a partially completed device change.
 
 ## Task 12: Audit and Troubleshoot
+
+In addition to the console artifacts, inspect the timestamped files in the downloaded `logs/` artifact. GitLab variables, Vault tokens, NetBox tokens, and device passwords must not appear in either artifact set.
 
 Use four evidence sources:
 

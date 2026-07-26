@@ -42,6 +42,8 @@ git switch -c feature/vault-credentials
 
 Using the VS Code Explorer, copy and paste `vault_credentials.py` and `settings.py` from `CCNPAUTO/LAB/Lab5/src/` into the project's existing `src/` folder, replacing `src/settings.py` when prompted. Copy and paste `verify_vault.py` from `CCNPAUTO/LAB/Lab5/scripts/` into the existing `scripts/` folder.
 
+Preserve `src/logging_config.py`, `logs/`, and the existing logging controls. The Vault provider records the address, mount, logical path, authentication method, and success or failure of a read, but never the Vault token, username, password, or returned secret dictionary.
+
 Open the existing `requirements.txt`, add `hvac>=2.3,<3` if it is not already present, save it, and run `python -m pip install -r requirements.txt`.
 
 ## Task 2: Start Vault Development Mode
@@ -128,6 +130,8 @@ python -m scripts.verify_vault
 The script reports only character counts. It must never print the credential values.
 
 Stop Vault and repeat the command. It should fail clearly instead of falling back to an old `.env` password. Restart Vault and rewrite the secret because development-mode data disappears after shutdown.
+
+With `ENABLE_FILE_LOGGING=true`, inspect the newest `logs/verify_vault_*.log`. It should identify the failed or successful Vault operation without exposing credential values. If a secret is ever exposed, rotate it and remove the affected artifact.
 
 ## Task 7: Re-run Existing Project Functions
 

@@ -3,6 +3,13 @@ stages:
   - deploy
   - verify
 
+variables:
+  ENABLE_FILE_LOGGING: "true"
+  ENABLE_CONSOLE_LOGGING: "true"
+  LOG_LEVEL: "DEBUG"
+  LOG_CONSOLE_LEVEL: "INFO"
+  LOG_DIR: "logs"
+
 default:
   tags:
     - network-deploy
@@ -11,12 +18,13 @@ default:
     - . .ci-venv/bin/activate
     - python -m pip install --quiet --upgrade pip
     - python -m pip install --quiet -r requirements.txt
-    - mkdir -p artifacts
+    - mkdir -p artifacts logs
   artifacts:
     when: always
     expire_in: 14 days
     paths:
       - artifacts/
+      - logs/
 
 validate-netbox:
   stage: validate
@@ -39,4 +47,3 @@ verify-network:
   script:
     - set -o pipefail
     - python -m scripts.verify_network 2>&1 | tee artifacts/verify-network.log
-

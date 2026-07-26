@@ -1,9 +1,13 @@
 """Retrieve IOS XE login credentials from HashiCorp Vault KV v2."""
 
+import logging
 import os
 from pathlib import Path
 
 import hvac
+
+
+logger = logging.getLogger(__name__)
 
 
 class VaultCredentialError(RuntimeError):
@@ -19,9 +23,23 @@ class VaultCredentialProvider:
         self.client = hvac.Client(url=address, token=token)
         self.mount_point = mount_point
         self.secret_path = secret_path
+        logger.debug(
+            "Initialized Vault client address=%s mount_point=%s "
+            "secret_path=%s token_configured=%s",
+            address,
+            mount_point,
+            secret_path,
+            bool(token),
+        )
 
     def read_iosxe(self):
+        logger.info(
+            "Reading IOS XE credential from Vault mount_point=%s secret_path=%s",
+            self.mount_point,
+            self.secret_path,
+        )
         if not self.client.is_authenticated():
+            logger.error("Vault authentication check failed")
             raise VaultCredentialError(
                 "Vault authentication failed. Run 'vault login' before the script."
             )
@@ -40,4 +58,9 @@ class VaultCredentialProvider:
             ) from exc
         if not username or not password:
             raise VaultCredentialError("Vault returned an empty IOS XE username or password")
+        logger.info(
+            "Vault credential retrieved username_present=%s password_present=%s",
+            bool(username),
+            bool(password),
+        )
         return username, password

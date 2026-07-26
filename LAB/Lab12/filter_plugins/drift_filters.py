@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 
 
+logger = logging.getLogger(__name__)
+
+
 def parse_loopbacks(config):
+    logger.debug("Parsing loopback configuration characters=%d", len(config))
     result = {}
     current = None
     for raw in config.splitlines():
@@ -23,14 +28,20 @@ def parse_loopbacks(config):
             result[current]["ipv4"] = line.split()[2]
         elif line == "shutdown":
             result[current]["enabled"] = False
+    logger.info("Parsed %d loopback interface(s) from observed configuration", len(result))
+    logger.debug("Parsed loopback configuration=%s", result)
     return result
 
 
 def parse_ospf_networks(config):
-    return sorted(set(re.findall(r"^\s*network\s+(\d+\.\d+\.\d+\.\d+)\s+0\.0\.0\.0\s+area\s+0\s*$", config, re.M)))
+    networks = sorted(set(re.findall(r"^\s*network\s+(\d+\.\d+\.\d+\.\d+)\s+0\.0\.0\.0\s+area\s+0\s*$", config, re.M)))
+    logger.info("Parsed %d OSPF area 0 host network statement(s)", len(networks))
+    logger.debug("Parsed OSPF networks=%s", networks)
+    return networks
 
 
 def build_drift_report(intent, interface_config, ospf_config):
+    logger.info("Building drift report intended_records=%d", len(intent))
     observed = parse_loopbacks(interface_config)
     expected = {item["name"]: item for item in intent}
     missing, mismatched, ospf_missing = [], [], []
@@ -54,7 +65,7 @@ def build_drift_report(intent, interface_config, ospf_config):
             ospf_missing.append(item["ipv4"])
     unmanaged = sorted(set(observed) - set(expected))
     compliant = not any((missing, mismatched, ospf_missing, unmanaged))
-    return {
+    report = {
         "compliant": compliant,
         "expected_count": len(expected),
         "observed_count": len(observed),
@@ -63,6 +74,19 @@ def build_drift_report(intent, interface_config, ospf_config):
         "missing_ospf_networks": sorted(ospf_missing),
         "unmanaged_loopbacks": unmanaged,
     }
+    logger.info(
+        "Drift report complete compliant=%s expected=%d observed=%d "
+        "missing=%d mismatched=%d ospf_missing=%d unmanaged=%d",
+        report["compliant"],
+        report["expected_count"],
+        report["observed_count"],
+        len(report["missing_interfaces"]),
+        len(report["mismatched_interfaces"]),
+        len(report["missing_ospf_networks"]),
+        len(report["unmanaged_loopbacks"]),
+    )
+    logger.debug("Drift report=%s", report)
+    return report
 
 
 class FilterModule:

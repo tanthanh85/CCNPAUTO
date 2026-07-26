@@ -1,9 +1,15 @@
 """Print CLI and RESTCONF data as simple tables."""
 
+import logging
+
 from tabulate import tabulate
 
 
+logger = logging.getLogger(__name__)
+
+
 def print_version(records):
+    logger.debug("Formatting version report records=%d", len(records))
     rows = []
 
     for item in records:
@@ -32,6 +38,7 @@ def print_version(records):
 
 
 def print_interfaces(records, title):
+    logger.debug("Formatting interface report title=%s records=%d", title, len(records))
     rows = []
 
     for item in records:

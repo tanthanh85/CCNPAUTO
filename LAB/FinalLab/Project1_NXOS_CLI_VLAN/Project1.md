@@ -142,4 +142,4 @@ Run:
 python scripts/grade_project1.py
 ```
 
-The grader checks all four required tasks. It simulates both Netmiko exceptions locally and does not connect to the sandbox while grading. It then reports your score out of 30.
+The grader checks all four required tasks. It simulates both Netmiko exceptions locally and does not connect to the sandbox while grading. For every incomplete task, it identifies the missing points and states what is required for full credit. Correct the reported requirement and rerun the grader. A full local score does not replace the final VLAN deployment and `show vlan brief` verification on the sandbox.

@@ -2,11 +2,13 @@
 
 ## Lab Introduction
 
-Network configuration is only half of an automation system. Operators must also know who initiated a run, which tasks executed, how long they took, what changed, and where a failure occurred. Lab 10 adds structured JSON Lines audit events to every Ansible job, preserves them as GitLab artifacts, publishes nonsecret task metrics to InfluxDB, and visualizes pipeline behavior in Grafana.
+Network configuration is only half of an automation system. Operators must also know who initiated a run, which tasks executed, how long they took, what changed, and where a failure occurred. The project already has optional timestamped Python diagnostic logs. Lab 10 retains those files, adds structured JSON Lines audit events to every Ansible job, publishes nonsecret task metrics to InfluxDB, and visualizes pipeline behavior in Grafana.
+
+These evidence types have different purposes. `logs/*.log` contains detailed human-readable Python diagnostics for one process, `artifacts/*.jsonl` contains machine-readable Ansible task events for auditing, and InfluxDB measurements summarize behavior for Grafana trends. They complement one another, and none should contain credentials.
 
 ## Learning Objectives
 
-- Separate human-readable job output, structured audit events, and metrics.
+- Separate job output, detailed diagnostic logs, structured audit events, and metrics.
 - Add correlation fields such as pipeline ID and job name.
 - Prevent secret-bearing results from entering logs.
 - Retain artifacts even when a job fails.
@@ -36,6 +38,8 @@ mkdir -p callback_plugins scripts
 
 Using the VS Code Explorer, copy and paste `callback_plugins/json_audit.py` and `scripts/publish_audit_metrics.py` from `CCNPAUTO/LAB/Lab10/` into the matching project folders.
 
+Keep `src/logging_config.py` and the logging controls. Both new components call the shared logger. The callback records task lifecycle and audit-file writes; the metrics publisher records file discovery, JSON parsing, event counts, InfluxDB writes, and exceptions.
+
 Add these settings under the existing `[defaults]` section of `ansible.cfg`:
 
 ```ini
@@ -56,6 +60,8 @@ python -m json.tool < <(head -n 1 artifacts/local-audit.jsonl)
 
 Each line is an independent JSON document. This makes partial files recoverable and easy for log agents to stream. Inspect the file and confirm it contains timestamps, task names, hosts, status, duration, pipeline correlation, and changed state—but no tokens or passwords.
 
+Compare the JSONL file with the newest text files under `logs/`. JSONL is optimized for downstream processing, whereas the timestamped text log supplies module, function, source-line, and exception context for troubleshooting.
+
 ## Task 3: Extend the Pipeline
 
 Use the local TIG stack prepared in Lab 1:
@@ -74,6 +80,8 @@ variables:
 ```
 
 Add the supplied `observe-automation` job from `pipeline-observe-job.yml`. Configure these protected GitLab variables:
+
+The pipeline must retain both `artifacts/` and `logs/` with `when: always`, including failed jobs.
 
 | Variable | Value |
 |---|---|

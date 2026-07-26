@@ -6,6 +6,8 @@ Lab 10 observed the automation application, while Lab 12 checked whether configu
 
 Dial-in and dial-out solve different operational problems. In dial-in, the collector initiates a NETCONF or gNMI session to IOS XE, and the dynamic subscription exists only while that session remains open. In dial-out, a configured subscription persists on IOS XE and the router initiates a connection to a receiver. The Cisco Catalyst C8KV sandbox includes an integrated TIG stack, so its router can stream to Telegraf at `10.10.20.50:57500`, while learners operating a locally hosted C8KV can stream to the local TIG stack prepared in Lab 1.
 
+The telemetry services have their own Docker and application logs. Keep the cumulative project's Python logging files and controls, but do not confuse them with Telegraf ingestion logs, InfluxDB service logs, or Grafana queries. During troubleshooting, first identify whether the failure is on the router, transport, collector, storage, or visualization layer.
+
 ## Learning Objectives
 
 - Discover operational YANG models and exact node paths in YANG Suite.

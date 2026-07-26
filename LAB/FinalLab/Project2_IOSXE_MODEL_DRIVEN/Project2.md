@@ -210,7 +210,7 @@ Run:
 python scripts/grade_project2.py
 ```
 
-The grader reports your score out of 70.
+The grader reports your score out of 70. For every incomplete task, it identifies the missing points and states what is required for full credit. Correct the reported requirement and rerun the grader. The local checks validate structure and completion; they do not replace NETCONF deployment, Vault retrieval, RESTCONF `200 OK`, or portal verification against the reserved router.
 
 ## Notes
 

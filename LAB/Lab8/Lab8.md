@@ -161,6 +161,8 @@ Using the VS Code Explorer, copy and paste the following from `CCNPAUTO/LAB/Lab8
 
 Create missing destination folders in VS Code before pasting. Keep and modify the existing project `requirements.txt`; add `ansible-core>=2.18,<2.20` if it is not already present.
 
+Do not remove `src/logging_config.py`, `logs/`, or the existing logging controls. Ansible supplies task output, while Python helpers and validation components continue to create timestamped diagnostic logs. The pipeline retains both forms of evidence.
+
 Do not delete `src/`, `scripts/`, or their tests. They document the working Python implementation and allow a meaningful comparison during review. The new `.gitlab-ci.yml` determines which implementation is active in CI/CD.
 
 ## Task 2: Install the Ansible Runtime and Collections
@@ -323,6 +325,8 @@ show ip ospf interface brief
 The assertion checks configuration and basic interface presence. The operational command adds context: a loopback can be advertised by OSPF without forming a neighbor, so the absence of a loopback adjacency is not a failure.
 
 ## Task 9: Review the Ansible GitLab Pipeline
+
+The pipeline enables file logging and archives `logs/`. Standard diagnostic logs explain application internals, whereas Ansible task output explains orchestration state.
 
 The replacement `.gitlab-ci.yml` keeps the three-stage design from Lab 7:
 

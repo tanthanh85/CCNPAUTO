@@ -36,6 +36,8 @@ mkdir -p library tests tasks
 
 Using the VS Code Explorer, copy and paste `library/resilient_http.py`, `tests/test_resilient_http_helpers.py`, `tasks/load_intent.yml`, and `.gitlab-ci.yml` from `CCNPAUTO/LAB/Lab9/` into the matching project locations. Open the existing `requirements.txt` and add `pytest>=8,<9` only if it is not already present.
 
+Ansible executes a custom module from a temporary module environment, so `resilient_http.py` contains a small dedicated logger rather than importing the project package. It consumes the same logging controls and records attempts, status codes, elapsed time, retry classification, `Retry-After`, backoff, and the final outcome. Request headers are declared `no_log` and are never written.
+
 The custom Ansible module uses `requests.get()` with a ten-second timeout. Statuses `429`, `500`, `502`, `503`, and `504`, plus transport exceptions, consume the retry budget. Other HTTP errors are classified as unrecoverable. The module returns only status and attempt metadata; authorization headers are declared `no_log`.
 
 ## Task 2: Run Automated Tests
@@ -50,6 +52,8 @@ ansible-playbook --syntax-check playbooks/validate.yml
 The helper tests validate both forms of `Retry-After`: seconds and an HTTP date. The pipeline runs them before reading NetBox or changing IOS XE.
 
 ## Task 3: Observe Recoverable and Unrecoverable Failures
+
+With file logging enabled, compare a retryable failure and an unrecoverable failure in `logs/resilient_http_*.log`. The first should show its attempt and wait decisions; the second should stop immediately with an unrecoverable category. Authorization headers and tokens must not appear.
 
 Stop NetBox briefly and run validation. The module should retry transport failures and then report `retry_exhausted`; it must not hang indefinitely.
 

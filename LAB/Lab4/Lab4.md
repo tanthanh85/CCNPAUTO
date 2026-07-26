@@ -50,6 +50,8 @@ git switch -c feature/netbox-source-of-truth
 
 Using the VS Code Explorer, copy and paste `src/netbox_source.py` and `src/loopback_renderer.py` from `CCNPAUTO/LAB/Lab4/src/` into the project's existing `src/` folder. Then copy and paste `validate_netbox.py` and `sync_loopbacks_from_netbox.py` from `CCNPAUTO/LAB/Lab4/scripts/` into the existing `scripts/` folder.
 
+Keep `src/logging_config.py`, the `logs/` folder, and the logging variables already present in `.env`. The new NetBox components use the same logger to record API selection, pagination, validation, rendering, device changes, and verification without recording the API token.
+
 Open the project's existing `requirements.txt`, add `pynetbox>=7.4,<8` on a new line if it is not already present, save the same file, and run:
 
 ```bash
@@ -343,6 +345,8 @@ self.netbox_tag = os.getenv("NETBOX_TAG", "automation-managed")
 This is an incremental change to one settings object. Existing Lab 3 scripts should continue to work.
 
 ## Task 7: Validate NetBox Without Changing the Router
+
+When troubleshooting, set `ENABLE_FILE_LOGGING=true` in `.env`. The validation command creates a timestamped `logs/validate_netbox_*.log`; a later run creates another file instead of replacing this evidence.
 
 Run:
 

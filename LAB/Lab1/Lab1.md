@@ -54,11 +54,11 @@ flowchart TB
 
     Docker["Docker Engine"] --> TIG["Optional local TIG stack<br/>Grafana :3000 / InfluxDB :8086"]
     Docker --> NetBox["NetBox<br/>HTTP :8080"]
-    Docker --> LocalYANG["Optional local YANG Suite<br/>HTTPS :8443"]
+    Docker --> LocalYANG["Optional local Yangsuite<br/>HTTPS :8443"]
     Runner --> Docker
     Python --> Devices["Cisco labs, controllers, and APIs"]
     Ansible --> Devices
-    SandboxYANG["Cisco DevNet Sandbox YANG Suite<br/>http://10.10.20.50:8480"] --> Devices
+    SandboxYANG["Cisco DevNet Sandbox Yangsuite<br/>http://10.10.20.50:8480"] --> Devices
     Learner --> SandboxYANG
     LocalYANG --> Devices
     SandboxTIG["Cisco DevNet Sandbox TIG<br/>Telegraf :57500 / Grafana :3000"] --> Learner

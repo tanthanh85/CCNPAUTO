@@ -40,6 +40,8 @@ Using the VS Code Explorer, copy and paste `Dockerfile`, `.dockerignore`, and `.
 
 The image contains tools, not credentials or project source. `.dockerignore` prevents local artifacts, virtual environments, keys, and `.env` files from entering the build context.
 
+The wrapper passes only approved logging controls and bind-mounts the repository at `/workspace`. Python processes therefore create unique files in `/workspace/logs`, where the Runner can retain them after the container exits. No diagnostic log is baked into the image.
+
 ## Task 2: Build and Inspect the Image
 
 ```bash
@@ -65,6 +67,8 @@ bash ci/run_playbook_container.sh playbooks/validate.yml artifacts/local-contain
 ```
 
 `--network host` is deliberate in this single-host lab: `127.0.0.1` inside the container reaches workstation services and the container shares VPN routes. This reduces isolation and is not a universal production recommendation. A production Runner should use controlled networks and explicit service endpoints.
+
+After the container exits, inspect `artifacts/` and `logs/` on the host. Their ownership should match the learner or Runner account. A second execution with file logging enabled must create additional timestamped files rather than overwrite the first run.
 
 ## Task 4: Understand Secret and SSH Handling
 

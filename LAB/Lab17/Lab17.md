@@ -234,32 +234,33 @@ index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-t
 
 A gap in the time series can indicate a stopped collector, a NETCONF disconnect, an XPath problem, or failed HEC delivery. Splunk cannot infer which layer failed without collector logs.
 
-## Task 10: Build the Splunk Dashboard
+## Task 10: Build a Splunk App and Dashboard in the UI
 
-Create a dashboard manually:
+Build the visualization entirely in Splunk Web. This lab does not import HTML, XML, or another external dashboard file.
 
-1. Open **Dashboards** and select **Create New Dashboard**.
-2. Name it `IOS XE NETCONF CPU`.
-3. Select **Classic Dashboards** and the dark theme.
-4. Add a **Line Chart** panel named `Five-Second CPU Trend`.
-5. Use:
+1. Open **Apps > Manage Apps**.
+2. Select **Create app**.
+3. Enter `IOS XE Telemetry` as the name and `ios_xe_telemetry` as the folder name.
+4. Select the visible navigation option, retain the standard template, and save.
+5. Open the new **IOS XE Telemetry** app.
+6. Open **Dashboards**, select **Create New Dashboard**, and name it `IOS XE NETCONF CPU`.
+7. Choose a dashboard editor available in the installed trial version. The Classic editor is sufficient for this lab.
+8. Add a line-chart panel named `Five-Second CPU Trend` with:
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
 | timechart span=5s latest(cpu_five_seconds) AS cpu_percent BY device
 ```
 
-6. Set the Y-axis minimum to `0` and maximum to `100`.
-7. Add a **Single Value** panel named `Latest CPU`.
-8. Use:
+9. Set the Y-axis minimum to `0`, maximum to `100`, and unit to percent when the selected editor exposes those options.
+10. Add a single-value panel named `Latest CPU` with:
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
 | stats latest(cpu_five_seconds) AS cpu_percent
 ```
 
-9. Add a **Statistics Table** panel named `Collection Health`.
-10. Use:
+11. Add a statistics-table panel named `Collection Health` with:
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
@@ -271,7 +272,30 @@ index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-t
 | convert ctime(last_event)
 ```
 
-Alternatively, open **Edit > Source** and use the supplied `splunk_dashboard.xml`, after checking that the index and sourcetype match this lab.
+12. Set the dashboard time picker to **Last 15 minutes**, save it, and confirm that all three panels populate while the collector is running.
+
+Use these additional SPL searches directly in the Search view when troubleshooting. They do not require another dashboard:
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu"
+| stats count BY device, source, sourcetype, index
+```
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| eval delay_seconds=now()-_time
+| stats latest(_time) AS last_event latest(delay_seconds) AS ingestion_delay BY device
+| convert ctime(last_event)
+```
+
+```spl
+index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
+| bucket _time span=30s
+| stats count AS samples BY _time, device
+| where samples < 5
+```
+
+The final search highlights intervals that received fewer samples than expected. It is an indicator rather than proof of packet loss because collector startup, shutdown, search-window boundaries, and processing delay can also reduce the count.
 
 ## Task 11: Test a Failure
 
@@ -326,4 +350,3 @@ Do not commit `.env`, Splunk tokens, indexed data, or Splunk administrator crede
 - [Cisco DevNet IOS XE Programmability](https://developer.cisco.com/iosxe/)
 - [Splunk Enterprise Linux Installation](https://help.splunk.com/en/splunk-enterprise/administer/install-and-upgrade/10.2/install-splunk-enterprise-on-linux-or-macos)
 - [Splunk HTTP Event Collector](https://help.splunk.com/en/splunk-enterprise/get-data-in/get-started-with-getting-data-in/10.2/get-data-with-http-event-collector/set-up-and-use-http-event-collector-from-the-cli)
-

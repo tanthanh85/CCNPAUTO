@@ -53,6 +53,8 @@ Using the VS Code Explorer, copy and paste:
 - `pytest.ini` from `CCNPAUTO/LAB/Lab6/` to the project root;
 - `test_ospf_renderer.py` from `CCNPAUTO/LAB/Lab6/tests/` to the project's `tests/`.
 
+Keep the shared `src/logging_config.py` and `logs/` directory. The NETCONF components record session establishment, payload validation, target datastore, RPC outcome, and verification. Because diagnostic logs may describe operational intent, protect them with the same access and retention controls used for configuration evidence.
+
 Modify the existing `requirements.txt` by adding `ncclient>=0.7,<1` and `pytest>=8,<9` if needed. Save it and run `python -m pip install -r requirements.txt`.
 
 ## Task 2: Add NETCONF Settings
@@ -234,6 +236,8 @@ sequenceDiagram
 ```
 
 The script prints the payload for study, sends `edit-config` with merge semantics, retrieves the OSPF subtree, and confirms that every NetBox address is present.
+
+To trace this workflow, set `ENABLE_FILE_LOGGING=true`, repeat the run, and inspect the new `logs/configure_ospf_*.log`. Look for the loopback count, XML validation, NETCONF connection state, `<edit-config>` outcome, and verification. Do not edit a log to make a failed execution appear successful.
 
 ## Task 8: Verify Operationally
 

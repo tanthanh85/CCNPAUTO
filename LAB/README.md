@@ -76,7 +76,7 @@ Learners retrieve `show version` and `show ip interface brief`, parse CLI output
 
 ### Lab 3: Start the Network Automation Project
 
-[Lab 3](Lab3/Lab3.md) begins the cumulative repository named `network_automation_project`. Learners define loopback interfaces in YAML, validate the source of truth, render IOS XE configuration with Jinja2, apply the configuration with Netmiko, and verify the resulting device state.
+[Lab 3](Lab3/Lab3.md) begins the cumulative repository named `network_automation_project`. Learners define loopback interfaces in YAML, validate the source of truth, render IOS XE configuration with Jinja2, apply the configuration with Netmiko, and verify the resulting device state. It also introduces a shared Python logging component used throughout the cumulative project. Learners can enable detailed file logging in `.env`; every process creates a separate timestamped text file under `logs/`, and secret-like environment values are redacted as a secondary safeguard.
 
 This lab introduces the first version of the automation workflow:
 
@@ -159,13 +159,14 @@ This lab matters because real automation depends on other systems. NetBox, Vault
 
 ### Lab 10: Add Application Logging and Observability
 
-[Lab 10](Lab10/Lab10.md) adds structured JSON Lines audit events, GitLab artifacts, InfluxDB metrics, and Grafana dashboards. Learners observe who triggered automation, which tasks ran, how long they took, what changed, and where failures occurred.
+[Lab 10](Lab10/Lab10.md) builds on the timestamped Python logs by adding structured JSON Lines audit events, GitLab artifacts, InfluxDB metrics, and Grafana dashboards. Learners observe who triggered automation, which tasks ran, how long they took, what changed, and where failures occurred.
 
-This lab separates three ideas:
+This lab separates four forms of evidence:
 
 - human-readable job output,
+- detailed per-process Python diagnostic logs,
 - structured audit records,
-- and time-series metrics.
+- time-series metrics.
 
 That separation is important because troubleshooting one failed pipeline and understanding long-term automation reliability require different kinds of evidence.
 
@@ -189,7 +190,7 @@ For gRPC dial-out, learners enter the IOS XE subscriptions manually, beginning w
 
 ### Lab 14: Build an AI Network Route Assistant
 
-[Lab 14](Lab14/Lab14.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, select local Qwen through Ollama or an OpenAI or Anthropic API model, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server. They compare provider accuracy and response time against the same MCP evidence. If Qwen 8B is too slow for the workstation, a smaller Qwen model can be selected without changing the application architecture.
+[Lab 14](Lab14/Lab14.md) introduces AI-assisted network operations in a controlled way. Learners build a Flask web assistant with a professional dark theme, select local Qwen through Ollama or an OpenAI or Anthropic API model, expose route-information tools through Python FastMCP, and retrieve live IOS XE route data through RESTCONF behind the MCP server. They compare provider accuracy and response time against the same MCP evidence. If Qwen 8B is too slow for the workstation, a smaller Qwen model can be selected without changing the application architecture. The standalone project uses the same on-demand, timestamped diagnostic logging pattern so Flask, MCP, RESTCONF, and provider failures can be correlated without recording credentials or complete prompts.
 
 The key architecture is intentional:
 
@@ -216,11 +217,11 @@ The AI model answers questions from MCP-provided route context. It does not rece
 
 ### Optional Lab 17: Stream IOS XE CPU Data into Splunk
 
-[Optional Lab 17](Lab17/Lab17.md) installs Splunk Enterprise under its trial license. A Python collector initiates a NETCONF dial-in YANG-push subscription for five-second IOS XE CPU utilization, normalizes XML notifications, sends structured events to Splunk HEC, and supports a dashboard showing CPU trend and collection health.
+[Optional Lab 17](Lab17/Lab17.md) installs Splunk Enterprise under its trial license. A Python collector initiates a NETCONF dial-in YANG-push subscription for five-second IOS XE CPU utilization, normalizes XML notifications, and sends structured events to Splunk HEC. Learners verify ingestion with SPL and create the app, searches, and CPU dashboard directly in Splunk Web; no external dashboard HTML or XML is imported.
 
 ### Final Assessment Lab: Enterprise Network Automation Delivery
 
-[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or Cisco DevNet Sandbox YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure.
+[Final Assessment Lab](FinalLab/README.md) tests learners through two realistic company projects. The first project uses Netmiko and Jinja2 to automate VLAN creation on a Cisco Nexus NX-OS sandbox switch, representing legacy CLI-based devices. The second project uses NETCONF, RESTCONF, local or Cisco DevNet Sandbox YANG Suite, Vault, and Flask to automate static routes and monitor an IOS XE sandbox router, representing modern programmable infrastructure. Both self-graders report earned points, missing requirements, and the exact condition required for full credit; local scoring does not replace live sandbox verification.
 
 The assessment is worth 100 points and includes self-grading scripts so learners can check their completion before submission.
 

@@ -1,10 +1,14 @@
 """Cumulative project settings with IOS XE credentials supplied by Vault."""
 
+import logging
 import os
 
 from dotenv import load_dotenv
 
 from src.vault_credentials import VaultCredentialProvider
+
+
+logger = logging.getLogger(__name__)
 
 
 class Settings:
@@ -13,6 +17,7 @@ class Settings:
         self.host = self._required("IOSXE_HOST")
         self.ssh_port = int(os.getenv("IOSXE_SSH_PORT", "22"))
         self.https_port = int(os.getenv("IOSXE_HTTPS_PORT", "443"))
+        self.netconf_port = int(os.getenv("IOSXE_NETCONF_PORT", "830"))
         self.verify_tls = self._boolean("VERIFY_TLS", False)
 
         self.netbox_url = self._required("NETBOX_URL")
@@ -26,6 +31,21 @@ class Settings:
             secret_path=os.getenv("VAULT_IOSXE_PATH", "ccnpauto/iosxe"),
         )
         self.username, self.password = provider.read_iosxe()
+        logger.debug(
+            "Loaded cumulative settings host=%s ssh_port=%d https_port=%d "
+            "netconf_port=%d "
+            "netbox_url=%s netbox_device=%s netbox_tag=%s "
+            "verify_tls=%s vault_credentials_loaded=%s",
+            self.host,
+            self.ssh_port,
+            self.https_port,
+            self.netconf_port,
+            self.netbox_url,
+            self.netbox_device,
+            self.netbox_tag,
+            self.verify_tls,
+            bool(self.username and self.password),
+        )
 
     @staticmethod
     def _required(name):

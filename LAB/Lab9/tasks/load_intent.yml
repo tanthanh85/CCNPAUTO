@@ -19,6 +19,9 @@
       Accept: application/json
     timeout: 10
     max_attempts: 5
+    enable_file_logging: "{{ lookup('ansible.builtin.env', 'ENABLE_FILE_LOGGING') | default('false', true) | bool }}"
+    log_level: "{{ lookup('ansible.builtin.env', 'LOG_LEVEL') | default('DEBUG', true) }}"
+    log_dir: "{{ lookup('ansible.builtin.env', 'LOG_DIR') | default(playbook_dir + '/../logs', true) }}"
   register: netbox_interfaces
   no_log: true
 
@@ -34,6 +37,9 @@
       Accept: application/json
     timeout: 10
     max_attempts: 5
+    enable_file_logging: "{{ lookup('ansible.builtin.env', 'ENABLE_FILE_LOGGING') | default('false', true) | bool }}"
+    log_level: "{{ lookup('ansible.builtin.env', 'LOG_LEVEL') | default('DEBUG', true) }}"
+    log_dir: "{{ lookup('ansible.builtin.env', 'LOG_DIR') | default(playbook_dir + '/../logs', true) }}"
   loop: "{{ netbox_interfaces.json.results }}"
   loop_control:
     label: "{{ item.name }}"

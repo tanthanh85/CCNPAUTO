@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from logging_config import configure_logging
+
 
 REQUIRED_MODULES = ["flask", "requests", "dotenv", "mcp"]
+logger = logging.getLogger(__name__)
 
 
 def main() -> int:
     load_dotenv()
+    configure_logging("check_lab14")
+    logger.info("Starting Lab 14 readiness validation")
 
     failures: list[str] = []
 
@@ -20,10 +28,12 @@ def main() -> int:
             importlib.import_module(module)
         except ImportError:
             failures.append(f"Missing Python module: {module}")
+            logger.exception("Required Python module is missing module=%s", module)
 
     for variable in ["IOSXE_HOST", "IOSXE_USERNAME", "IOSXE_PASSWORD"]:
         if not os.getenv(variable):
             failures.append(f"Missing environment variable: {variable}")
+            logger.error("Required environment variable is missing name=%s", variable)
 
     provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
     provider_variables = {
@@ -43,11 +53,13 @@ def main() -> int:
                 )
 
     if failures:
+        logger.error("Lab 14 readiness failed failures=%s", failures)
         print("Lab 14 readiness check failed:")
         for failure in failures:
             print(f"- {failure}")
         return 1
 
+    logger.info("Lab 14 readiness passed provider=%s", provider)
     print(f"Lab 14 readiness check passed for provider: {provider}.")
     return 0
 

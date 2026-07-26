@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from mcp_server import (
@@ -9,6 +10,9 @@ from mcp_server import (
     route_tool_summary,
 )
 from restconf_routes import RestconfError
+
+
+logger = logging.getLogger(__name__)
 
 
 class McpToolError(RuntimeError):
@@ -32,9 +36,19 @@ def call_route_tool(tool_name: str, **kwargs: Any) -> dict[str, Any]:
     }
 
     if tool_name not in tools:
+        logger.error("Unsupported MCP route tool requested tool=%s", tool_name)
         raise ValueError(f"Unsupported MCP route tool: {tool_name}")
 
+    logger.info("Calling MCP tool=%s arguments=%s", tool_name, kwargs)
     try:
-        return tools[tool_name](**kwargs)
+        result = tools[tool_name](**kwargs)
+        logger.info(
+            "MCP tool completed tool=%s result_keys=%s",
+            tool_name,
+            sorted(result),
+        )
+        logger.debug("MCP tool result tool=%s result=%s", tool_name, result)
+        return result
     except RestconfError as exc:
+        logger.exception("MCP tool failed tool=%s", tool_name)
         raise McpToolError(str(exc)) from exc

@@ -8,6 +8,13 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - when: never
 
+variables:
+  ENABLE_FILE_LOGGING: "true"
+  ENABLE_CONSOLE_LOGGING: "true"
+  LOG_LEVEL: "DEBUG"
+  LOG_CONSOLE_LEVEL: "INFO"
+  LOG_DIR: "logs"
+
 default:
   tags:
     - network-deploy
@@ -17,12 +24,13 @@ default:
     - python -m pip install --quiet --upgrade pip
     - python -m pip install --quiet -r requirements.txt
     - ansible-galaxy collection install -r collections/requirements.yml
-    - mkdir -p artifacts
+    - mkdir -p artifacts logs
   artifacts:
     when: always
     expire_in: 14 days
     paths:
       - artifacts/
+      - logs/
 
 validate-netbox-with-ansible:
   stage: validate

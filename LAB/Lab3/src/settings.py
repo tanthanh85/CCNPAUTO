@@ -1,8 +1,12 @@
 """Application settings loaded from the untracked .env file."""
 
+import logging
 import os
 
 from dotenv import load_dotenv
+
+
+logger = logging.getLogger(__name__)
 
 
 class Settings:
@@ -15,6 +19,16 @@ class Settings:
         self.ssh_port = int(os.getenv("IOSXE_SSH_PORT", "22"))
         self.https_port = int(os.getenv("IOSXE_HTTPS_PORT", "443"))
         self.verify_tls = self._boolean("VERIFY_TLS", False)
+        logger.debug(
+            "Loaded settings host=%s ssh_port=%d https_port=%d "
+            "verify_tls=%s username_configured=%s password_configured=%s",
+            self.host,
+            self.ssh_port,
+            self.https_port,
+            self.verify_tls,
+            bool(self.username),
+            bool(self.password),
+        )
 
     @staticmethod
     def _required(name):

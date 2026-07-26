@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from ipaddress import IPv4Interface
 
 import pynetbox
+
+
+logger = logging.getLogger(__name__)
 
 
 class NetBoxSourceError(ValueError):
@@ -19,14 +23,33 @@ class NetBoxLoopbackSource:
         self.device_name = device_name
         self.tag_slug = tag_slug
         self.api = pynetbox.api(url, token=token)
+        logger.debug(
+            "Initialized NetBox client url=%s device=%s tag=%s "
+            "token_configured=%s",
+            url,
+            device_name,
+            tag_slug,
+            bool(token),
+        )
 
     def load(self, require_entries=True):
+        logger.info(
+            "Reading NetBox loopback intent device=%s tag=%s require_entries=%s",
+            self.device_name,
+            self.tag_slug,
+            require_entries,
+        )
         device = self.api.dcim.devices.get(name=self.device_name)
         if device is None:
             raise NetBoxSourceError(f"NetBox device not found: {self.device_name}")
 
         interfaces = list(
             self.api.dcim.interfaces.filter(device_id=device.id, tag=self.tag_slug)
+        )
+        logger.info(
+            "NetBox returned %d tagged interface object(s) device_id=%s",
+            len(interfaces),
+            device.id,
         )
         loopbacks = [self._normalize(interface) for interface in interfaces]
         loopbacks.sort(key=lambda item: item["id"])
@@ -41,9 +64,16 @@ class NetBoxLoopbackSource:
             raise NetBoxSourceError("NetBox contains duplicate managed Loopback IDs")
         if len(addresses) != len(set(addresses)):
             raise NetBoxSourceError("NetBox contains duplicate managed IPv4 addresses")
+        logger.info("NetBox intent validation passed records=%d", len(loopbacks))
+        logger.debug("Normalized NetBox intent=%s", loopbacks)
         return loopbacks
 
     def _normalize(self, interface):
+        logger.debug(
+            "Normalizing NetBox interface name=%s id=%s",
+            interface.name,
+            interface.id,
+        )
         match = self.LOOPBACK_NAME.fullmatch(interface.name)
         if not match:
             raise NetBoxSourceError(
@@ -67,7 +97,7 @@ class NetBoxLoopbackSource:
         description = (interface.description or "NETBOX_MANAGED").strip()
         if "\n" in description or "\r" in description:
             raise NetBoxSourceError(f"{interface.name} description must be one line")
-        return {
+        normalized = {
             "id": int(match.group("id")),
             "description": description,
             "ipv4": str(address.ip),
@@ -75,3 +105,10 @@ class NetBoxLoopbackSource:
             "netmask": "255.255.255.255",
             "enabled": bool(interface.enabled),
         }
+        logger.debug(
+            "Normalized NetBox interface name=%s ipv4=%s enabled=%s",
+            interface.name,
+            normalized["ipv4"],
+            normalized["enabled"],
+        )
+        return normalized

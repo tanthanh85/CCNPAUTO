@@ -82,7 +82,7 @@ git clone git@gitlab.com:<your-namespace>/ai_route_assistant.git
 cd ai_route_assistant
 ```
 
-Using the VS Code Explorer, copy and paste the contents of `CCNPAUTO/LAB/Lab14/` into the cloned `ai_route_assistant/` repository. Include `.env`, `requirements.txt`, all Python files, and the `templates/`, `static/`, and `scripts/` folders. Keep the supplied hierarchy and do not create a second environment or requirements file.
+Using the VS Code Explorer, copy and paste the contents of `CCNPAUTO/LAB/Lab14/` into the cloned `ai_route_assistant/` repository. Include `.env`, `.gitignore`, `requirements.txt`, all Python files, and the `logs/`, `templates/`, `static/`, and `scripts/` folders. Keep the supplied hierarchy and do not create a second environment or requirements file.
 
 The repository now contains a small web application, an MCP client abstraction, a FastMCP server, and a RESTCONF route backend used only behind the MCP server.
 
@@ -125,20 +125,19 @@ OPENAI_MODEL=
 
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=
+
+ENABLE_FILE_LOGGING=false
+ENABLE_CONSOLE_LOGGING=true
+LOG_LEVEL=DEBUG
+LOG_CONSOLE_LEVEL=INFO
+LOG_DIR=logs
 ```
 
 For a lab sandbox, `IOSXE_VERIFY_TLS=false` is commonly required because the device may present a self-signed certificate. In a production design, TLS verification should be enabled with a trusted CA bundle.
 
-Protect local secrets from Git:
+Set `ENABLE_FILE_LOGGING=true` while studying or troubleshooting. Each Flask, MCP, readiness-check, or supporting Python process then creates a separate timestamped text file under `logs/`. The logs record request IDs, tool selection, RESTCONF resources and status, route counts, provider name, timing, and exceptions. They intentionally omit authorization headers, API keys, passwords, and complete provider response bodies.
 
-```bash
-cat > .gitignore <<'EOF'
-.env
-.venv/
-__pycache__/
-*.pyc
-EOF
-```
+Open the supplied `.gitignore` in VS Code and confirm that `.env`, `.venv/`, Python cache files, and generated contents under `logs/` remain ignored. Do not replace the existing file.
 
 ## Task 3: Choose and Configure an LLM Provider
 
@@ -244,6 +243,8 @@ set +a
 python scripts/check_lab14.py
 ```
 
+With file logging enabled, open `logs/` in VS Code and inspect the newest `check_lab14_*.log`. Repeat the command and confirm that a new filename is created. If the check fails, use its component and exception chain to determine whether the problem is configuration, RESTCONF, MCP, Ollama, or a cloud provider.
+
 Then test the route path through the MCP client abstraction:
 
 ```bash
@@ -321,6 +322,8 @@ http://127.0.0.1:5050
 ```
 
 The page should display a dark professional assistant interface. The left panel shows a live route summary returned by the MCP tool layer. The chat area lets learners ask route-related questions.
+
+The MCP server and Flask application are separate processes and therefore create separate log files. Correlate them by timestamp and nonsecret request context. This boundary helps prove whether a route fact came from RESTCONF and MCP before evaluating the LLM's wording.
 
 Ask:
 
@@ -401,7 +404,8 @@ Commit the working project:
 
 ```bash
 git status
-git add .gitignore requirements.txt app.py llm_providers.py restconf_routes.py mcp_client.py mcp_server.py templates static scripts
+git add .gitignore requirements.txt logging_config.py app.py llm_providers.py \
+  restconf_routes.py mcp_client.py mcp_server.py logs/.gitkeep templates static scripts
 git commit -m "Build multi-provider AI route assistant with FastMCP"
 git push -u origin main
 ```

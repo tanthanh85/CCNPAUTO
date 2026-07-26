@@ -9,6 +9,7 @@ fi
 : "${AUTOMATION_IMAGE:?AUTOMATION_IMAGE is required}"
 mkdir -p artifacts
 
+runtime_username="${USER:-automation-runtime}"
 known_hosts_copy="$(mktemp /tmp/ccnpauto-known-hosts.XXXXXX)"
 runtime_home="$(mktemp -d /tmp/ccnpauto-ansible-home.XXXXXX)"
 
@@ -50,6 +51,9 @@ docker run --rm --network host \
   --volume "$known_hosts_copy:/etc/ssh/ssh_known_hosts:ro" \
   --workdir /workspace \
   --env HOME=/home/runtime \
+  --env "USER=$runtime_username" \
+  --env "LOGNAME=$runtime_username" \
+  --env "USERNAME=$runtime_username" \
   --env ANSIBLE_LOCAL_TEMP=/home/runtime/.ansible/tmp \
   --env XDG_CACHE_HOME=/home/runtime/.cache \
   --env XDG_CONFIG_HOME=/home/runtime/.config \

@@ -43,11 +43,14 @@ The image contains tools, not credentials or project source. `.dockerignore` pre
 The wrapper passes only approved logging controls and bind-mounts the
 repository at `/workspace`. It also creates a temporary host directory,
 mounts it at `/home/runtime`, and sets `HOME`, `ANSIBLE_LOCAL_TEMP`, and the
-XDG cache paths to writable locations inside that directory. This is required
-because the container runs with the Runner's numeric UID rather than the
-image's original UID. Without the explicit runtime home, Ansible can try to
-create `/.ansible/tmp` and fail with `Permission denied`. The wrapper removes
-the temporary directory when the job exits.
+XDG cache paths to writable locations inside that directory. It also passes
+`USER`, `LOGNAME`, and `USERNAME`. This is required because the container runs
+with the Runner's numeric UID rather than the image's original UID, and that
+host UID does not normally have an entry in the image's `/etc/passwd`.
+Without the explicit runtime home, Ansible can try to create
+`/.ansible/tmp` and fail with `Permission denied`. Without the username
+variables, Python's `getpass.getuser()` can fail with `No username set in the
+environment`. The wrapper removes the temporary directory when the job exits.
 
 Python processes create unique files in `/workspace/logs`, where the Runner
 can retain them after the container exits. No diagnostic log is baked into
@@ -126,6 +129,12 @@ Docker command must mount a temporary directory at `/home/runtime` and set
 `HOME=/home/runtime`. Rebuild the image after changing the Dockerfile so that
 the required collections are installed under
 `/usr/share/ansible/collections`.
+
+If the next error is `No username set in the environment` or
+`getpwuid(): uid not found`, the pipeline is still using an earlier wrapper.
+The current Docker command passes `USER`, `LOGNAME`, and `USERNAME` so that
+Ansible can identify the runtime account even though the Runner's host UID is
+not defined in the container image.
 
 ## Finish on the Latest Main Branch
 

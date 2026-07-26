@@ -176,7 +176,13 @@ IOx exposes the bootstrap file through `CAF_APP_CONFIG_FILE`. The application re
 
 ## Task 6: Build and Package the Application
 
-Most Catalyst 9000 and C8000V environments use `x86_64`:
+The architecture required here is the IOS XE application-hosting architecture, which can differ from the learner workstation architecture. Check it on the router:
+
+```text
+show app-hosting infra
+```
+
+When the output reports `x86_64`, set `cpuarch: x86_64` in `package.yaml` and build the x86-64/AMD64 image:
 
 ```bash
 docker build \
@@ -186,7 +192,17 @@ ioxclient docker package loopback1-auto-recovery:1.0 .
 tar -tf package.tar
 ```
 
-If `show app-hosting infra` reports `aarch64`, change `cpuarch` in `package.yaml` and build for `linux/arm64`.
+When the output reports `aarch64`, set `cpuarch: aarch64` in `package.yaml` and build the ARM64 image:
+
+```bash
+docker build \
+  --platform linux/arm64 \
+  -t loopback1-auto-recovery:1.0 .
+ioxclient docker package loopback1-auto-recovery:1.0 .
+tar -tf package.tar
+```
+
+Docker BuildKit can build for a target architecture different from the workstation only when the required builder and emulation support are available. Whenever possible, build natively for the architecture reported by IOS XE. Do not package an ARM64 image for an `x86_64` IOx host or an AMD64 image for an `aarch64` IOx host.
 
 Sign the resulting package when the device enforces application signatures. Never commit or share the signing private key.
 

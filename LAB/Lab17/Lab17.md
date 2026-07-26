@@ -77,7 +77,16 @@ The namespace binding, not the spelling of the prefix, identifies the YANG modul
 
 ## Task 2: Download and Install Splunk Enterprise
 
-Sign in at Splunk.com, select the current Splunk Enterprise Linux `.deb` package, and download it to `~/Downloads`. Splunk's current documentation states that a new Enterprise installation starts with a time-limited trial license; read the displayed license and indexing limits before accepting it.
+First confirm the workstation architecture:
+
+```bash
+dpkg --print-architecture
+uname -m
+```
+
+This lab requires an x86-64 workstation. The expected results are `amd64` and `x86_64`. Current Splunk Enterprise support for Ubuntu is x86-64; ARM64 packages available for other Splunk components must not be assumed to be a supported Splunk Enterprise server. If the learner workstation reports `arm64` and `aarch64`, run this optional lab in an instructor-approved Ubuntu x86-64 VM instead.
+
+Sign in at Splunk.com, select the current Splunk Enterprise Linux x86-64 `.deb` package, and download it to `~/Downloads`. Splunk's current documentation states that a new Enterprise installation starts with a time-limited trial license; read the displayed license and indexing limits before accepting it.
 
 Install the exact downloaded filename:
 
@@ -85,6 +94,8 @@ Install the exact downloaded filename:
 sudo dpkg -i ~/Downloads/splunk-<VERSION>-linux-amd64.deb
 sudo /opt/splunk/bin/splunk start --accept-license
 ```
+
+The release filename can contain additional build identifiers. Replace the placeholder with the exact x86-64 `.deb` filename shown in `~/Downloads`; do not rename an ARM package to include `amd64`.
 
 During first start, create a unique Splunk administrator password. Do not reuse a device, GitLab, or Vault password.
 

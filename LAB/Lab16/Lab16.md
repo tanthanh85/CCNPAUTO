@@ -45,10 +45,11 @@ The service YANG model describes what an operator requests. The XML template des
 Check the architecture:
 
 ```bash
+dpkg --print-architecture
 uname -m
 ```
 
-If the instructor package supports only `x86_64` and the result is `aarch64`, use an instructor-provided x86-64 VM or NSO development environment. Do not emulate a production NSO deployment on an unsupported platform.
+For an x86-64 workstation, the commands return `amd64` and `x86_64`; use the `.linux.x86_64.installer.bin` shown in this lab. If they return `arm64` and `aarch64`, do not use the x86-64 installer. Use an instructor-provided x86-64 VM or another NSO development environment supported by the selected NSO release. Do not emulate a production NSO deployment on an unsupported platform.
 
 ## Task 1: Obtain the Software
 
@@ -352,4 +353,3 @@ ncs --stop
 - [Cisco NSO Implementing Services](https://developer.cisco.com/docs/nso-guides-6.3/implementing-services/)
 - [Cisco NSO Templates](https://developer.cisco.com/docs/nso-guides-6.2/templates/)
 - [Cisco NSO Package Development](https://developer.cisco.com/docs/nso/guides/package-development/)
-

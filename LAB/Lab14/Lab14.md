@@ -150,9 +150,13 @@ This is the default option. Route context remains on the learner workstation, th
 Install Ollama from the official installer:
 
 ```bash
+dpkg --print-architecture
+uname -m
 curl -fsSL https://ollama.com/install.sh -o /tmp/install-ollama.sh
 sh /tmp/install-ollama.sh
 ```
+
+The official installer detects the workstation architecture. On x86-64 Ubuntu, `dpkg --print-architecture` returns `amd64` and the installer selects the x86-64 Ollama build. On ARM64 Ubuntu, it returns `arm64` and selects the ARM64 build. After installation, run `ollama --version`; do not copy an ARM64 binary from another workstation onto an x86-64 learner system.
 
 If the workstation is behind a proxy or TLS inspection device, the download may fail with a certificate error. In that case, install the organization’s trusted CA certificate first, then retry the command. Do not permanently disable TLS verification for software installation.
 

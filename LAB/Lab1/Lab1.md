@@ -39,6 +39,15 @@ Because all services share one host, the workstation should have at least the fo
 | Network | Internet access and DNS | Stable broadband |
 | User access | Account with `sudo` | Dedicated learner account |
 
+The lab supports both common 64-bit Ubuntu architectures. Run the following commands before downloading any architecture-specific binary:
+
+```bash
+dpkg --print-architecture
+uname -m
+```
+
+Ubuntu reports an x86-64 workstation as `amd64` through `dpkg` and usually as `x86_64` through `uname`. An ARM64 workstation is reported as `arm64` and usually as `aarch64`. Package repositories used in this lab select the correct build through `dpkg --print-architecture`; do not download an `arm64` binary on an `amd64` system or an `amd64` binary on an `arm64` system.
+
 NetBox, the TIG stack, and a local Yangsuite installation do not need to run simultaneously during ordinary course work. If the host has limited memory, stop services that are not needed for the current lab. GitLab.com, Cisco DevNet Sandbox TIG, and Cisco DevNet Sandbox Yangsuite do not consume workstation resources; only the lightweight local Runner service remains installed.
 
 ## Lab Architecture
@@ -427,6 +436,16 @@ Install and verify `kubectl`:
 ```bash
 cd /tmp
 ARCH=$(dpkg --print-architecture)
+
+case "$ARCH" in
+  amd64) echo "Installing kubectl for x86-64 (amd64)" ;;
+  arm64) echo "Installing kubectl for ARM64 (arm64)" ;;
+  *)
+    echo "Unsupported kubectl architecture: $ARCH" >&2
+    exit 1
+    ;;
+esac
+
 KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
 
 curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl"
@@ -435,6 +454,8 @@ echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 kubectl version --client
 ```
+
+On an x86-64 workstation, `ARCH=amd64` selects the official `linux/amd64` binary. On an ARM64 workstation, `ARCH=arm64` selects `linux/arm64`. The checksum URL uses the same architecture value, preventing a checksum from one build being compared with a different binary.
 
 Running `kubectl get nodes` without a configured context will fail, which is expected. Do not create an insecure placeholder context. Configure a context only when an instructor or authorized platform administrator supplies a cluster endpoint and credentials.
 

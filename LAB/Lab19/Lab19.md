@@ -51,13 +51,14 @@ sudo snap install kubectl --classic
 kubectl version --client
 ```
 
-Determine the workstation architecture:
+Determine the workstation architecture. Ubuntu uses `amd64` to identify x86-64:
 
 ```bash
 dpkg --print-architecture
+uname -m
 ```
 
-For `amd64`, download and install the current Minikube binary:
+If the results are `amd64` and `x86_64`, download and install the x86-64 Minikube binary:
 
 ```bash
 wget -O minikube \
@@ -66,7 +67,16 @@ sudo install minikube /usr/local/bin/minikube
 minikube version
 ```
 
-For `arm64`, replace `amd64` in the URL with `arm64`. Remove the downloaded working copy after installation through the file manager.
+If the results are `arm64` and `aarch64`, download and install the ARM64 Minikube binary:
+
+```bash
+wget -O minikube \
+  https://storage.googleapis.com/minikube/releases/latest/minikube-linux-arm64
+sudo install minikube /usr/local/bin/minikube
+minikube version
+```
+
+Use only the block matching the workstation. Remove the downloaded working copy after installation through the file manager.
 
 ## Task 3: Start the Cluster
 

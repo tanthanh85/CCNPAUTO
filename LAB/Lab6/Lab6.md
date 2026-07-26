@@ -4,12 +4,12 @@
 
 The project currently creates loopback interfaces through Netmiko. In this lab, learners add a second southbound method: NETCONF. The application reads the same loopbacks from NetBox, retrieves credentials through Vault, renders a Cisco IOS XE native-YANG XML payload, and merges OSPF network statements into the running datastore. Every managed loopback is advertised in OSPF area 0 with a host wildcard of `0.0.0.0`.
 
-Cisco YANG Suite is central to the exercise. Learners can use the local installation prepared in Lab 1 or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect the model revision exposed by their reserved router and to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
+Cisco Yangsuite is central to the exercise. Learners can use the local installation prepared in Lab 1 or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect the model revision exposed by their reserved router and to build and test the payload before Python sends it. The supplied Jinja2 template represents a common IOS XE native model hierarchy, but the device-advertised model remains authoritative.
 
 ## Learning Objectives
 
 - Verify NETCONF capabilities on IOS XE.
-- Inspect Cisco IOS XE native and OSPF YANG modules in YANG Suite.
+- Inspect Cisco IOS XE native and OSPF YANG modules in Yangsuite.
 - Build an `<edit-config>` payload from the device model.
 - Render one OSPF network element for every NetBox loopback.
 - Use `ncclient` with credentials obtained from Vault.
@@ -21,7 +21,7 @@ Cisco YANG Suite is central to the exercise. Learners can use the local installa
 
 - Labs 1 and 3–5 completed
 - Existing `network_automation_project`
-- Access to local YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`
+- Access to local Yangsuite at `https://localhost:8443` or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`
 - NetBox and Vault running
 - Active IOS XE reservable sandbox and VPN
 - NETCONF enabled by the sandbox
@@ -36,7 +36,7 @@ docker compose up -d
 vault status
 ```
 
-For local YANG Suite, run `docker compose up -d` from `~/lab-services/yangsuite/docker` and open `https://localhost:8443`. Alternatively, open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. TIG is not required and may remain stopped.
+For local Yangsuite, run `docker compose up -d` from `~/lab-services/yangsuite/docker` and open `https://localhost:8443`. Alternatively, open Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`. TIG is not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
@@ -77,7 +77,7 @@ The NETCONF client receives the username and password from the same Vault-backed
 
 ## Task 3: Verify NETCONF Access
 
-In YANG Suite, open the `iosxe-ospf` device profile and select **Check connectivity** for NETCONF port `830`.
+In Yangsuite, open the `iosxe-ospf` device profile and select **Check connectivity** for NETCONF port `830`.
 
 On IOS XE, confirm NETCONF-YANG is enabled:
 
@@ -96,9 +96,9 @@ end
 
 Do not modify AAA, management routing, or unrelated services.
 
-## Task 4: Use YANG Suite to Discover the OSPF Model
+## Task 4: Use Yangsuite to Discover the OSPF Model
 
-Open the YANG Suite option selected in Lab 1:
+Open the Yangsuite option selected in Lab 1:
 
 ```text
 https://localhost:8443
@@ -115,7 +115,7 @@ Use the local administrator account created during installation or the Cisco Dev
 3. Enter the current reservation hostname or management address, username, and password.
 4. Enable **NETCONF** and set its port to `830`. Enable **RESTCONF** and set its HTTPS port to `443` for later URI exercises.
 5. Select **Check connectivity**. NETCONF must succeed before an RPC can be built or executed.
-6. Save the device profile. Credentials are stored by the selected YANG Suite service, so use only Cisco DevNet Sandbox credentials and never production credentials on the sandbox instance.
+6. Save the device profile. Credentials are stored by the selected Yangsuite service, so use only Cisco DevNet Sandbox credentials and never production credentials on the sandbox instance.
 
 ### Download the Device-Advertised Schemas
 
@@ -157,9 +157,9 @@ native
 7. In the model tree, set `process-id/id` to `1`. Add one `network` list entry with the IP address of an existing loopback, wildcard `0.0.0.0`, and area `0`.
 8. Select **Build RPC**. Confirm that the generated document contains the NETCONF base namespace on `<rpc>` and `<config>`, the Cisco native namespace on `<native>`, and the Cisco OSPF namespace on `<router-ospf>`.
 9. Save the generated RPC as evidence. The project calls `ncclient.edit_config()`, so copy only the `<config>...</config>` element into the Jinja2 design; `ncclient` creates the outer `<rpc>` and `<edit-config>` envelope.
-10. Do not run the change from YANG Suite if the same configuration will be applied by the lab script. First compare its `<config>` body with `templates/ospf_native.xml.j2`.
+10. Do not run the change from Yangsuite if the same configuration will be applied by the lab script. First compare its `<config>` body with `templates/ospf_native.xml.j2`.
 
-The important distinction is that YANG Suite discovers the exact tree and namespaces, while Jinja2 supplies repeatable values. The loop belongs in the template so one payload can contain every NetBox-managed loopback.
+The important distinction is that Yangsuite discovers the exact tree and namespaces, while Jinja2 supplies repeatable values. The loop belongs in the template so one payload can contain every NetBox-managed loopback.
 
 ## Task 5: Understand the Rendered Payload
 
@@ -197,7 +197,7 @@ print(OSPFRenderer().render(items, process_id=1, area=0))
 PY
 ```
 
-Compare the result with the YANG Suite payload. If the reserved IOS XE release advertises a different hierarchy, update the Jinja2 template and the test together.
+Compare the result with the Yangsuite payload. If the reserved IOS XE release advertises a different hierarchy, update the Jinja2 template and the test together.
 
 ## Task 6: Ensure Loopbacks Exist First
 
@@ -253,7 +253,7 @@ A loopback can be included in OSPF even when no neighbor forms on it. The object
 
 ## Task 9: Observe an RPC Error Safely
 
-Make a temporary working copy of the template outside the repository and misspell one modeled leaf. Preview it and compare it with YANG Suite. If the instructor permits sending the invalid payload in the reserved sandbox, IOS XE should return an `rpc-error` with an error tag, path, and message. Restore the valid template immediately.
+Make a temporary working copy of the template outside the repository and misspell one modeled leaf. Preview it and compare it with Yangsuite. If the instructor permits sending the invalid payload in the reserved sandbox, IOS XE should return an `rpc-error` with an error tag, path, and message. Restore the valid template immediately.
 
 The application catches `RPCError` and stops. It must not silently continue to verification after the device rejects configuration.
 
@@ -269,7 +269,7 @@ Merge after reviewing the exact XML template and successful verification evidenc
 
 ## Key Takeaways
 
-- YANG Suite reveals the payload structure supported by the active IOS XE release.
+- Yangsuite reveals the payload structure supported by the active IOS XE release.
 - NETCONF transports modeled XML and returns structured RPC errors.
 - NetBox remains the single loopback source of truth.
 - Vault supplies credentials to both CLI and NETCONF clients.
@@ -281,6 +281,6 @@ Lab 7 places the same validation, loopback, OSPF, and verification steps into a 
 ## References
 
 - [NETCONF RFC 6241](https://www.rfc-editor.org/rfc/rfc6241)
-- [Cisco YANG Suite](https://developer.cisco.com/docs/yangsuite/)
+- [Cisco Yangsuite](https://developer.cisco.com/docs/yangsuite/)
 - [Cisco IOS XE YANG models](https://github.com/YangModels/yang/tree/main/vendor/cisco/xe)
 - [ncclient documentation](https://ncclient.readthedocs.io/)

@@ -27,7 +27,7 @@ sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
 ```
 
-Start the local TIG stack from `~/lab-services/tig`, then open Grafana at `http://127.0.0.1:3000`. Lab 10 writes application metrics and therefore uses the learner-controlled InfluxDB token and bucket. The Cisco DevNet Sandbox TIG integration is reserved for the C8KV telemetry workflow in Lab 13. Local YANG Suite is not required and may remain stopped.
+Start the local TIG stack from `~/lab-services/tig`, then open Grafana at `http://127.0.0.1:3000`. Lab 10 writes application metrics and therefore uses the learner-controlled InfluxDB token and bucket. The Cisco DevNet Sandbox TIG integration is reserved for the C8KV telemetry workflow in Lab 13. Local Yangsuite is not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project

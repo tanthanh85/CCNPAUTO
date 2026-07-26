@@ -25,7 +25,7 @@ sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
 ```
 
-TIG and local YANG Suite are not required and may remain stopped.
+TIG and local Yangsuite are not required and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project

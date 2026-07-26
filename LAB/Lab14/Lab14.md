@@ -72,7 +72,7 @@ test -d "$HOME/lab-services/tig" && \
 sudo systemctl stop gitlab-runner
 ```
 
-Start local YANG Suite only when a RESTCONF route URI needs model verification; otherwise use Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
+Start local Yangsuite only when a RESTCONF route URI needs model verification; otherwise use Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
 
 Create a new GitLab.com project named `ai_route_assistant`. Then clone it to the workstation:
 
@@ -256,7 +256,7 @@ pprint(call_route_tool("get_route_summary"))
 PY
 ```
 
-The output should show a total route count and route counts grouped by protocol. This confirms that the MCP tool path can reach the RESTCONF backend. If the script reports that no supported route endpoint returned data, use either a local YANG Suite installation or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect the routing operational models supported by the current IOS XE sandbox release. IOS XE releases can differ in the exact operational YANG path used for RIB data.
+The output should show a total route count and route counts grouped by protocol. This confirms that the MCP tool path can reach the RESTCONF backend. If the script reports that no supported route endpoint returned data, use either a local Yangsuite installation or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect the routing operational models supported by the current IOS XE sandbox release. IOS XE releases can differ in the exact operational YANG path used for RIB data.
 
 ## Task 5: Inspect the MCP and RESTCONF Boundary
 
@@ -427,7 +427,7 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 | Cloud API returns `401` | API key is invalid, revoked, or belongs to the wrong service | Create a new provider API key and update `.env` |
 | Cloud API returns `429` | Account quota or provider rate limit was reached | Check provider billing and limits, wait, then retry |
 | RESTCONF returns `401` or `403` | Wrong sandbox credentials | Check reservation details and `.env` |
-| RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to inspect routing operational models |
+| RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect routing operational models |
 | Assistant invents details | Prompt lacks enough route context or model is too creative | Keep temperature low and verify against JSON context |
 
 ## Key Takeaways
@@ -451,4 +451,4 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 - [Model Context Protocol](https://modelcontextprotocol.io/) - MCP concepts and architecture.
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) - Python SDK and FastMCP examples.
 - [Cisco IOS XE RESTCONF Programmability](https://developer.cisco.com/docs/ios-xe/) - IOS XE programmability documentation.
-- [Cisco YANG Suite](https://developer.cisco.com/yangsuite/) - YANG model discovery and RESTCONF/NETCONF testing.
+- [Cisco Yangsuite](https://developer.cisco.com/yangsuite/) - YANG model discovery and RESTCONF/NETCONF testing.

@@ -260,7 +260,7 @@ def grade_restconf_uris() -> int:
         points,
         20,
         "; ".join(detail),
-        "Use YANG Suite-validated device resource paths only. Each constant "
+        "Use Yangsuite-validated device resource paths only. Each constant "
         "must begin with '/', omit scheme/host and /restconf/data, and identify "
         "CPU, memory, or the GigabitEthernet1 list entry respectively.",
     )

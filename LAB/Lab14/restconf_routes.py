@@ -267,7 +267,7 @@ def get_routes() -> dict[str, Any]:
     logger.error("All route endpoint candidates failed errors=%s", errors)
     raise RestconfError(
         "No supported RESTCONF route endpoint returned route data. "
-        "Use Cisco YANG Suite to confirm the routing operational model "
+        "Use Cisco Yangsuite to confirm the routing operational model "
         f"for this IOS XE release. Tried: {ROUTE_ENDPOINTS}. Errors: {errors}"
     )
 

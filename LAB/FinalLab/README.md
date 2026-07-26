@@ -26,11 +26,11 @@ You need access to:
 
 - Cisco Nexus NX-OS sandbox switch
 - Cisco IOS XE reservable sandbox router
-- Access to local Cisco YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`
+- Access to local Cisco Yangsuite at `https://localhost:8443` or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`
 - HashiCorp Vault from Lab 1
 - Python virtual environment from earlier labs
 
-The assessment does not use NetBox, TIG, or GitLab Runner. Stop them to preserve workstation resources, then verify Vault and the selected YANG Suite option:
+The assessment does not use NetBox, TIG, or GitLab Runner. Stop them to preserve workstation resources, then verify Vault and the selected Yangsuite option:
 
 ```bash
 test -d "$HOME/lab-services/netbox-docker" && \
@@ -41,7 +41,7 @@ sudo systemctl stop gitlab-runner
 vault status
 ```
 
-If `vault status` fails, start the Lab 5 development server in a dedicated terminal and recreate the assessment secret. For local YANG Suite, start it from `~/lab-services/yangsuite/docker`; otherwise open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
+If `vault status` fails, start the Lab 5 development server in a dedicated terminal and recreate the assessment secret. For local Yangsuite, start it from `~/lab-services/yangsuite/docker`; otherwise open Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
 
 ## Suggested Working Directory
 
@@ -104,9 +104,9 @@ Project 2 represents a newer programmable network platform. The IOS XE router su
 
 You need to complete three tasks:
 
-1. Use local Cisco YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to construct the XML structure for static routes with Cisco IOS XE Native YANG, then convert it into a Jinja2 template with a loop over the YAML route list.
+1. Use local Cisco Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to construct the XML structure for static routes with Cisco IOS XE Native YANG, then convert it into a Jinja2 template with a loop over the YAML route list.
 2. Complete the Vault credential retrieval function.
-3. Use local or Cisco DevNet Sandbox YANG Suite to locate the RESTCONF URIs for CPU, memory, and GigabitEthernet1 monitoring, then place those URIs into the code.
+3. Use local or Cisco DevNet Sandbox Yangsuite to locate the RESTCONF URIs for CPU, memory, and GigabitEthernet1 monitoring, then place those URIs into the code.
 
 Run the self-grader from the project folder:
 
@@ -132,4 +132,4 @@ Do not submit real passwords, Vault tokens, or private keys.
 
 ## Final Reminder
 
-The assessment is designed to test practical judgment, not memorization. Use the tools you practiced earlier: `.env` files for local variables, Vault for secrets, Jinja2 for rendering, YAML for intent, local or Cisco DevNet Sandbox YANG Suite for model discovery, Netmiko for CLI devices, NETCONF for model-driven configuration, RESTCONF for operational data, and Flask for a simple operational portal.
+The assessment is designed to test practical judgment, not memorization. Use the tools you practiced earlier: `.env` files for local variables, Vault for secrets, Jinja2 for rendering, YAML for intent, local or Cisco DevNet Sandbox Yangsuite for model discovery, Netmiko for CLI devices, NETCONF for model-driven configuration, RESTCONF for operational data, and Flask for a simple operational portal.

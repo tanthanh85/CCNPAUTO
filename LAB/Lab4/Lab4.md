@@ -71,7 +71,7 @@ docker compose config | grep -n "network_mode: host"
 
 Open `http://127.0.0.1:8080` and sign in with the administrator created in Lab 1.
 
-Vault, TIG, local YANG Suite, and GitLab Runner are not required in this lab and may remain stopped.
+Vault, TIG, local Yangsuite, and GitLab Runner are not required in this lab and may remain stopped.
 
 ## Task 3: Model the Cisco IOS XE Sandbox Router
 

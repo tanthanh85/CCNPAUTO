@@ -133,7 +133,7 @@ python async_restconf.py --concurrency 1
 
 Record total and per-resource times. Open the generated JSON file under `results/`. Confirm that certificate validation succeeds and identify any model that the selected IOS XE release does not support.
 
-An HTTP `404` is recorded as a resource failure; it is not a TLS failure. Use YANG Suite or the device module library to validate a URI when necessary.
+An HTTP `404` is recorded as a resource failure; it is not a TLS failure. Use Yangsuite or the device module library to validate a URI when necessary.
 
 ## Task 8: Run Concurrent Collection
 

@@ -54,9 +54,9 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Open local Cisco YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. Your task is to use it to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
+Static-route intent is already defined in [data/static_routes.yaml](data/static_routes.yaml). The starter template already contains the NETCONF `<config>` root element and the Jinja2 loop over `static_routes`. Open local Cisco Yangsuite at `https://localhost:8443` or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`. Your task is to use it to construct the correct **Cisco IOS XE Native YANG** XML structure for one static route and place that structure inside the loop in [templates/static_routes.xml.j2](templates/static_routes.xml.j2).
 
-In YANG Suite, choose the Cisco IOS XE native module, commonly shown as **`Cisco-IOS-XE-native`**. Do not build this task with the generic IETF routing model. This project is intentionally testing the Cisco native model because it closely matches the IOS XE CLI configuration hierarchy.
+In Yangsuite, choose the Cisco IOS XE native module, commonly shown as **`Cisco-IOS-XE-native`**. Do not build this task with the generic IETF routing model. This project is intentionally testing the Cisco native model because it closely matches the IOS XE CLI configuration hierarchy.
 
 Use this workflow:
 
@@ -79,7 +79,7 @@ static_routes:
     description: Example business route
 ```
 
-Use YANG Suite to inspect **`Cisco-IOS-XE-native`** for static routes under the IOS XE native configuration hierarchy. Then complete the XML payload body suitable for NETCONF `<edit-config>`. Do not hard-code only one route. The starter file already provides this Jinja2 loop:
+Use Yangsuite to inspect **`Cisco-IOS-XE-native`** for static routes under the IOS XE native configuration hierarchy. Then complete the XML payload body suitable for NETCONF `<edit-config>`. Do not hard-code only one route. The starter file already provides this Jinja2 loop:
 
 ```jinja2
 {% for route in static_routes %}
@@ -155,7 +155,7 @@ After completing the function, add one more static route to [data/static_routes.
 
 The project includes a small Flask management portal that refreshes every 5 seconds. Most of the code is complete, but the RESTCONF URIs are missing.
 
-Use local Cisco YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` to locate RESTCONF operational paths for:
+Use local Cisco Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to locate RESTCONF operational paths for:
 
 - CPU utilization,
 - memory utilization,
@@ -168,8 +168,8 @@ For each metric:
 3. Select that node and choose **Generate APIs**.
 4. In the generated Swagger view, select `GET`, set `Accept: application/yang-data+json`, and choose **Try it out**.
 5. Confirm that the request returns `200 OK` and that the JSON includes the field consumed by the portal.
-6. Record the device resource path after `/restconf/data/`. Do not copy the YANG Suite proxy hostname or proxy prefix.
-7. When selecting one interface list entry, allow YANG Suite to generate the encoded list-key syntax for `GigabitEthernet1`; do not paste an XPath predicate into a RESTCONF URI.
+6. Record the device resource path after `/restconf/data/`. Do not copy the Yangsuite proxy hostname or proxy prefix.
+7. When selecting one interface list entry, allow Yangsuite to generate the encoded list-key syntax for `GigabitEthernet1`; do not paste an XPath predicate into a RESTCONF URI.
 8. Test each device URI with `curl` before adding it to Python.
 
 Open [src/restconf_monitor.py](src/restconf_monitor.py) and complete:
@@ -214,4 +214,4 @@ The grader reports your score out of 70. For every incomplete task, it identifie
 
 ## Notes
 
-If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with local or Cisco DevNet Sandbox YANG Suite. The model exposed by the device is authoritative.
+If a RESTCONF or NETCONF path does not work on your IOS XE sandbox release, verify the model with local or Cisco DevNet Sandbox Yangsuite. The model exposed by the device is authoritative.

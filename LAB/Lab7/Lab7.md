@@ -70,7 +70,7 @@ sudo systemctl is-active gitlab-runner
 gitlab-runner --version
 ```
 
-TIG and local YANG Suite are not required for the pipeline and may remain stopped.
+TIG and local Yangsuite are not required for the pipeline and may remain stopped.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project
@@ -278,7 +278,7 @@ Use four evidence sources:
 | NetBox validation fails | Tagged interface type, name, and assigned `/32` |
 | Vault authentication fails | Vault process, `VAULT_ADDR`, token, and secret path |
 | Netmiko times out | VPN, reservation hostname, and SSH port |
-| NETCONF RPC fails | Compare the rendered XML with the device model in local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480` |
+| NETCONF RPC fails | Compare the rendered XML with the device model in local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` |
 | Verification fails | Compare NetBox intent with CLI and NETCONF output |
 
 ## Safety and Cleanup

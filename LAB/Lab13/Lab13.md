@@ -10,7 +10,7 @@ The telemetry services have their own Docker and application logs. Keep the cumu
 
 ## Learning Objectives
 
-- Discover operational YANG models and exact node paths in YANG Suite.
+- Discover operational YANG models and exact node paths in Yangsuite.
 - Convert a YANG tree path into a RESTCONF resource URI and an MDT XPath filter.
 - Create a periodic NETCONF dial-in subscription and interpret XML notifications.
 - Build and run a gNMI `Subscribe` request using `STREAM`, `SAMPLE`, and `JSON_IETF`.
@@ -23,7 +23,7 @@ The telemetry services have their own Docker and application logs. Keep the cumu
 
 ```mermaid
 flowchart LR
-    Y["Local or Cisco DevNet Sandbox<br/>YANG Suite"] --> XE["Catalyst C8KV<br/>IOS XE"]
+    Y["Local or Cisco DevNet Sandbox<br/>Yangsuite"] --> XE["Catalyst C8KV<br/>IOS XE"]
     C["Learner client"] -->|"NETCONF or gNMI dial-in"| XE
     XE -->|"Sandbox path<br/>gRPC TCP 57500"| ST["Sandbox Telegraf<br/>10.10.20.50"]
     ST --> SI["Sandbox InfluxDB"]
@@ -46,7 +46,7 @@ Both paths teach the same telemetry workflow. Select one path and use its receiv
 
 For the sandbox path, reserve the Cisco Catalyst C8KV IOS XE sandbox and connect the workstation to its VPN. For the local path, start the learner's locally hosted Catalyst C8KV and confirm management reachability. Export the current router values used by the cumulative project, and then prepare only the services required by the selected path.
 
-For local YANG Suite:
+For local Yangsuite:
 
 ```bash
 cd "$HOME/lab-services/yangsuite/docker"
@@ -54,7 +54,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Open Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. For the sandbox TIG path, open Grafana at `http://10.10.20.50:3000`.
+Open Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`. For the sandbox TIG path, open Grafana at `http://10.10.20.50:3000`.
 
 The sandbox already integrates Telegraf, InfluxDB, and Grafana. Learners configure the sandbox C8KV to send telemetry to `10.10.20.50:57500` and use Grafana at `http://10.10.20.50:3000`; they do not need to install, reconfigure, or restart those shared services.
 
@@ -96,9 +96,9 @@ All local TIG services use `network_mode: host`. Telegraf therefore binds TCP `5
 
 Enter a workstation address that the local C8KV can reach; do not use `127.0.0.1` or a Docker bridge address. Confirm the address from the workstation network settings and the local C8KV management design. Do not expose an unauthenticated telemetry receiver to the Internet.
 
-## Task 2: Create the YANG Suite Device Profile and Model Set
+## Task 2: Create the Yangsuite Device Profile and Model Set
 
-Open local YANG Suite at `https://localhost:8443` or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`.
+Open local Yangsuite at `https://localhost:8443` or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
 
 1. Select **Setup > Device profiles > New profile**.
 2. Name the profile `iosxe-telemetry` and enter the current reservation address and credentials.
@@ -127,7 +127,7 @@ An XPath and a RESTCONF URI describe the same modeled tree differently. The XPat
 
 1. Select **Explore > YANG**, choose `iosxe-telemetry-set`, and load one operational module.
 2. Search for the desired leaf or container. Begin with the smallest useful object that contains all fields required by the dashboard.
-3. Trace from the top-level container to the selected object. Prefix the first node with the module prefix displayed by YANG Suite.
+3. Trace from the top-level container to the selected object. Prefix the first node with the module prefix displayed by Yangsuite.
 4. Separate every child with `/`. For a list, add a predicate only when one list instance is required.
 5. For GigabitEthernet1 statistics, the path commonly resembles:
 
@@ -151,23 +151,23 @@ An MDT XPath must identify a single container, list, leaf-list, or leaf. Do not 
 1. Select **Protocols > RESTCONF**.
 2. Choose `iosxe-telemetry-set` and the `iosxe-telemetry` device profile.
 3. Load the operational module and use **Search module** to locate the same node used for the XPath.
-4. Select the node and choose **Generate APIs**. YANG Suite opens a Swagger view containing the supported methods, headers, and generated resource path.
+4. Select the node and choose **Generate APIs**. Yangsuite opens a Swagger view containing the supported methods, headers, and generated resource path.
 5. Choose `GET`, set `Accept: application/yang-data+json`, and select **Try it out**.
 6. Confirm a `200 OK` response and inspect the returned JSON keys.
-7. Record the device path and clearly separate the fixed `/restconf/data` API root from the model resource that follows it. YANG Suite may display a proxy URL through its own server because a browser enforces cross-origin rules; application code must combine the IOS XE hostname, `/restconf/data`, and the generated model resource.
-8. For a list instance, RESTCONF represents the key in the URI rather than as an XPath predicate. Let YANG Suite generate the exact form, which commonly resembles:
+7. Record the device path and clearly separate the fixed `/restconf/data` API root from the model resource that follows it. Yangsuite may display a proxy URL through its own server because a browser enforces cross-origin rules; application code must combine the IOS XE hostname, `/restconf/data`, and the generated model resource.
+8. For a list instance, RESTCONF represents the key in the URI rather than as an XPath predicate. Let Yangsuite generate the exact form, which commonly resembles:
 
    ```text
    /restconf/data/Cisco-IOS-XE-interfaces-oper:interfaces/interface=GigabitEthernet1/statistics
    ```
 
-Validate the resource with YANG Suite's **Try it out** function or the Postman workflow from Lab 2. Never copy the YANG Suite proxy prefix into Python or Ansible. An application calls the router's RESTCONF endpoint directly.
+Validate the resource with Yangsuite's **Try it out** function or the Postman workflow from Lab 2. Never copy the Yangsuite proxy prefix into Python or Ansible. An application calls the router's RESTCONF endpoint directly.
 
 ## Task 4: Create a NETCONF Dial-In Subscription
 
 NETCONF dial-in creates a dynamic subscription over the same SSH session that receives the notifications. It requires no reverse connection from IOS XE to the workstation.
 
-1. In YANG Suite, select **Protocols > NETCONF**.
+1. In Yangsuite, select **Protocols > NETCONF**.
 2. Choose `iosxe-telemetry-set`, select the `iosxe-telemetry` device, and open a NETCONF session.
 3. Load `ietf-event-notifications`, `ietf-yang-push`, and the operational module used by the chosen XPath.
 4. Select the `establish-subscription` RPC.
@@ -215,7 +215,7 @@ show gnxi state detail
 
 Do not enable an insecure gNMI service on a production or untrusted network. Production deployments should use `gnxi secure-server`, an approved trustpoint, certificate validation, and the configured secure port.
 
-In YANG Suite:
+In Yangsuite:
 
 1. Select **Protocols > gNMI**, choose `iosxe-telemetry-set`, and select the `iosxe-telemetry` device profile.
 2. Load the operational module containing the tested path.
@@ -253,11 +253,11 @@ In YANG Suite:
 7. Select **Run RPC** and observe the initial synchronization followed by sampled updates.
 8. Compare the returned path and JSON values with the RESTCONF GET from Task 3.
 
-YANG Suite generates the exact prefix, origin, and element representation expected by its gNMI plugin. If the router does not advertise gNMI or the sandbox blocks its port, save the generated request and capability evidence, then continue with NETCONF dial-in.
+Yangsuite generates the exact prefix, origin, and element representation expected by its gNMI plugin. If the router does not advertise gNMI or the sandbox blocks its port, save the generated request and capability evidence, then continue with NETCONF dial-in.
 
 ## Task 6: Prepare the Persistent gRPC Dial-Out Subscriptions
 
-Use YANG Suite to validate three XPath filters before entering them manually on IOS XE:
+Use Yangsuite to validate three XPath filters before entering them manually on IOS XE:
 
 | Subscription | Validated XPath | Suggested period |
 |---:|---|---:|
@@ -384,7 +384,7 @@ test -d "$HOME/lab-services/tig" && \
   (cd "$HOME/lab-services/tig" && docker compose stop)
 ```
 
-If local YANG Suite was used, it may also be stopped:
+If local Yangsuite was used, it may also be stopped:
 
 ```bash
 test -d "$HOME/lab-services/yangsuite/docker" && \
@@ -419,7 +419,7 @@ Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 
 ## Key Takeaways
 
-- YANG Suite should derive payloads and paths from the active device schemas, not from memory.
+- Yangsuite should derive payloads and paths from the active device schemas, not from memory.
 - RESTCONF resource URIs and telemetry XPath filters describe the same tree with different syntax.
 - NETCONF and gNMI dial-in avoid reverse-path requirements but depend on a client session.
 - Configured gRPC dial-out persists and reconnects, but the router must reach the receiver.
@@ -432,6 +432,6 @@ Lab 14 applies these API and model-driven foundations to a controlled FastMCP an
 
 - [Cisco IOS XE Model-Driven Telemetry](https://www.cisco.com/c/en/us/td/docs/switches/lan/c9000/prog/mdt/model-driven-telemetry.html)
 - [Cisco IOS XE gNMI Protocol](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1713/b_1713_programmability_cg/m_1713_prog_gnmi.html)
-- [Using NETCONF with YANG Suite](https://developer.cisco.com/docs/yangsuite/using-netconf-with-yang-suite/)
-- [RESTCONF in YANG Suite](https://developer.cisco.com/docs/yangsuite/restconf-in-yang-suite/)
-- [Using gNMI with YANG Suite](https://developer.cisco.com/docs/yangsuite/using-gnmi-with-yang-suite/)
+- [Using NETCONF with Yangsuite](https://developer.cisco.com/docs/yangsuite/using-netconf-with-yang-suite/)
+- [RESTCONF in Yangsuite](https://developer.cisco.com/docs/yangsuite/restconf-in-yang-suite/)
+- [Using gNMI with Yangsuite](https://developer.cisco.com/docs/yangsuite/using-gnmi-with-yang-suite/)

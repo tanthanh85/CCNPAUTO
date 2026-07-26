@@ -39,7 +39,7 @@ sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
 ```
 
-Start TIG only if compliance metrics will be published. Local YANG Suite is not required.
+Start TIG only if compliance metrics will be published. Local Yangsuite is not required.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project

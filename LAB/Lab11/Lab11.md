@@ -26,7 +26,7 @@ sudo systemctl start gitlab-runner
 sudo gitlab-runner verify
 ```
 
-Container jobs use `--network host`, while the shell Runner already executes in the workstation network namespace. Stop local YANG Suite because this lab does not use it.
+Container jobs use `--network host`, while the shell Runner already executes in the workstation network namespace. Stop local Yangsuite because this lab does not use it.
 
 ```bash
 cd ~/ccnpauto-workspace/network_automation_project

@@ -11,7 +11,7 @@ Splunk Enterprise is installed with its trial license. Learners must review the 
 ## Learning Objectives
 
 - Explain NETCONF dial-in subscription lifecycle.
-- Use YANG Suite to confirm the IOS XE CPU XPath.
+- Use Yangsuite to confirm the IOS XE CPU XPath.
 - Install Splunk Enterprise and create a dedicated index and HEC token.
 - Establish a periodic YANG-push subscription with `ncclient`.
 - Parse XML notifications and normalize CPU values.
@@ -47,7 +47,7 @@ sequenceDiagram
 - Ubuntu workstation prepared in Lab 1.
 - An active Cisco IOS XE reservable sandbox and VPN connection.
 - NETCONF enabled on the sandbox router.
-- Access to local or Cisco DevNet Sandbox YANG Suite.
+- Access to local or Cisco DevNet Sandbox Yangsuite.
 - A Splunk.com account permitted to download the Splunk Enterprise trial.
 - At least 4 GB of free memory and sufficient disk for a short lab data set.
 
@@ -55,7 +55,7 @@ This lab is standalone. Create a GitLab.com repository named `optional_lab17_spl
 
 ## Task 1: Confirm the CPU YANG Path
 
-Open local YANG Suite or Cisco DevNet Sandbox YANG Suite at `http://10.10.20.50:8480`. Add the reserved IOS XE device and build a YANG set from the device-advertised modules. In **Explore YANG**:
+Open local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`. Add the reserved IOS XE device and build a YANG set from the device-advertised modules. In **Explore YANG**:
 
 1. Load `Cisco-IOS-XE-process-cpu-oper`.
 2. Expand `cpu-usage`.
@@ -329,7 +329,7 @@ Do not commit `.env`, Splunk tokens, indexed data, or Splunk administrator crede
 |---|---|
 | HEC check returns `401` or `403` | Token value, token enabled state, and index permission |
 | HEC connection is refused | Splunk service and HEC global enablement |
-| NETCONF RPC returns `unknown-element` | IOS XE release, advertised telemetry modules, and YANG Suite-generated RPC |
+| NETCONF RPC returns `unknown-element` | IOS XE release, advertised telemetry modules, and Yangsuite-generated RPC |
 | Subscription succeeds but no notifications arrive | XPath, period, active NETCONF session, and notification timeout |
 | XML arrives without `five-seconds` | Device model revision or a different notification payload structure |
 | Splunk events exist but dashboard is empty | Time range, index, sourcetype, and field extraction |

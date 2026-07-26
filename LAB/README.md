@@ -160,7 +160,7 @@ Follow the required labs in order. Labs 3–13 modify the same repository, so ea
 
 #### Lab 1: Prepare the Network Automation Workstation
 
-In [Lab 1](Lab1/Lab1.md), you receive a clean Ubuntu 26.04 workstation and turn it into an engineering platform. You install Python tooling, network automation libraries, Ansible, Terraform, Docker, Git, Visual Studio Code, GitLab Runner, NetBox, and Vault. You can also install TIG and Cisco YANG Suite locally or use the equivalent services in the Cisco DevNet sandbox.
+In [Lab 1](Lab1/Lab1.md), you receive a clean Ubuntu 26.04 workstation and turn it into an engineering platform. You install Python tooling, network automation libraries, Ansible, Terraform, Docker, Git, Visual Studio Code, GitLab Runner, NetBox, and Vault. You can also install TIG and Cisco Yangsuite locally or use the equivalent services in the Cisco DevNet sandbox.
 
 This work resembles onboarding a new automation worker into an enterprise team. A script may be correct and still fail if its dependencies, container networking, VPN routes, certificates, or service endpoints are inconsistent. Consequently, the output of this lab is not just a workstation with software installed; it is a verified execution environment that later pipelines can trust.
 
@@ -228,7 +228,7 @@ Vault development mode is suitable for the course but not for production. The en
 
 In [Lab 6](Lab6/Lab6.md), the company wants every managed loopback advertised in OSPF area 0. Rather than adding more screen-scraped CLI, you use NETCONF and the Cisco IOS XE native YANG model.
 
-You use Cisco YANG Suite locally or at `http://10.10.20.50:8480` in the Cisco DevNet sandbox to locate the model hierarchy, identify namespaces, and construct an `<edit-config>` payload. Jinja2 renders one `<network>` element for every NetBox-managed loopback, after which `ncclient` sends the RPC and the application verifies the resulting OSPF configuration.
+You use Cisco Yangsuite locally or at `http://10.10.20.50:8480` in the Cisco DevNet sandbox to locate the model hierarchy, identify namespaces, and construct an `<edit-config>` payload. Jinja2 renders one `<network>` element for every NetBox-managed loopback, after which `ncclient` sends the RPC and the application verifies the resulting OSPF configuration.
 
 ```mermaid
 sequenceDiagram
@@ -249,7 +249,7 @@ sequenceDiagram
 
 This lab reinforces that a sample XML document is not automatically valid for every release. Professional model-driven automation checks the models advertised by the target device.
 
-**Delivery evidence:** YANG Suite discovery, valid XML, successful `<rpc-reply>`, OSPF area 0 configuration, and verified observed state.
+**Delivery evidence:** Yangsuite discovery, valid XML, successful `<rpc-reply>`, OSPF area 0 configuration, and verified observed state.
 
 ### Phase 4 — Turn the Application into a Delivery Service
 
@@ -336,7 +336,7 @@ This separation is intentional. Detection establishes facts; remediation changes
 
 In [Lab 13](Lab13/Lab13.md), the network operations team needs continuous visibility into CPU, memory, and `GigabitEthernet1` traffic. Polling occasional show commands cannot provide an effective operational timeline.
 
-You use YANG Suite to discover the required operational paths, examine NETCONF and gNMI dial-in collection, and manually configure gRPC dial-out subscriptions beginning with subscription ID 201. In the Cisco Catalyst C8KV sandbox, telemetry is sent to the pre-integrated Telegraf service at `10.10.20.50:57500` and displayed in Grafana at `http://10.10.20.50:3000`. If you use a locally hosted C8KV, you start the local TIG services from Lab 1 and send telemetry to the workstation on TCP port `57000`.
+You use Yangsuite to discover the required operational paths, examine NETCONF and gNMI dial-in collection, and manually configure gRPC dial-out subscriptions beginning with subscription ID 201. In the Cisco Catalyst C8KV sandbox, telemetry is sent to the pre-integrated Telegraf service at `10.10.20.50:57500` and displayed in Grafana at `http://10.10.20.50:3000`. If you use a locally hosted C8KV, you start the local TIG services from Lab 1 and send telemetry to the workstation on TCP port `57000`.
 
 ```mermaid
 flowchart LR
@@ -448,8 +448,8 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Local GitLab Runner | Executes jobs that need local services and DevNet VPN reachability | `systemctl` service |
 | NetBox | Authoritative loopback intent | `http://127.0.0.1:8080` |
 | Vault | Runtime device credentials | Local development server |
-| Local YANG Suite | Model discovery and payload development | `https://localhost:8443` |
-| Cisco DevNet sandbox YANG Suite | Alternative model and payload environment | `http://10.10.20.50:8480` |
+| Local Yangsuite | Model discovery and payload development | `https://localhost:8443` |
+| Cisco DevNet sandbox Yangsuite | Alternative model and payload environment | `http://10.10.20.50:8480` |
 | Local TIG stack | Automation metrics and local C8KV telemetry | Grafana at `http://127.0.0.1:3000` |
 | Cisco DevNet sandbox TIG stack | Pre-integrated C8KV telemetry | Telegraf `10.10.20.50:57500`; Grafana `http://10.10.20.50:3000` |
 | Cisco Catalyst C8KV reservable sandbox | CLI, NETCONF, RESTCONF, and telemetry target | Reservation-provided endpoint and credentials |
@@ -464,7 +464,7 @@ Course containers use Linux host networking so that they inherit the workstation
 |---|---|---|
 | NetBox | In `~/lab-services/netbox-docker`, run `docker compose up -d`, then open `http://127.0.0.1:8080`. | Run `docker compose stop` in the same folder. |
 | Local TIG | In `~/lab-services/tig`, run `docker compose up -d`, then open `http://127.0.0.1:3000`. | Run `docker compose stop` in the same folder. |
-| Local YANG Suite | In `~/lab-services/yangsuite/docker`, run `docker compose up -d`. | Run `docker compose stop` in the same folder. |
+| Local Yangsuite | In `~/lab-services/yangsuite/docker`, run `docker compose up -d`. | Run `docker compose stop` in the same folder. |
 | Vault | Start the Lab 5 development server in its dedicated terminal, then run `vault status`. | Press `Ctrl+C` in the server terminal. |
 | GitLab Runner | Run `sudo systemctl start gitlab-runner`, then `sudo gitlab-runner verify`. | Run `sudo systemctl stop gitlab-runner`. |
 | Ollama | Run `ollama serve`, then confirm the selected model with `ollama list`. | Press `Ctrl+C` if it is running interactively. |
@@ -485,7 +485,7 @@ Treat every token as a credential. Give it only the permissions required by the 
 | Anthropic | Create a lab-specific key in the Anthropic Console workspace. | `ANTHROPIC_API_KEY` in Lab 14’s untracked `.env` |
 | Splunk HEC | **Settings > Data Inputs > HTTP Event Collector** in Splunk Web | `SPLUNK_HEC_TOKEN` in Optional Lab 17 |
 
-Cisco DevNet sandbox YANG Suite and Grafana use credentials supplied with the reservation; the standard lab does not require a separately generated API token.
+Cisco DevNet sandbox Yangsuite and Grafana use credentials supplied with the reservation; the standard lab does not require a separately generated API token.
 
 ## Engineering Rules for the Project
 

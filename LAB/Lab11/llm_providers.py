@@ -62,6 +62,14 @@ def get_provider_info() -> ProviderInfo:
         )
         logger.debug("Selected LLM provider=%s model=%s location=%s", info.name, info.model, info.location)
         return info
+    if provider == "vllm":
+        info = ProviderInfo(
+            name="vLLM",
+            model=os.getenv("VLLM_MODEL", "Qwen/Qwen3-8B"),
+            location="local or private server",
+        )
+        logger.debug("Selected LLM provider=%s model=%s location=%s", info.name, info.model, info.location)
+        return info
     if provider == "openai":
         info = ProviderInfo(
             name="OpenAI",
@@ -80,7 +88,7 @@ def get_provider_info() -> ProviderInfo:
         return info
 
     raise LlmProviderError(
-        "LLM_PROVIDER must be one of: ollama, openai, or anthropic."
+        "LLM_PROVIDER must be one of: ollama, vllm, openai, or anthropic."
     )
 
 
@@ -145,6 +153,47 @@ def _ask_ollama(question: str, context: dict[str, Any]) -> str:
     if not answer:
         raise LlmProviderError("Ollama returned no answer text.")
     logger.info("Ollama returned answer_characters=%d", len(str(answer)))
+    return str(answer)
+
+
+def _ask_vllm(question: str, context: dict[str, Any]) -> str:
+    base_url = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1").rstrip("/")
+    model = os.getenv("VLLM_MODEL", "Qwen/Qwen3-8B").strip()
+    api_key = os.getenv("VLLM_API_KEY", "").strip()
+    if not model or not api_key:
+        raise LlmProviderError(
+            "VLLM_MODEL and VLLM_API_KEY are required when "
+            "LLM_PROVIDER=vllm."
+        )
+
+    logger.info("Calling vLLM model=%s base_url=%s", model, base_url)
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": _prompt(question, context)},
+        ],
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "max_tokens": int(os.getenv("LLM_MAX_TOKENS", "800")),
+    }
+    data = _request_json(
+        url=f"{base_url}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        payload=payload,
+    )
+    choices = data.get("choices", [])
+    answer = (
+        choices[0].get("message", {}).get("content", "")
+        if choices
+        else ""
+    )
+    if not answer:
+        raise LlmProviderError("vLLM returned no answer text.")
+    logger.info("vLLM returned answer_characters=%d", len(str(answer)))
     return str(answer)
 
 
@@ -245,11 +294,13 @@ def ask_llm(question: str, context: dict[str, Any]) -> str:
 
     if provider == "ollama":
         return _ask_ollama(question, context)
+    if provider == "vllm":
+        return _ask_vllm(question, context)
     if provider == "openai":
         return _ask_openai(question, context)
     if provider == "anthropic":
         return _ask_anthropic(question, context)
 
     raise LlmProviderError(
-        "LLM_PROVIDER must be one of: ollama, openai, or anthropic."
+        "LLM_PROVIDER must be one of: ollama, vllm, openai, or anthropic."
     )

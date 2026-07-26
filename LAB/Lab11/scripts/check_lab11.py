@@ -38,12 +38,13 @@ def main() -> int:
     provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
     provider_variables = {
         "ollama": ["OLLAMA_URL", "OLLAMA_MODEL"],
+        "vllm": ["VLLM_BASE_URL", "VLLM_MODEL", "VLLM_API_KEY"],
         "openai": ["OPENAI_API_KEY", "OPENAI_MODEL"],
         "anthropic": ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
     }
     if provider not in provider_variables:
         failures.append(
-            "LLM_PROVIDER must be one of: ollama, openai, or anthropic"
+            "LLM_PROVIDER must be one of: ollama, vllm, openai, or anthropic"
         )
     else:
         for variable in provider_variables[provider]:

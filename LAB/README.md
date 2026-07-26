@@ -330,7 +330,7 @@ At the end of the lab, you can explain the trade-off between a collector request
 
 In [Lab 11](Lab11/Lab11.md), operations staff want to ask natural-language questions such as “How many static routes exist?”, “Which next hop reaches this prefix?”, and “Show connected routes with their metrics.”
 
-You build `ai_route_assistant`, a Flask application with a professional dark interface. The assistant can use local Qwen through Ollama or a learner-owned OpenAI or Anthropic account. A smaller local Qwen model can be selected when workstation resources are limited.
+You build `ai_route_assistant`, a Flask application with a professional dark interface. The assistant can use local Qwen through Ollama, a GPU-backed Qwen server through vLLM, or a learner-owned OpenAI or Anthropic account. A smaller Ollama model can be selected when workstation resources are limited.
 
 The critical design boundary is FastMCP. The MCP server retrieves routing information from IOS XE through RESTCONF and exposes narrow read-only tools. The LLM receives controlled evidence; it does not hold router credentials, call RESTCONF directly, or configure the device.
 
@@ -338,7 +338,7 @@ The critical design boundary is FastMCP. The MCP server retrieves routing inform
 sequenceDiagram
     participant U as Operator
     participant W as Flask UI
-    participant M as Local or cloud LLM
+    participant M as Ollama, vLLM, or cloud LLM
     participant T as FastMCP tools
     participant R as IOS XE RESTCONF
     U->>W: Ask a routing question
@@ -441,7 +441,7 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Cisco DevNet sandbox TIG stack | Pre-integrated C8KV telemetry | Telegraf `10.10.20.50:57500`; Grafana `http://10.10.20.50:3000` |
 | Cisco Catalyst C8KV reservable sandbox | CLI, NETCONF, RESTCONF, and telemetry target | Reservation-provided endpoint and credentials |
 | Docker | Local services and repeatable automation runtime | Host networking where DevNet VPN access is required; bridge networking for NetBox |
-| Ollama or cloud LLM | Route-assistant language model | Learner-selected provider |
+| Ollama, vLLM, or cloud LLM | Route-assistant language model | Learner-selected provider |
 
 Containers that must follow the workstation’s Cisco DevNet VPN route use Linux host networking. NetBox remains on its standard Compose bridge network and publishes only `127.0.0.1:8080`; Docker bridge networking still permits its worker to call GitLab.com. Minikube in Optional Lab 16 manages its own Kubernetes network.
 
@@ -455,6 +455,7 @@ Containers that must follow the workstation’s Cisco DevNet VPN route use Linux
 | Vault | Start the Lab 5 development server in its dedicated terminal, then run `vault status`. | Press `Ctrl+C` in the server terminal. |
 | GitLab Runner | Run `sudo systemctl start gitlab-runner`, then `sudo gitlab-runner verify`. | Run `sudo systemctl stop gitlab-runner`. |
 | Ollama | Run `ollama serve`, then confirm the selected model with `ollama list`. | Press `Ctrl+C` if it is running interactively. |
+| vLLM | Start the optional GPU-backed OpenAI-compatible server from Lab 11 and wait for model loading to finish. | Press `Ctrl+C`; a container started with `--rm` is removed automatically. |
 
 ## Token and Secret Responsibilities
 

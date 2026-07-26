@@ -2,7 +2,7 @@
 
 ## Lab Introduction
 
-In this lab, learners build a small but realistic AI network assistant. The assistant runs on the learner workstation, displays a professional dark-theme web interface, and asks a FastMCP tool layer for routing information. Learners can use a local Qwen 8B model through Ollama or connect the same application to a paid OpenAI or Anthropic API. The FastMCP server is the only component that retrieves live routing information from a Cisco IOS XE reservable sandbox router through RESTCONF.
+In this lab, learners build a small but realistic AI network assistant. The assistant runs on the learner workstation, displays a professional dark-theme web interface, and asks a FastMCP tool layer for routing information. Learners can use Qwen 8B through Ollama, serve the Hugging Face model through vLLM, or connect the same application to a paid OpenAI or Anthropic API. The FastMCP server is the only component that retrieves live routing information from a Cisco IOS XE reservable sandbox router through RESTCONF.
 
 The important design choice is that neither the language model nor the Flask application connects directly to the router. Instead, Flask asks an MCP client abstraction for route context, the MCP client calls controlled tools exposed by `mcp_server.py`, and the MCP server retrieves the route data through RESTCONF. A small provider module then sends the same question and MCP context to the selected model. This reinforces the Chapter 17 principle that AI should operate through narrow, auditable tools rather than unrestricted device access.
 
@@ -17,7 +17,7 @@ By the end of the lab, learners can ask questions such as:
 
 ## Learning Objectives
 
-- Run Qwen 8B locally through Ollama or select an approved OpenAI or Anthropic API model.
+- Run Qwen 8B through Ollama or vLLM, or select an approved OpenAI or Anthropic API model.
 - Build a Flask-based AI assistant web UI.
 - Retrieve IOS XE routing information through a FastMCP tool layer that uses RESTCONF.
 - Normalize route data from YANG-modeled JSON responses.
@@ -33,6 +33,7 @@ flowchart LR
     Browser["Learner browser"] --> Flask["Flask AI assistant<br/>dark web UI"]
     Flask --> Gateway["LLM provider module"]
     Gateway --> Ollama["Local Ollama<br/>Qwen 8B or smaller"]
+    Gateway --> vLLM["Local or private vLLM<br/>OpenAI-compatible API"]
     Gateway --> OpenAI["OpenAI API<br/>learner-selected model"]
     Gateway --> Claude["Anthropic API<br/>learner-selected Claude model"]
     Flask --> MCPClient["MCP client abstraction"]
@@ -120,6 +121,10 @@ LLM_MAX_TOKENS=800
 OLLAMA_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen3:8b
 
+VLLM_BASE_URL=http://127.0.0.1:8000/v1
+VLLM_MODEL=Qwen/Qwen3-8B
+VLLM_API_KEY=lab11-local-key
+
 OPENAI_API_KEY=
 OPENAI_MODEL=
 
@@ -191,7 +196,53 @@ OLLAMA_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen3:8b
 ```
 
-### Option B: Use the OpenAI API
+### Option B: Serve Qwen with vLLM
+
+vLLM is useful when the workstation or a private inference server has a supported accelerator and the model must serve multiple requests efficiently. Unlike Ollama, which emphasizes a simple local-model experience, vLLM exposes an OpenAI-compatible API and is commonly used as a higher-throughput serving layer. The Flask application still calls only the provider module; the MCP and RESTCONF design remains unchanged.
+
+For this course, use vLLM only when an NVIDIA GPU with sufficient memory is available. Qwen3-8B has approximately eight billion parameters, so model weights and runtime memory can exceed the capacity of an entry-level GPU. Learners using CPU-only or low-memory workstations should select Ollama with `qwen3:4b` or `qwen3:1.7b` instead.
+
+The Lab 11 Python environment does not need the `vllm` package. vLLM runs as a separate HTTP service, while the existing `requests` dependency calls its OpenAI-compatible API. This separation avoids introducing large GPU libraries into the Flask application's virtual environment.
+
+First confirm that the NVIDIA driver and Docker GPU support are working:
+
+```bash
+dpkg --print-architecture
+uname -m
+nvidia-smi
+docker info
+```
+
+The standard course path for this option is an x86-64 Ubuntu workstation, shown as `amd64` by `dpkg` and `x86_64` by `uname`, with a supported NVIDIA GPU. Learners on an ARM64 workstation or a system without a working accelerator should use Ollama unless their instructor has supplied a tested vLLM server for that platform.
+
+Start the official vLLM OpenAI-compatible container. The command uses host networking, so the API listens on `http://127.0.0.1:8000` without a Docker port mapping:
+
+```bash
+docker run --rm --gpus all \
+  --network host \
+  --ipc host \
+  -v "$HOME/.cache/huggingface:/root/.cache/huggingface" \
+  vllm/vllm-openai:latest \
+  --model Qwen/Qwen3-8B \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --api-key lab11-local-key
+```
+
+The first start downloads the model from Hugging Face and may take several minutes. Leave this terminal running. In another terminal, configure the existing Lab 11 `.env` file:
+
+```text
+LLM_PROVIDER=vllm
+VLLM_BASE_URL=http://127.0.0.1:8000/v1
+VLLM_MODEL=Qwen/Qwen3-8B
+VLLM_API_KEY=lab11-local-key
+```
+
+The provider sends a Chat Completions request to `/v1/chat/completions`. `VLLM_MODEL` must match the model name used by the vLLM server, and `VLLM_API_KEY` must match the value supplied with `--api-key`. The key protects the local endpoint from unauthenticated callers; it is not a cloud-provider credential.
+
+If vLLM runs on a separate private GPU server, change `VLLM_BASE_URL` to that server's approved HTTPS endpoint. Do not expose an unauthenticated vLLM service to an untrusted network. Keep the API key in `.env`, restrict inbound access with a firewall, and use TLS when traffic leaves the learner workstation.
+
+### Option C: Use the OpenAI API
 
 Create an API key in the OpenAI API platform:
 
@@ -212,7 +263,7 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 
 The provider module uses the OpenAI Responses API. Because model availability changes, learners should copy the exact model ID shown in their API account instead of assuming that a model available in the ChatGPT web interface is also enabled for API use.
 
-### Option C: Use the Anthropic API
+### Option D: Use the Anthropic API
 
 Create an API key in the Anthropic Console:
 
@@ -247,7 +298,7 @@ set +a
 python scripts/check_lab11.py
 ```
 
-With file logging enabled, open `logs/` in VS Code and inspect the newest `check_lab11_*.log`. Repeat the command and confirm that a new filename is created. If the check fails, use its component and exception chain to determine whether the problem is configuration, RESTCONF, MCP, Ollama, or a cloud provider.
+With file logging enabled, open `logs/` in VS Code and inspect the newest `check_lab11_*.log`. Repeat the command and confirm that a new filename is created. If the check fails, use its component and exception chain to determine whether the problem is configuration, RESTCONF, MCP, Ollama, vLLM, or a cloud provider.
 
 Then test the route path through the MCP client abstraction:
 
@@ -397,6 +448,7 @@ Run the same questions against at least two providers when API access is availab
 | Provider and model | Route count correct | Static next hops correct | Unsupported detail acknowledged | Response time | Operational observation |
 |---|---|---|---|---:|---|
 | Ollama / `qwen3:8b` |  |  |  |  |  |
+| vLLM / `Qwen/Qwen3-8B` |  |  |  |  |  |
 | OpenAI / selected model |  |  |  |  |  |
 | Anthropic / selected model |  |  |  |  |  |
 
@@ -427,6 +479,9 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 | `curl` cannot download Ollama | Missing CA certificate or proxy TLS inspection | Install trusted CA certificate and retry |
 | `ollama run qwen3:8b` is slow | Workstation memory or CPU is limited | Stop unused services and select `qwen3:4b` or `qwen3:1.7b` in `.env` |
 | Flask reports Ollama connection failure | Ollama service is not running | Start `ollama serve` |
+| vLLM container cannot access the GPU | NVIDIA driver or Docker GPU runtime is unavailable | Confirm `nvidia-smi` works; otherwise use Ollama or a private vLLM server |
+| vLLM returns `401` | `VLLM_API_KEY` does not match the server's `--api-key` | Use the same lab-specific value in the server command and `.env` |
+| vLLM fails while loading Qwen3-8B | GPU memory is insufficient | Use Ollama with a smaller Qwen model or use a larger private GPU server |
 | Readiness check reports a missing cloud variable | Provider-specific API key or model ID is absent | Complete the selected provider section in `.env` |
 | Cloud API returns `401` | API key is invalid, revoked, or belongs to the wrong service | Create a new provider API key and update `.env` |
 | Cloud API returns `429` | Account quota or provider rate limit was reached | Check provider billing and limits, wait, then retry |
@@ -440,7 +495,7 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 - RESTCONF provides structured routing data that can be normalized by the MCP server before being sent to the model.
 - FastMCP exposes controlled network-information tools and creates the safety boundary between the AI assistant and the network.
 - The model should not receive device credentials or unrestricted access to network commands.
-- A provider abstraction allows the same MCP-grounded workflow to use local or cloud models without changing network-access code.
+- A provider abstraction allows the same MCP-grounded workflow to use Ollama, vLLM, or cloud models without changing network-access code.
 - Model quality must be measured against MCP evidence; latency, privacy, resource use, and API cost also affect provider selection.
 - A professional AI workflow still requires validation, least privilege, clear error handling, and human verification.
 
@@ -448,6 +503,9 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 
 - [Ollama](https://ollama.com/) - local model runtime.
 - [Qwen Models on Ollama](https://ollama.com/library/qwen3) - Qwen model family availability in Ollama.
+- [vLLM Installation](https://docs.vllm.ai/en/latest/getting_started/installation/gpu/) - supported accelerator and container installation options.
+- [vLLM OpenAI-Compatible Server](https://docs.vllm.ai/en/latest/serving/openai_compatible_server/) - Chat Completions endpoint and server options.
+- [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) - official model card and vLLM serving example.
 - [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses) - OpenAI request and response structure.
 - [OpenAI API Billing](https://help.openai.com/en/articles/8156019) - distinction between ChatGPT and API billing.
 - [Anthropic Messages API](https://platform.claude.com/docs/en/api/messages) - Anthropic request and response structure.

@@ -159,7 +159,18 @@ Using the VS Code Explorer, copy and paste the following from `CCNPAUTO/LAB/Lab8
 - all files from `tasks/` to `tasks/`;
 - `templates/ospf_native.xml.j2` to `templates/`.
 
-Create missing destination folders in VS Code before pasting. Keep and modify the existing project `requirements.txt`; add `ansible-core>=2.18,<2.20` if it is not already present.
+Create missing destination folders in VS Code before pasting. Keep and modify
+the existing project `requirements.txt`; ensure that it contains both of these
+entries:
+
+```text
+ansible-core>=2.18,<2.20
+netaddr>=1.3,<2
+```
+
+The `ansible.utils.ipaddr` filter used to validate NetBox addresses requires
+the Python `netaddr` library. Installing the `ansible.utils` collection does
+not install that Python dependency automatically.
 
 Do not remove `src/logging_config.py`, `logs/`, or the existing logging controls. Ansible supplies task output, while Python helpers and validation components continue to create timestamped diagnostic logs. The pipeline retains both forms of evidence.
 
@@ -173,6 +184,7 @@ Vault integration has three separate dependencies in this project:
 |---|---|---|
 | HashiCorp Vault server and CLI | Stores the IOS XE secret and serves the Vault API | Installed in Lab 1 |
 | Python `hvac` library | Allows the Ansible lookup plugin to communicate with Vault | Existing project `requirements.txt` |
+| Python `netaddr` library | Provides IP-address parsing for the `ansible.utils.ipaddr` filter | Existing project `requirements.txt` |
 | `community.hashi_vault` Ansible collection | Supplies the `vault_kv2_get` lookup used by the playbooks | `collections/requirements.yml` |
 
 Installing Ansible alone does not install `community.hashi_vault`. Activate the
@@ -183,6 +195,7 @@ all declared Ansible collections. Do not omit the `ansible-galaxy` command:
 source ~/.venvs/ccnpauto/bin/activate
 cd ~/ccnpauto-workspace/network_automation_project
 python -m pip install -r requirements.txt
+python -c "import netaddr; print('netaddr', netaddr.__version__)"
 ansible-galaxy collection install -r collections/requirements.yml
 ansible --version
 ansible-galaxy collection list community.hashi_vault
@@ -447,6 +460,7 @@ Ansible is effective here because the workflow is a recognizable sequence of API
 
 | Symptom | Likely cause | First action |
 |---|---|---|
+| `ansible.utils.ipaddr` reports that `netaddr` cannot be imported | `netaddr` is absent from the Python environment used by Ansible | Activate `~/.venvs/ccnpauto`, add `netaddr>=1.3,<2` to `requirements.txt`, and run `python -m pip install -r requirements.txt` |
 | `community.hashi_vault` or `vault_kv2_get` not found | The Vault Ansible collection was not installed for the active user | Run `ansible-galaxy collection install -r collections/requirements.yml`, then verify with `ansible-doc -t lookup community.hashi_vault.vault_kv2_get` |
 | Vault lookup reports that `hvac` is missing | The Python requirements were not installed in the active virtual environment | Activate `~/.venvs/ccnpauto`, run `python -m pip install -r requirements.txt`, and retry |
 | NetBox task fails but details are hidden | `no_log` protects the token | Test NetBox health, token permissions, device name, and tag without printing the token |

@@ -4,8 +4,8 @@ ARG ANSIBLE_CORE_VERSION=2.19.5
 RUN apt-get update && apt-get install -y --no-install-recommends openssh-client ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip install --no-cache-dir \
-       "ansible-core==${ANSIBLE_CORE_VERSION}" hvac==2.4.0 netaddr==1.3.0 \
-       requests==2.32.5 ncclient==0.7.0 pytest==8.4.2
+       "ansible-core==${ANSIBLE_CORE_VERSION}" hvac==2.4.0 requests==2.32.5 \
+       ncclient==0.7.0 pytest==8.4.2
 
 COPY collections/requirements.yml /tmp/collections.yml
 RUN ansible-galaxy collection install -r /tmp/collections.yml \

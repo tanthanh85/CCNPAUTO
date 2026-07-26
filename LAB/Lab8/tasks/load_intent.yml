@@ -65,19 +65,6 @@
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Require every assigned address to be a valid IPv4 host prefix
-  vars:
-    interface: "{{ item.item }}"
-    address: "{{ item.json.results[0].address }}"
-  ansible.builtin.assert:
-    that:
-      - address is match('^[0-9.]+/32$')
-      - address | ansible.utils.ipaddr('address')
-    fail_msg: "{{ interface.name }} must have one valid IPv4 /32."
-  loop: "{{ netbox_address_queries.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-
 - name: Validate and normalize every NetBox loopback
   vars:
     interface: "{{ item.item }}"

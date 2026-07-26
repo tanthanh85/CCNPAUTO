@@ -2,7 +2,6 @@ ansible-core>=2.18,<2.20
 hvac>=2.3,<3
 Jinja2>=3.1,<4
 ncclient>=0.7,<1
-netaddr>=1.3,<2
 netmiko>=4.4,<5
 ntc-templates>=7,<9
 pynetbox>=7.4,<8

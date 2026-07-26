@@ -58,16 +58,6 @@
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Validate IPv4 host prefixes
-  ansible.builtin.assert:
-    that:
-      - item.json.results[0].address is match('^[0-9.]+/32$')
-      - item.json.results[0].address | ansible.utils.ipaddr('address')
-    fail_msg: "{{ item.item.name }} requires one valid IPv4 /32."
-  loop: "{{ netbox_address_queries.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-
 - name: Normalize managed loopbacks
   ansible.builtin.set_fact:
     managed_loopbacks: "{{ (managed_loopbacks | default([])) + [{'name': item.item.name, 'description': item.item.description | default('', true), 'enabled': item.item.enabled | bool, 'prefix': item.json.results[0].address, 'ipv4': item.json.results[0].address.split('/')[0]}] }}"

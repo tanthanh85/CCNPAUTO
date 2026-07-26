@@ -127,6 +127,22 @@ git push -u origin feature/automation-observability
 
 After merge, create a complete loopback in NetBox. Confirm the webhook-triggered pipeline configures and tests it, uploads JSONL and text artifacts, and publishes metrics.
 
+## Finish on the Latest Main Branch
+
+After the observable pipeline succeeds and GitLab shows the merge request as
+**Merged**, synchronize the local clone:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Logs explain individual events; metrics reveal trends across many runs.

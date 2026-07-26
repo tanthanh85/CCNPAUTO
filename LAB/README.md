@@ -152,7 +152,7 @@ flowchart TD
     L21 --> L22
 ```
 
-Follow the required labs in order. Labs 3–13 modify the same repository, so each release assumes that the preceding release exists. Lab 14 and the optional labs are separate projects.
+Follow the required labs in order. Labs 3–12 modify the same repository, so each release assumes that the preceding release exists. Lab 13, Lab 14, and the optional labs are separate exercises or projects.
 
 ## Required Project Journey
 
@@ -403,7 +403,7 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | Repository | Labs | Role in the program |
 |---|---|---|
 | `lab2_warm_up` | Lab 2 | Disposable readiness exercise for Git, Python, CLI parsing, Postman, and RESTCONF |
-| `network_automation_project` | Labs 3–13 | The main enterprise project, enhanced one release at a time |
+| `network_automation_project` | Labs 3–12 | The main enterprise project, enhanced one release at a time |
 | `ai_route_assistant` | Lab 14 | Standalone Flask, FastMCP, RESTCONF, and LLM application |
 | `optional_lab15_aci_terraform` | Optional Lab 15 | Cisco ACI infrastructure-as-code project |
 | `optional_lab17_splunk_netconf` | Optional Lab 17 | NETCONF telemetry collector and Splunk integration |

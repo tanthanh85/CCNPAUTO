@@ -162,6 +162,22 @@ Review the merge request carefully. The diff must not contain credentials, Vault
 
 Development mode is useful only for learning. A production Vault design requires persistent encrypted storage, TLS, initialization and unseal procedures, backups, audit devices, restrictive policies, token expiry, and an application authentication method. A CI job should normally use a short-lived identity such as AppRole, JWT/OIDC, or a platform workload identity rather than a static root token.
 
+## Finish on the Latest Main Branch
+
+After the merge request has been reviewed and GitLab shows it as **Merged**,
+return the local project to the latest approved version:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Device credentials are now stored in Vault rather than `.env`.

@@ -306,6 +306,22 @@ When the reservation ends, disable the NetBox event rule or pause the deploy run
 
 Do not delete NetBox records merely because the disposable sandbox resets. NetBox represents intended lab state and can be reused with the next reservation after credentials and host variables are updated.
 
+## Finish on the Latest Main Branch
+
+After the protected `main` pipeline succeeds, synchronize the local clone with
+the merge that produced that pipeline:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Labs 3–7 form one evolving Python-based `network_automation_project`.

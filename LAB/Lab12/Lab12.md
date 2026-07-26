@@ -121,6 +121,22 @@ git push -u origin feature/drift-compliance
 
 Review the merge request and prove that scheduled execution cannot reach a deployment job.
 
+## Finish on the Latest Main Branch
+
+After the compliance pipeline succeeds and GitLab shows the merge request as
+**Merged**, synchronize the final cumulative project release:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Preserve this synchronized branch as the
+project baseline for later review and troubleshooting.
+
 ## Key Takeaways
 
 - Drift detection should be read-only by default.

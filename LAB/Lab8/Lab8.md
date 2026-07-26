@@ -444,6 +444,22 @@ Do not delete the Python implementation merely because Ansible now drives the pr
 
 Vault development mode remains training-only. Stop it when the lab is complete, remembering that its in-memory secrets disappear. Revoke the GitLab pipeline trigger token when it is no longer needed, and never store downloaded artifact logs in a public location.
 
+## Finish on the Latest Main Branch
+
+After the Ansible migration pipeline succeeds and GitLab shows the merge
+request as **Merged**, synchronize the local clone:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Lab 8 preserves the architecture and replaces only the orchestration implementation.

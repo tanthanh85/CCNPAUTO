@@ -447,6 +447,22 @@ git status
 
 `git status` should report that the local `main` branch is up to date with `origin/main`. Continue to Lab 5 from this synchronized `main` branch.
 
+## Finish on the Latest Main Branch
+
+Before ending the lab, perform the synchronization once more after GitLab
+shows the merge request as **Merged**:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - NetBox now owns managed loopback intent; the Lab 3 YAML file is historical rather than authoritative.

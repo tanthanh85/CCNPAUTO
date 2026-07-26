@@ -267,6 +267,22 @@ git push -u origin feature/netconf-ospf
 
 Merge after reviewing the exact XML template and successful verification evidence.
 
+## Finish on the Latest Main Branch
+
+After GitLab shows the lab merge request as **Merged**, return the local
+project to the latest approved version:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Yangsuite reveals the payload structure supported by the active IOS XE release.

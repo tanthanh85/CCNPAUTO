@@ -91,6 +91,22 @@ Create a new complete loopback in NetBox. The webhook still triggers GitLab.com;
 | Invalid JSON | Stop; do not configure from an ambiguous response |
 | Retry budget exhausted | Fail the pipeline and preserve diagnostic metadata |
 
+## Finish on the Latest Main Branch
+
+After the resilient pipeline succeeds and GitLab shows the merge request as
+**Merged**, synchronize the local clone:
+
+```bash
+cd ~/ccnpauto-workspace/network_automation_project
+git switch main
+git pull --ff-only
+git status
+```
+
+Confirm that `git status` reports `main` is up to date with `origin/main` and
+that the working tree is clean. Begin the next project lab from this branch,
+not from the completed feature branch.
+
 ## Key Takeaways
 
 - Retries are appropriate only for failures likely to recover without changing the request.

@@ -249,8 +249,10 @@ Create an API key in the OpenAI API platform:
 1. Sign in at `https://platform.openai.com/`.
 2. Select the project that will own the lab usage.
 3. Open **API keys** and select **Create new secret key**.
-4. Give it a lab-specific name, apply the narrowest permissions offered by the account, and copy it once into `.env`.
-5. Confirm that API billing or project credits are available, and use an exact model ID enabled for that project.
+4. Give it a lab-specific name. If **Restricted** permissions are selected, explicitly allow requests to the Responses API (`POST /v1/responses`). A **Read Only** key cannot generate a model response and will return an authorization error.
+5. Copy the key once into `.env`.
+6. In the same project, open **Limits** and confirm that the model named by `OPENAI_MODEL` is enabled for the project.
+7. Confirm that API billing or project credits are available.
 
 A ChatGPT web subscription does not automatically include API credits because ChatGPT and API billing are managed separately. Never paste the key into source code or commit it to Git.
 
@@ -262,6 +264,17 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 The provider module uses the OpenAI Responses API. Because model availability changes, learners should copy the exact model ID shown in their API account instead of assuming that a model available in the ChatGPT web interface is also enabled for API use.
+
+Before starting Flask, verify that all four OpenAI settings refer to the same API project:
+
+```text
+LLM_PROVIDER=openai
+OPENAI_API_KEY=<project-api-key-with-responses-write-access>
+OPENAI_MODEL=<model-enabled-under-project-limits>
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+After changing `.env`, stop and restart Flask because a running Python process does not automatically reload environment variables.
 
 ### Option D: Use the Anthropic API
 
@@ -484,6 +497,7 @@ git ls-files | grep '^.env$' || echo ".env is not tracked"
 | vLLM fails while loading Qwen3-8B | GPU memory is insufficient | Use Ollama with a smaller Qwen model or use a larger private GPU server |
 | Readiness check reports a missing cloud variable | Provider-specific API key or model ID is absent | Complete the selected provider section in `.env` |
 | Cloud API returns `401` | API key is invalid, revoked, or belongs to the wrong service | Create a new provider API key and update `.env` |
+| OpenAI returns `403` for `/v1/responses` | The key is Read Only, its restricted endpoint permission blocks Responses, the user is not authorized for the project, or the selected model is disabled | Read the detailed provider message, grant the key Responses request/write access, confirm project membership, and enable the exact model under project **Limits** |
 | Cloud API returns `429` | Account quota or provider rate limit was reached | Check provider billing and limits, wait, then retry |
 | RESTCONF returns `401` or `403` | Wrong sandbox credentials | Check reservation details and `.env` |
 | RESTCONF route endpoint returns `404` | IOS XE release uses a different YANG path | Use local Yangsuite or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480` to inspect routing operational models |

@@ -34,6 +34,71 @@ class ProviderInfo:
     location: str
 
 
+def _clean_error_value(value: Any, limit: int = 500) -> str:
+    """Return one bounded line suitable for a learner-facing error message."""
+    cleaned = " ".join(str(value or "").split())
+    return cleaned[:limit]
+
+
+def _provider_error(response: requests.Response) -> LlmProviderError:
+    error_type = ""
+    error_code = ""
+    message = ""
+
+    try:
+        body = response.json()
+        error = body.get("error", body) if isinstance(body, dict) else {}
+        if isinstance(error, dict):
+            error_type = _clean_error_value(error.get("type"))
+            error_code = _clean_error_value(error.get("code"))
+            message = _clean_error_value(
+                error.get("message") or error.get("detail")
+            )
+    except ValueError:
+        message = _clean_error_value(response.text, limit=300)
+
+    if not message:
+        message = response.reason or "The provider rejected the request."
+
+    identifiers = ", ".join(
+        value
+        for value in [
+            f"type={error_type}" if error_type else "",
+            f"code={error_code}" if error_code else "",
+        ]
+        if value
+    )
+    suffix = f" ({identifiers})" if identifiers else ""
+
+    if response.status_code == 403:
+        guidance = (
+            " Check the API key's endpoint permissions, project membership, "
+            "and model access. For the OpenAI Responses API, the key must "
+            "permit POST requests to /v1/responses."
+        )
+    elif response.status_code == 401:
+        guidance = " Check that the selected provider key is valid and active."
+    elif response.status_code == 429:
+        guidance = (
+            " Check the provider rate limit, project usage limit, and "
+            "available API billing or credits."
+        )
+    else:
+        guidance = ""
+
+    logger.error(
+        "LLM provider rejected request status=%d type=%s code=%s message=%s",
+        response.status_code,
+        error_type or "not-provided",
+        error_code or "not-provided",
+        message,
+    )
+    return LlmProviderError(
+        f"LLM provider returned HTTP {response.status_code}: "
+        f"{message}{suffix}.{guidance}"
+    )
+
+
 def _prompt(question: str, context: dict[str, Any]) -> str:
     prompt = (
         "Question:\n"
@@ -123,10 +188,13 @@ def _request_json(
             response.status_code,
             time.perf_counter() - started,
         )
-        response.raise_for_status()
+        if not response.ok:
+            raise _provider_error(response)
         data = response.json()
         logger.debug("LLM response top_level_keys=%s", sorted(data))
         return data
+    except LlmProviderError:
+        raise
     except requests.exceptions.RequestException as exc:
         logger.exception("LLM HTTP request failed endpoint=%s", url)
         raise LlmProviderError(f"LLM request failed: {exc}") from exc

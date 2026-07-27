@@ -332,7 +332,7 @@ docker run --rm --network host hello-world
 
 > **Security note:** Membership in the `docker` group is effectively root-level access because a member can mount host filesystems or start privileged containers. Production systems should limit this membership and consider rootless Docker or stronger workload isolation.
 
-Containers that must reach Cisco sandbox resources use Linux host networking so that they follow the learner workstation's DevNet VPN routes. NetBox is a deliberate exception: it uses the standard Docker Compose bridge network because it needs only normal outbound Internet access to `gitlab.com`. Its web interface is published only on `127.0.0.1:8080`. Before starting a service, inspect listening ports, keep host firewall policy enabled, and never expose NetBox, InfluxDB, Grafana, Yangsuite, or telemetry receivers to an untrusted network.
+The local TIG and NetBox stacks use standard Docker Compose bridge networks. Their browser interfaces are published only on the workstation loopback address, while containers communicate with one another through Compose service names. Yangsuite uses its supplied host-network override when it must follow the workstation's DevNet VPN routes. Before starting a service, inspect listening ports, keep host firewall policy enabled, and never expose NetBox, InfluxDB, Grafana, Yangsuite, or telemetry receivers to an untrusted network.
 
 ## Task 6: Select a TIG and Grafana Option
 
@@ -395,7 +395,7 @@ In Grafana, add an InfluxDB data source:
 1. Select **Connections > Data sources > Add data source**.
 2. Choose **InfluxDB**.
 3. Set the query language to **Flux**.
-4. Use `http://127.0.0.1:8086`. Host networking means container loopback is the workstation network namespace.
+4. Use `http://influxdb:8086`. Grafana runs inside the TIG Compose bridge network, so it reaches InfluxDB by its Compose service name. Do not use `127.0.0.1` here because loopback inside the Grafana container refers to Grafana itself.
 5. Enter the organization, bucket, and token from `.env`.
 6. Select **Save & test**.
 
@@ -802,12 +802,18 @@ This lab assigns separate ports, so a conflict often indicates an earlier manual
 
 ### TIG starts, but Grafana cannot reach InfluxDB
 
-All TIG containers share the host network namespace, so Grafana and Telegraf must use `http://127.0.0.1:8086`. A stale `http://influxdb:8086` data-source URL will fail because host networking does not provide Compose service-name DNS. Inspect the resolved configuration and logs:
+The TIG containers share a Compose bridge network, so Grafana and Telegraf must use `http://influxdb:8086`. Learners use `http://127.0.0.1:8086` only from the workstation browser. A container-side URL of `http://127.0.0.1:8086` fails because container loopback refers to the container itself. Inspect the resolved configuration and logs:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs influxdb telegraf grafana
 docker compose --env-file .env -f compose.yaml config
+```
+
+If Grafana does not open from the workstation, confirm that the resolved configuration publishes `127.0.0.1:3000` to container port `3000` and that `GF_SERVER_HTTP_ADDR` is `0.0.0.0`. After changing the Compose file, recreate the services:
+
+```bash
+docker compose --env-file .env -f compose.yaml up -d --force-recreate
 ```
 
 ### Yangsuite does not open

@@ -440,10 +440,10 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Local TIG stack | Automation metrics and local C8KV telemetry | Grafana at `http://127.0.0.1:3000` |
 | Cisco DevNet sandbox TIG stack | Pre-integrated C8KV telemetry | Telegraf `10.10.20.50:57500`; Grafana `http://10.10.20.50:3000` |
 | Cisco Catalyst C8KV reservable sandbox | CLI, NETCONF, RESTCONF, and telemetry target | Reservation-provided endpoint and credentials |
-| Docker | Local services and repeatable automation runtime | Host networking where DevNet VPN access is required; bridge networking for NetBox |
+| Docker | Local services and repeatable automation runtime | Bridge networking for TIG and NetBox; host networking only where a lab explicitly requires direct DevNet VPN routing |
 | Ollama, vLLM, or cloud LLM | Route-assistant language model | Learner-selected provider |
 
-Containers that must follow the workstation’s Cisco DevNet VPN route use Linux host networking. NetBox remains on its standard Compose bridge network and publishes only `127.0.0.1:8080`; Docker bridge networking still permits its worker to call GitLab.com. Minikube in Optional Lab 16 manages its own Kubernetes network.
+The local TIG and NetBox stacks use standard Compose bridge networks. Grafana, InfluxDB, and NetBox publish their browser interfaces only on `127.0.0.1`, while TIG containers reach InfluxDB through the Compose service name `influxdb`. Lab 10 publishes the local Telegraf receiver on workstation TCP port `57000` only when local dial-out telemetry is required. A service uses host networking only when its own lab explicitly requires direct access through the workstation’s Cisco DevNet VPN route. Minikube in Optional Lab 16 manages its own Kubernetes network.
 
 ## Start Only What the Current Release Needs
 

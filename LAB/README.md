@@ -443,7 +443,7 @@ The assessment is worth 100 points. Its self-graders identify which requirements
 | Docker | Local services and repeatable automation runtime | Bridge networking for TIG and NetBox; host networking only where a lab explicitly requires direct DevNet VPN routing |
 | Ollama, vLLM, or cloud LLM | Route-assistant language model | Learner-selected provider |
 
-The local TIG and NetBox stacks use standard Compose bridge networks. Grafana, InfluxDB, and NetBox publish their browser interfaces only on `127.0.0.1`, while TIG containers reach InfluxDB through the Compose service name `influxdb`. Lab 10 publishes the local Telegraf receiver on workstation TCP port `57000` only when local dial-out telemetry is required. A service uses host networking only when its own lab explicitly requires direct access through the workstation’s Cisco DevNet VPN route. Minikube in Optional Lab 16 manages its own Kubernetes network.
+The local TIG and NetBox stacks use standard Compose bridge networks. Grafana, InfluxDB, and NetBox publish their browser interfaces only on `127.0.0.1`, while TIG containers reach InfluxDB through the Compose service name `influxdb`. Telegraf publishes TCP port `57000` on the workstation so an external router can send gRPC dial-out telemetry to a workstation address it can reach. Restrict that receiver port to the router management subnet with the workstation firewall. A service uses host networking only when its own lab explicitly requires direct access through the workstation’s Cisco DevNet VPN route. Minikube in Optional Lab 16 manages its own Kubernetes network.
 
 ## Start Only What the Current Release Needs
 

@@ -103,7 +103,7 @@ docker compose logs --tail=100 telegraf
 sudo ss -lntp | grep 57000
 ```
 
-The local TIG services remain on their Compose bridge network. The override publishes Telegraf container port `57000` on workstation TCP port `57000`, while Telegraf writes to InfluxDB through the internal URL `http://influxdb:8086`. Allow TCP `57000` only from the local C8KV management network.
+The local TIG services remain on their Compose bridge network. Lab 1 already publishes Telegraf container port `57000` on workstation TCP port `57000`; this override replaces the general starter configuration with the telemetry-focused configuration for this lab. Telegraf writes to InfluxDB through the internal URL `http://influxdb:8086`. Allow TCP `57000` only from the local C8KV management network.
 
 Enter a workstation address that the local C8KV can reach; do not use `127.0.0.1` or a Docker bridge address. Confirm the address from the workstation network settings and the local C8KV management design. Do not expose an unauthenticated telemetry receiver to the Internet.
 

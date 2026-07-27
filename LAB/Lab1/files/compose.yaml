@@ -22,6 +22,8 @@ services:
     image: telegraf:1.39.1
     container_name: lab1-telegraf
     restart: unless-stopped
+    ports:
+      - "57000:57000"
     depends_on:
       - influxdb
     environment:

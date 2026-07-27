@@ -388,6 +388,8 @@ docker compose --env-file .env -f compose.yaml ps
 docker compose --env-file .env -f compose.yaml logs --tail=50 telegraf
 ```
 
+Telegraf listens for Cisco model-driven telemetry on TCP port `57000`. Docker publishes that port on all workstation interfaces, so an external router can send a gRPC dial-out stream to `<workstation-reachable-ip>:57000`. Configure the router with an actual workstation address that it can route to; do not configure the Docker container address or `127.0.0.1`. If the workstation firewall is enabled, permit TCP `57000` only from the router management subnet rather than exposing the receiver broadly.
+
 Open InfluxDB at `http://127.0.0.1:8086` and sign in with the values from `.env`. Open Grafana at `http://127.0.0.1:3000` and use the Grafana credentials.
 
 In Grafana, add an InfluxDB data source:
@@ -399,7 +401,7 @@ In Grafana, add an InfluxDB data source:
 5. Enter the organization, bucket, and token from `.env`.
 6. Select **Save & test**.
 
-The host metrics shown by Telegraf are container-visible metrics in this starter configuration. Later telemetry labs can add SNMP, gNMI, Cisco model-driven telemetry, HTTP, or external inputs.
+The host metrics shown by Telegraf are container-visible metrics. In addition, the Cisco model-driven telemetry input is ready to accept external gRPC dial-out streams on workstation TCP port `57000`. Later telemetry labs explain how to identify YANG paths, configure IOS XE subscriptions, and build Grafana dashboards from the received measurements.
 
 Verify that Telegraf is writing:
 

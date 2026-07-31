@@ -338,6 +338,8 @@ The local TIG and NetBox stacks use standard Docker Compose bridge networks. The
 
 TIG refers to **Telegraf, InfluxDB, and Grafana**. Telegraf collects metrics, InfluxDB stores time-series data, and Grafana queries data sources to build dashboards. Learners can deploy the complete stack locally for a locally hosted Catalyst C8KV or use the integrated TIG stack supplied with the Cisco Catalyst C8KV IOS XE sandbox.
 
+Learners who want to host their own IOS XE router can complete the separate [optional Cisco Catalyst 8000V on KVM guide](KVM_Catalyst_8000V.md). It is not required when the course uses the reservable Cisco DevNet Sandbox.
+
 ### Option A: Deploy the Complete TIG Stack Locally
 
 This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the appropriate choice when Lab 10 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.

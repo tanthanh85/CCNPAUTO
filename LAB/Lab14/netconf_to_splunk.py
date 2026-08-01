@@ -5,7 +5,6 @@ import os
 import signal
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 from xml.parsers.expat import ExpatError
 
@@ -94,37 +93,9 @@ class SplunkHEC:
         if not self.verify_tls:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    @staticmethod
-    def event_time_to_epoch(event_time: object) -> float:
-        """Convert a NETCONF eventTime value to Unix epoch seconds for Splunk."""
-        if not isinstance(event_time, str) or not event_time.strip():
-            LOG.warning("NETCONF eventTime is missing; using HEC ingestion time.")
-            return time.time()
-
-        try:
-            normalized = event_time.strip()
-            if normalized.endswith("Z"):
-                normalized = f"{normalized[:-1]}+00:00"
-            parsed_time = datetime.fromisoformat(normalized)
-            if parsed_time.tzinfo is None:
-                LOG.warning(
-                    "NETCONF eventTime %r has no time-zone offset; treating it as UTC.",
-                    event_time,
-                )
-                parsed_time = parsed_time.replace(tzinfo=timezone.utc)
-            return parsed_time.timestamp()
-        except ValueError:
-            LOG.warning(
-                "NETCONF eventTime %r is invalid; using HEC ingestion time.",
-                event_time,
-            )
-            return time.time()
-
     def send_cpu_event(self, event: dict[str, object]) -> None:
         payload = {
-            # Splunk maps the top-level HEC time field to its internal _time.
-            # Keep event_time in the event body as the original device evidence.
-            "time": self.event_time_to_epoch(event.get("event_time")),
+            "time": time.time(),
             "host": event["device"],
             "source": "netconf-yang-push",
             "sourcetype": "cisco:iosxe:netconf:cpu",

@@ -268,25 +268,6 @@ The script retains a small local-name search only for the initial RPC reply beca
 
 `xmltodict` makes XML easier to navigate, but it does not validate the payload against the YANG model. The collector still needs explicit checks for missing fields, expected types, permitted ranges, and notification purpose.
 
-### Map NETCONF `eventTime` to Splunk `_time`
-
-The router records when it generated each sample in the NETCONF `eventTime` leaf. Splunk stores an event's primary timestamp in `_time`, while `_indextime` records when Splunk indexed it. These values should not normally be identical because transport and processing introduce some delay.
-
-HEC expects its top-level `time` field as Unix epoch seconds. `SplunkHEC.event_time_to_epoch()` therefore converts an IOS XE value such as `2026-08-01T12:34:42.33Z` before the event is sent:
-
-```python
-payload = {
-    "time": self.event_time_to_epoch(event.get("event_time")),
-    "host": event["device"],
-    "source": "netconf-yang-push",
-    "sourcetype": "cisco:iosxe:netconf:cpu",
-    "index": self.index,
-    "event": event,
-}
-```
-
-Splunk maps this top-level HEC value to `_time`. The original ISO 8601 `event_time` remains in the event body as device evidence. If `eventTime` is absent or malformed, the collector logs a warning and uses the current ingestion time so that one bad timestamp does not stop the telemetry stream.
-
 ## Task 7: Validate HEC Before Opening NETCONF
 
 Run the supplied Python validation:
@@ -330,16 +311,6 @@ On IOS XE, `show telemetry ietf subscription all` should show a dynamic subscrip
 ## Task 9: Search and Interpret the Events
 
 In Splunk Search:
-
-First confirm that Splunk `_time` represents the router's NETCONF event time:
-
-```spl
-index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
-| table _time event_time device cpu_five_seconds
-| sort - _time
-```
-
-Then chart the CPU samples:
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
@@ -408,7 +379,7 @@ index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu"
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
-| eval delay_seconds=_indextime-_time
+| eval delay_seconds=now()-_time
 | stats latest(_time) AS last_event latest(delay_seconds) AS ingestion_delay BY device
 | convert ctime(last_event)
 ```

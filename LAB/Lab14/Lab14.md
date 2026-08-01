@@ -14,7 +14,7 @@ Splunk Enterprise is installed with its trial license. Learners must review the 
 - Use Yangsuite to confirm the IOS XE CPU XPath.
 - Install Splunk Enterprise and create a dedicated index and HEC token.
 - Establish a periodic YANG-push subscription with `ncclient`.
-- Parse XML notifications and normalize CPU values.
+- Parse NETCONF XML into Python dictionaries with `xmltodict` and normalize CPU values.
 - Send structured events to Splunk HEC.
 - Search the indexed events and build a CPU dashboard.
 - Distinguish collector, transport, storage, and visualization failures.
@@ -148,6 +148,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
+The requirements include `xmltodict`. This library converts XML elements into nested Python dictionaries and lists, which allows learners to inspect NETCONF data with familiar Python structures instead of writing XPath expressions for every value.
+
 Open `.env.example`, create a new `.env` file in the repository root, copy and paste the example content into it, and enter the reservation and Splunk values:
 
 ```text
@@ -185,6 +187,69 @@ Open `netconf_to_splunk.py` and inspect `SUBSCRIPTION_RPC`:
 
 The collector sends this operation on an established NETCONF session. IOS XE returns a subscription ID, followed by notifications on that same session. The collector must continue reading the session; repeatedly polling `<get>` would be a different design.
 
+### Understand the `xmltodict` Parsing Flow
+
+The IOS XE sample notification uses default XML namespaces rather than prefixes on individual elements. With the default `xmltodict.parse()` behavior, namespace declarations appear as `@xmlns` metadata while the data elements become ordinary dictionary keys. The collector can therefore follow the exact hierarchy reported by the device instead of searching the entire document.
+
+The parsing workflow is:
+
+```text
+NETCONF XML string
+        |
+        v
+xmltodict.parse()
+        |
+        v
+nested Python dictionaries and lists
+        |
+        v
+read the exact nested keys for five-seconds,
+subscription-id, and eventTime
+        |
+        v
+validate and normalize the Splunk event
+```
+
+Open `_xml_to_dict()` and `_parse_notification()` in `netconf_to_splunk.py`. The parser disables XML entities, verifies that parsing produced a dictionary root, and raises a meaningful `ValueError` for malformed XML. `_parse_notification()` then reads the IOS XE keys directly.
+
+A simplified notification becomes a structure similar to this:
+
+```python
+{
+    "notification": {
+        "eventTime": "2026-08-01T10:00:00Z",
+        "@xmlns": "urn:ietf:params:xml:ns:netconf:notification:1.0",
+        "eventTime": "2026-08-01T12:34:42.33Z",
+        "push-update": {
+            "@xmlns": "urn:ietf:params:xml:ns:yang:ietf-yang-push",
+            "subscription-id": "2147483653",
+            "datastore-contents-xml": {
+                "cpu-usage": {
+                    "@xmlns": "http://cisco.com/ns/yang/Cisco-IOS-XE-process-cpu-oper",
+                    "cpu-utilization": {
+                        "five-seconds": "0"
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+The code extracts the CPU value from this exact dictionary path:
+
+```python
+cpu_text = parsed["notification"]["push-update"]["datastore-contents-xml"][
+    "cpu-usage"
+]["cpu-utilization"]["five-seconds"]
+```
+
+It reads the other values from `parsed["notification"]["eventTime"]` and `parsed["notification"]["push-update"]["subscription-id"]`. The XML values arrive as text, so `_parse_notification()` converts `five-seconds` to `int` and rejects values outside `0` through `100`.
+
+The script retains a small local-name search only for the initial RPC reply because IOS XE releases can wrap the returned subscription ID differently. The recurring notification parser uses the exact device structure shown above, which keeps the learner-facing data extraction clear.
+
+`xmltodict` makes XML easier to navigate, but it does not validate the payload against the YANG model. The collector still needs explicit checks for missing fields, expected types, permitted ranges, and notification purpose.
+
 ## Task 7: Validate HEC Before Opening NETCONF
 
 Run the supplied Python validation:
@@ -220,6 +285,8 @@ Forwarded CPU sample: device=<host> cpu_five_seconds=<value>
 ```
 
 Leave it running for at least five minutes. Press `Ctrl+C` to stop it cleanly. Stopping the program closes the NETCONF session and ends the dynamic subscription.
+
+If a notification is not well-formed XML, contains a non-integer CPU value, or reports a value outside the expected percentage range, the collector logs a warning and continues waiting for the next notification. A notification that is valid XML but does not contain `five-seconds` is ignored at debug level because it may represent another NETCONF notification on the session.
 
 On IOS XE, `show telemetry ietf subscription all` should show a dynamic subscription only while the collector is connected.
 
@@ -343,6 +410,8 @@ Do not commit `.env`, Splunk tokens, indexed data, or Splunk administrator crede
 | NETCONF RPC returns `unknown-element` | IOS XE release, advertised telemetry modules, and Yangsuite-generated RPC |
 | Subscription succeeds but no notifications arrive | XPath, period, active NETCONF session, and notification timeout |
 | XML arrives without `five-seconds` | Device model revision or a different notification payload structure |
+| Collector reports malformed NETCONF XML | Inspect the notification source and XML completeness; `xmltodict` could not parse the document |
+| Collector reports a non-integer or out-of-range CPU value | Confirm the selected YANG leaf and inspect the actual notification dictionary before changing validation |
 | Splunk events exist but dashboard is empty | Time range, index, sourcetype, and field extraction |
 | Repeated TLS warnings | Lab-only self-signed certificate; install a trusted certificate for production |
 
@@ -350,6 +419,7 @@ Do not commit `.env`, Splunk tokens, indexed data, or Splunk administrator crede
 
 - NETCONF dial-in means the collector initiates and owns the subscription session.
 - IOS XE sends structured XML notifications rather than Splunk events.
+- `xmltodict` converts XML into familiar dictionaries, but application code must still handle namespaces, missing leaves, types, and ranges.
 - A collector is required to normalize NETCONF data and forward it to Splunk HEC.
 - HEC tokens should be scoped to a dedicated index and protected like credentials.
 - Dashboard gaps are symptoms; collector logs and subscription state locate the failed layer.

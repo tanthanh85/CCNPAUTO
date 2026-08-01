@@ -5,11 +5,13 @@ import os
 import signal
 import time
 from dataclasses import dataclass
+from typing import Any
+from xml.parsers.expat import ExpatError
 
 import requests
 import urllib3
+import xmltodict
 from dotenv import load_dotenv
-from lxml import etree
 from ncclient import manager
 from ncclient.xml_ import to_ele
 
@@ -121,21 +123,102 @@ class IOSXENetconfCPUCollector:
         self.running = True
 
     @staticmethod
-    def _first_text(root: etree._Element, local_name: str) -> str | None:
-        values = root.xpath(f"//*[local-name()='{local_name}']/text()")
-        return str(values[0]).strip() if values else None
+    def _local_name(key: str) -> str:
+        """Return a local XML name for the subscription RPC reply parser."""
+        return key.rsplit(":", maxsplit=1)[-1].lstrip("@")
+
+    @classmethod
+    def _find_first_scalar(
+        cls,
+        node: Any,
+        wanted_names: set[str],
+    ) -> str | None:
+        """Find a scalar in an RPC reply whose exact wrapper may vary by release."""
+        if isinstance(node, dict):
+            # Check the current level before descending into child elements.
+            for key, value in node.items():
+                if cls._local_name(str(key)) in wanted_names:
+                    # A leaf with its own xmlns attribute is represented as
+                    # {"@xmlns": "...", "#text": "value"} by xmltodict.
+                    if isinstance(value, dict) and "#text" in value:
+                        value = value["#text"]
+                    if not isinstance(value, (dict, list)) and value is not None:
+                        return str(value).strip()
+
+            for value in node.values():
+                found = cls._find_first_scalar(value, wanted_names)
+                if found is not None:
+                    return found
+
+        elif isinstance(node, list):
+            for item in node:
+                found = cls._find_first_scalar(item, wanted_names)
+                if found is not None:
+                    return found
+
+        return None
+
+    @staticmethod
+    def _xml_to_dict(xml_text: str) -> dict[str, Any]:
+        """Parse trusted NETCONF XML into normal Python dictionaries."""
+        try:
+            parsed = xmltodict.parse(
+                xml_text,
+                disable_entities=True,
+            )
+        except (ExpatError, TypeError) as exc:
+            raise ValueError(f"Invalid NETCONF XML: {exc}") from exc
+
+        if not isinstance(parsed, dict):
+            raise ValueError("NETCONF XML did not produce a dictionary root.")
+        return parsed
 
     def _parse_notification(self, xml_text: str, subscription_id: str) -> dict[str, object] | None:
-        root = etree.fromstring(xml_text.encode("utf-8"))
-        cpu_text = self._first_text(root, "five-seconds")
-        if cpu_text is None:
+        document = self._xml_to_dict(xml_text)
+        notification = document.get("notification")
+        if not isinstance(notification, dict):
+            raise ValueError("XML does not contain a notification dictionary.")
+
+        # IOS XE sends the sample with default namespaces. xmltodict therefore
+        # keeps the element names below as normal, unprefixed dictionary keys.
+        push_update = notification.get("push-update")
+        if not isinstance(push_update, dict):
             return None
+
+        try:
+            cpu_text = push_update["datastore-contents-xml"]["cpu-usage"][
+                "cpu-utilization"
+            ]["five-seconds"]
+        except (KeyError, TypeError):
+            # The NETCONF session can carry notifications unrelated to this
+            # CPU subscription. They are valid XML but not CPU samples.
+            return None
+
+        if isinstance(cpu_text, dict):
+            cpu_text = cpu_text.get("#text")
+        if cpu_text is None or isinstance(cpu_text, (dict, list)):
+            raise ValueError("five-seconds does not contain a scalar value.")
+        cpu_text = str(cpu_text).strip()
+
+        try:
+            cpu_value = int(cpu_text)
+        except ValueError as exc:
+            raise ValueError(
+                f"Notification contains a non-integer five-seconds value: {cpu_text!r}"
+            ) from exc
+
+        if not 0 <= cpu_value <= 100:
+            raise ValueError(
+                f"Notification contains an out-of-range CPU value: {cpu_value}"
+            )
 
         return {
             "device": self.settings.iosxe_host,
-            "subscription_id": self._first_text(root, "subscription-id") or subscription_id,
-            "event_time": self._first_text(root, "eventTime"),
-            "cpu_five_seconds": int(cpu_text),
+            "subscription_id": str(
+                push_update.get("subscription-id") or subscription_id
+            ),
+            "event_time": notification.get("eventTime"),
+            "cpu_five_seconds": cpu_value,
         }
 
     def stop(self, *_args: object) -> None:
@@ -163,8 +246,11 @@ class IOSXENetconfCPUCollector:
 
             operation = SUBSCRIPTION_RPC.format(period=self.settings.period)
             reply = session.dispatch(to_ele(operation))
-            reply_root = etree.fromstring(reply.xml.encode("utf-8"))
-            subscription_id = self._first_text(reply_root, "subscription-id")
+            reply_data = self._xml_to_dict(reply.xml)
+            subscription_id = self._find_first_scalar(
+                reply_data,
+                {"subscription-id", "id"},
+            )
             if not subscription_id:
                 raise RuntimeError(f"Subscription was not accepted: {reply.xml}")
 
@@ -178,10 +264,14 @@ class IOSXENetconfCPUCollector:
                     LOG.warning("No notification received before timeout.")
                     continue
 
-                event = self._parse_notification(
-                    notification.notification_xml,
-                    subscription_id,
-                )
+                try:
+                    event = self._parse_notification(
+                        notification.notification_xml,
+                        subscription_id,
+                    )
+                except ValueError as exc:
+                    LOG.warning("Ignored malformed NETCONF notification: %s", exc)
+                    continue
                 if event is None:
                     LOG.debug("Ignored notification without five-seconds CPU data.")
                     continue

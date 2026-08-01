@@ -140,7 +140,7 @@ flowchart TD
     L22["Optional Lab 22<br/>Catalyst Center API"]
     L23["Optional Lab 23<br/>Meraki API"]
     L24["Optional Lab 24<br/>FMC API"]
-    L25["Optional Lab 25<br/>ACI REST API"]
+    L25["Optional Lab 25<br/>ACI three-tier policy"]
 
     L1 --> L2
     L2 --> L3
@@ -383,7 +383,7 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | Optional Lab 22 | Catalyst Center 2.3.3.6 API | Campus controller inventory |
 | Optional Lab 23 | Meraki Dashboard API | Cloud-managed organization, network, and device discovery |
 | Optional Lab 24 | Firepower Management Center API | Security controller authentication and managed-device inventory |
-| Optional Lab 25 | Cisco ACI REST API | APIC managed-object and policy hierarchy discovery |
+| Optional Lab 25 | Cisco ACI REST API | Three-tier VRF, BD, EPG, filter, and contract policy |
 
 ## Repositories and Deliverables
 
@@ -404,7 +404,7 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | `optional_lab22_catalyst_center_api` | Optional Lab 22 | Catalyst Center token authentication and campus inventory |
 | `optional_lab23_meraki_api` | Optional Lab 23 | Meraki organization, network, and device discovery |
 | `optional_lab24_fmc_api` | Optional Lab 24 | FMC token, domain, and managed-device discovery |
-| `optional_lab25_aci_api` | Optional Lab 25 | APIC session and managed-object inventory |
+| `optional_lab25_aci_api` | Optional Lab 25 | APIC three-tier application-policy provisioning and verification |
 
 Optional Lab 13 uses an NSO development runtime and service package rather than a conventional standalone application repository.
 
@@ -426,7 +426,7 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 22](Lab22/Lab22.md) | Campus operations needs reusable controller inventory. | Catalyst Center 2.3.3.6 token authentication, sites, and network devices. |
 | [Optional Lab 23](Lab23/Lab23.md) | Cloud operations must navigate Meraki resources at scale. | Organization, network, and device discovery with pagination awareness. |
 | [Optional Lab 24](Lab24/Lab24.md) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
-| [Optional Lab 25](Lab25/Lab25.md) | Data-center engineers must understand ACI’s object model. | APIC authentication and class queries for tenants, VRFs, and bridge domains. |
+| [Optional Lab 25](Lab25/Lab25.md) | A data-center team must model a Web, App, and Database service in ACI. | APIC creates an enforced VRF, three BDs and EPGs, and provider/consumer contracts in a reservable simulator. |
 
 ## Optional Standalone API Resilience Assignment
 

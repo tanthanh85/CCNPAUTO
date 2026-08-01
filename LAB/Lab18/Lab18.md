@@ -119,7 +119,7 @@ openssl x509 \
   -noout -subject -issuer -dates -fingerprint -sha256
 ```
 
-The subject and issuer are identical because this is a self-signed root.
+The subject and issuer are identical because this is a self-signed root. The SHA-256 fingerprint provides a strong out-of-band value for identifying the certificate. A later IOS XE step also obtains the MD5 fingerprint because the trustpoint `fingerprint` command on the lab router expects that format. This compatibility use does not change the certificate signature configured with SHA-256.
 
 ## Task 4: Create the IOS XE Trustpoint and Key
 
@@ -142,7 +142,44 @@ end
 
 ## Task 5: Trust the Root CA on IOS XE
 
-Display the root certificate on Ubuntu:
+Before importing the root certificate, calculate the MD5 fingerprint that IOS XE will match against the trustpoint. Run this on Ubuntu:
+
+```bash
+openssl x509 \
+  -in ca/certs/ccnpauto-root-ca.crt.pem \
+  -noout \
+  -fingerprint \
+  -md5
+```
+
+OpenSSL displays a colon-separated value similar to:
+
+```text
+MD5 Fingerprint=8A:71:8C:E3:B9:7E:9F:C7:58:5E:D7:E8:1E:3C:92:37
+```
+
+Every learner generates a different CA certificate, so do not copy the example fingerprint. Remove the colons from your own result and arrange the 32 hexadecimal characters as four groups of eight:
+
+```text
+8A718CE3 B97E9FC7 585ED7E8 1E3C9237
+```
+
+Configure that value under the existing trustpoint on IOS XE. Replace the sample with the fingerprint calculated from your certificate:
+
+```text
+configure terminal
+crypto pki trustpoint CCNPAUTO-RESTCONF
+ fingerprint <YOUR-CA-MD5-FINGERPRINT>
+end
+```
+
+For example, the placeholder is replaced with four hexadecimal groups, not entered literally:
+
+```text
+fingerprint 8A718CE3 B97E9FC7 585ED7E8 1E3C9237
+```
+
+Now display the root certificate on Ubuntu:
 
 ```bash
 openssl x509 \
@@ -156,7 +193,25 @@ On IOS XE:
 crypto pki authenticate CCNPAUTO-RESTCONF
 ```
 
-Paste the complete root certificate, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines. Enter a blank line, confirm the displayed fingerprint against Ubuntu, and accept the certificate only when it matches.
+Paste the complete root certificate, including the `BEGIN CERTIFICATE` and `END CERTIFICATE` lines, and then enter a blank line. IOS XE compares the certificate presented during authentication with the fingerprint already stored under the trustpoint. Continue only when the displayed certificate fingerprint matches the value calculated on Ubuntu.
+
+A successful authentication reports output similar to:
+
+```text
+Certificate validated - fingerprints matched.
+Trustpoint CA certificate accepted.
+% Certificate successfully imported
+```
+
+If IOS XE reports the following messages, the `fingerprint` command was omitted or configured with the wrong value:
+
+```text
+Trustpoint fingerprint must be supplied.
+Trustpoint CA certificate is rejected. Abort.
+% Error in saving certificate: status = FAIL
+```
+
+The rejected authentication does not normally require the trustpoint to be deleted. Return to the existing trustpoint, configure the correct fingerprint, and repeat `crypto pki authenticate CCNPAUTO-RESTCONF`.
 
 Verify:
 
@@ -296,6 +351,7 @@ To prove validation is active, temporarily change the URL to the router IP while
 | `certificate verify failed: unable to get local issuer` | Wrong CA bundle or incomplete chain |
 | `IP address mismatch` or `hostname mismatch` | URL identity absent from SAN |
 | Certificate expired or not yet valid | Clock or validity problem |
+| `Trustpoint fingerprint must be supplied` | Calculate the CA certificate's MD5 fingerprint, configure `fingerprint <value>` under `CCNPAUTO-RESTCONF`, and repeat CA authentication |
 | HTTP `401` | TLS succeeded; RESTCONF credentials failed |
 | HTTP `403` | TLS and authentication succeeded; authorization failed |
 | Connection refused or timeout | Address, port, route, or HTTPS service issue |

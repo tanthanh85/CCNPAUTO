@@ -130,12 +130,17 @@ flowchart TD
     L12["Optional Lab 12<br/>ACI with Terraform"]
     L13["Optional Lab 13<br/>Cisco NSO OSPF service"]
     L14["Optional Lab 14<br/>NETCONF data in Splunk"]
-    L15["Optional Lab 15<br/>IOS XE application hosting"]
+    L15["Optional Lab 15<br/>IOx v1.15 application hosting"]
     L16["Optional Lab 16<br/>Kubernetes with Minikube"]
     L17["Optional Lab 17<br/>pyATS CRC testing"]
     L18["Optional Lab 18<br/>RESTCONF with trusted TLS"]
     L19["Optional Lab 19<br/>Asynchronous RESTCONF"]
     L20["Optional Lab 20<br/>Pagination and HTTP 429"]
+    L21["Optional Lab 21<br/>SD-WAN 20.10 API"]
+    L22["Optional Lab 22<br/>Catalyst Center API"]
+    L23["Optional Lab 23<br/>Meraki API"]
+    L24["Optional Lab 24<br/>FMC API"]
+    L25["Optional Lab 25<br/>ACI REST API"]
 
     L1 --> L2
     L2 --> L3
@@ -158,11 +163,16 @@ flowchart TD
     OPTIONAL --> L18
     OPTIONAL --> L19
     OPTIONAL --> L20
+    OPTIONAL --> L21
+    OPTIONAL --> L22
+    OPTIONAL --> L23
+    OPTIONAL --> L24
+    OPTIONAL --> L25
 ```
 
 Follow the required labs in order. Labs 3–9 modify the same repository, so
 each release assumes that the preceding release exists. Labs 10 and 11 are
-separate projects. Optional Labs 12–20 can be selected according to platform
+separate projects. Optional Labs 12–25 can be selected according to platform
 access, available time, and learner interest.
 
 ## Required Project Journey
@@ -369,6 +379,11 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | Lab 10 | Streaming model-driven telemetry | Continuous network visibility |
 | Lab 11 | FastMCP-backed route assistant | Controlled natural-language operations |
 | Optional Lab 20 | Pagination and HTTP 429 simulation | Evidence-based API resilience |
+| Optional Lab 21 | Cisco SD-WAN 20.10 API | Session-based controller inventory |
+| Optional Lab 22 | Catalyst Center 2.3.3.6 API | Campus controller inventory |
+| Optional Lab 23 | Meraki Dashboard API | Cloud-managed organization, network, and device discovery |
+| Optional Lab 24 | Firepower Management Center API | Security controller authentication and managed-device inventory |
+| Optional Lab 25 | Cisco ACI REST API | APIC managed-object and policy hierarchy discovery |
 
 ## Repositories and Deliverables
 
@@ -380,11 +395,16 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | `standalone_http_resilience` | Optional Lab 20 | Local Flask simulation, pagination client, bounded backoff, and CSV evidence |
 | `optional_lab12_aci_terraform` | Optional Lab 12 | Cisco ACI infrastructure-as-code project |
 | `optional_lab14_splunk_netconf` | Optional Lab 14 | NETCONF telemetry collector and Splunk integration |
-| `optional_lab15_iosxe_app_hosting` | Optional Lab 15 | IOS XE IOx loopback recovery application |
+| `optional_lab15_iox_v115` | Optional Lab 15 | IOx v1.15 packaging and application lifecycle |
 | `optional_lab16_minikube` | Optional Lab 16 | Standalone beginner Kubernetes workload |
 | `optional_lab17_pyats_crc` | Optional Lab 17 | pyATS/Genie CRC counter test |
 | `optional_lab18_restconf_pki` | Optional Lab 18 | Local CA and certificate-validating RESTCONF client |
 | `optional_lab19_async_restconf` | Optional Lab 19 | Trusted asynchronous RESTCONF collector |
+| `optional_lab21_sdwan_api` | Optional Lab 21 | SD-WAN 20.10 session authentication and device inventory |
+| `optional_lab22_catalyst_center_api` | Optional Lab 22 | Catalyst Center token authentication and campus inventory |
+| `optional_lab23_meraki_api` | Optional Lab 23 | Meraki organization, network, and device discovery |
+| `optional_lab24_fmc_api` | Optional Lab 24 | FMC token, domain, and managed-device discovery |
+| `optional_lab25_aci_api` | Optional Lab 25 | APIC session and managed-object inventory |
 
 Optional Lab 13 uses an NSO development runtime and service package rather than a conventional standalone application repository.
 
@@ -397,11 +417,16 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 12](Lab12/Lab12.md) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
 | [Optional Lab 13](Lab13/Lab13.md) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
 | [Optional Lab 14](Lab14/Lab14.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
-| [Optional Lab 15](Lab15/Lab15.md) | A branch needs a lightweight recovery function close to the device. | An IOx Docker application receives IOS XE syslog and uses Netmiko to re-enable `Loopback1`. |
+| [Optional Lab 15](Lab15/Lab15.md) | An edge-development team must validate application packaging on Cisco IOx. | Learners use the DevNet IOx v1.15 sandbox to package, install, activate, observe, and remove a Python application. |
 | [Optional Lab 16](Lab16/Lab16.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
 | [Optional Lab 17](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC counters and preserve structured evidence. |
 | [Optional Lab 18](Lab18/Lab18.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
 | [Optional Lab 19](Lab19/Lab19.md) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 18. |
+| [Optional Lab 21](Lab21/Lab21.md) | WAN operations needs controller-derived device and software inventory. | SD-WAN Manager 20.10 session authentication and `/dataservice` inventory. |
+| [Optional Lab 22](Lab22/Lab22.md) | Campus operations needs reusable controller inventory. | Catalyst Center 2.3.3.6 token authentication, sites, and network devices. |
+| [Optional Lab 23](Lab23/Lab23.md) | Cloud operations must navigate Meraki resources at scale. | Organization, network, and device discovery with pagination awareness. |
+| [Optional Lab 24](Lab24/Lab24.md) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
+| [Optional Lab 25](Lab25/Lab25.md) | Data-center engineers must understand ACI’s object model. | APIC authentication and class queries for tenants, VRFs, and bridge domains. |
 
 ## Optional Standalone API Resilience Assignment
 
@@ -472,6 +497,11 @@ Treat every token as a credential. Give it only the permissions required by the 
 | OpenAI | Create a project API key in the learner’s OpenAI API platform account. | `OPENAI_API_KEY` in Lab 11’s untracked `.env` |
 | Anthropic | Create a lab-specific key in the Anthropic Console workspace. | `ANTHROPIC_API_KEY` in Lab 11’s untracked `.env` |
 | Splunk HEC | **Settings > Data Inputs > HTTP Event Collector** in Splunk Web | `SPLUNK_HEC_TOKEN` in Optional Lab 14 |
+| SD-WAN Manager 20.10 | The client exchanges reservation credentials for a `JSESSIONID` cookie and XSRF token. | Runtime session in Optional Lab 21; never commit either value |
+| Catalyst Center | Request a token from `/dna/system/api/v1/auth/token` with the sandbox credentials. | Runtime `X-Auth-Token` in Optional Lab 22 |
+| Meraki | Use the API key or bearer token supplied or generated according to the Meraki sandbox instructions. | `MERAKI_API_KEY` in Optional Lab 23’s untracked `.env` |
+| Firepower Management Center | Generate an access token with the FMC platform authentication endpoint. | Runtime `X-auth-access-token` and `DOMAIN_UUID` in Optional Lab 24 |
+| Cisco APIC | Authenticate to `aaaLogin`; APIC establishes a session cookie. | Runtime session in Optional Lab 25 |
 
 Cisco DevNet sandbox Yangsuite and Grafana use credentials supplied with the reservation; the standard lab does not require a separately generated API token.
 

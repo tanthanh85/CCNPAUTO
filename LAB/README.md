@@ -367,6 +367,10 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 
 ## Project Evolution at a Glance
 
+The table below covers only Labs 3–9 because these labs are successive
+releases of the same `network_automation_project` repository. Later labs are
+standalone operational or specialist projects and are described separately.
+
 | Release | Engineering change | What the organization gains |
 |---|---|---|
 | Lab 3 | YAML, Jinja2, Netmiko, verification | A repeatable first working automation release |
@@ -376,14 +380,6 @@ You compare local and cloud models for latency, accuracy, privacy, and resource 
 | Lab 7 | NetBox event triggers GitLab CI/CD | Repeatable and traceable delivery |
 | Lab 8 | Ansible coordinates the workflow | An operator-friendly orchestration layer |
 | Lab 9 | Containerized execution environment | Reproducibility across runners |
-| Lab 10 | Streaming model-driven telemetry | Continuous network visibility |
-| Lab 11 | FastMCP-backed route assistant | Controlled natural-language operations |
-| Optional Lab 20 | Pagination and HTTP 429 simulation | Evidence-based API resilience |
-| Optional Lab 21 | Cisco SD-WAN 20.10 API | Session-based controller inventory |
-| Optional Lab 22 | Catalyst Center 2.3.3.6 API | Campus controller inventory |
-| Optional Lab 23 | Meraki Dashboard API | Cloud-managed organization, network, and device discovery |
-| Optional Lab 24 | Firepower Management Center API | Security controller authentication and managed-device inventory |
-| Optional Lab 25 | Cisco ACI REST API | Three-tier VRF, BD, EPG, filter, and contract policy |
 
 ## Repositories and Deliverables
 

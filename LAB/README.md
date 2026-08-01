@@ -130,7 +130,7 @@ flowchart TD
     L12["Optional Lab 12<br/>ACI with Terraform"]
     L13["Optional Lab 13<br/>Cisco NSO OSPF service"]
     L14["Optional Lab 14<br/>NETCONF data in Splunk"]
-    L15["Optional Lab 15<br/>IOx v1.15 application hosting"]
+    L15["Optional Lab 15<br/>Catalyst 8000V application hosting"]
     L16["Optional Lab 16<br/>Kubernetes with Minikube"]
     L17["Optional Lab 17<br/>pyATS CRC testing"]
     L18["Optional Lab 18<br/>RESTCONF with trusted TLS"]
@@ -391,7 +391,7 @@ standalone operational or specialist projects and are described separately.
 | `standalone_http_resilience` | Optional Lab 20 | Local Flask simulation, pagination client, bounded backoff, and CSV evidence |
 | `optional_lab12_aci_terraform` | Optional Lab 12 | Cisco ACI infrastructure-as-code project |
 | `optional_lab14_splunk_netconf` | Optional Lab 14 | NETCONF telemetry collector and Splunk integration |
-| `optional_lab15_iox_v115` | Optional Lab 15 | IOx v1.15 packaging and application lifecycle |
+| `optional_lab15_c8000v_app_hosting` | Optional Lab 15 | Catalyst 8000V packaging and application lifecycle |
 | `optional_lab16_minikube` | Optional Lab 16 | Standalone beginner Kubernetes workload |
 | `optional_lab17_pyats_crc` | Optional Lab 17 | pyATS/Genie CRC counter test |
 | `optional_lab18_restconf_pki` | Optional Lab 18 | Local CA and certificate-validating RESTCONF client |
@@ -413,7 +413,7 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 12](Lab12/Lab12.md) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
 | [Optional Lab 13](Lab13/Lab13.md) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
 | [Optional Lab 14](Lab14/Lab14.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
-| [Optional Lab 15](Lab15/Lab15.md) | An edge-development team must validate application packaging on Cisco IOx. | Learners use the DevNet IOx v1.15 sandbox to package, install, activate, observe, and remove a Python application. |
+| [Optional Lab 15](Lab15/Lab15.md) | A network team needs an event-driven utility to run directly beside IOS XE. | Learners use a reservable Catalyst 8000V to package, install, activate, test, and remove a Python closed-loop application. |
 | [Optional Lab 16](Lab16/Lab16.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
 | [Optional Lab 17](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC counters and preserve structured evidence. |
 | [Optional Lab 18](Lab18/Lab18.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |

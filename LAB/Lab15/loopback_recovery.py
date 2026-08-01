@@ -50,7 +50,30 @@ class RouterSettings:
 
 
 def load_settings(path: Path) -> RouterSettings:
-    """Load deployment-specific SSH settings from the IOx bootstrap file."""
+    """Load SSH settings from app-hosting environment variables or a local file."""
+
+    # IOS XE app-hosting supplies these values through Docker run options. The
+    # INI fallback keeps local development and unit testing straightforward.
+    environment = {
+        "host": os.getenv("ROUTER_HOST"),
+        "username": os.getenv("ROUTER_USERNAME"),
+        "password": os.getenv("ROUTER_PASSWORD"),
+    }
+    if any(environment.values()):
+        missing = [name for name, value in environment.items() if not value]
+        if missing:
+            raise ValueError(
+                "Incomplete router environment configuration; missing: "
+                + ", ".join(missing)
+            )
+        return RouterSettings(
+            host=str(environment["host"]),
+            port=int(os.getenv("ROUTER_PORT", "22")),
+            username=str(environment["username"]),
+            password=str(environment["password"]),
+            device_type=os.getenv("ROUTER_DEVICE_TYPE", "cisco_ios"),
+            timeout=int(os.getenv("ROUTER_TIMEOUT", "10")),
+        )
 
     parser = configparser.ConfigParser()
     if not parser.read(path):
@@ -190,7 +213,7 @@ def main() -> None:
     server = SyslogRecoveryServer(
         host=os.getenv("SYSLOG_HOST", "0.0.0.0"),
         port=int(os.getenv("SYSLOG_PORT", "5514")),
-        expected_source=os.getenv("ROUTER_SYSLOG_SOURCE", "192.168.200.1"),
+        expected_source=os.getenv("ROUTER_SYSLOG_SOURCE", settings.host),
         recovery=LoopbackRecovery(settings),
     )
     signal.signal(signal.SIGTERM, server.stop)

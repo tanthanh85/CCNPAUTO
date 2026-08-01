@@ -13,8 +13,8 @@ app:
   resources:
     profile: custom
     cpu: 100
-    memory: 64
-    disk: 2
+    memory: 256
+    disk: 10
     network:
       - interface-name: eth0
         description: Receives IOS XE syslog over UDP

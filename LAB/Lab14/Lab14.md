@@ -176,16 +176,35 @@ Open `netconf_to_splunk.py` and inspect `SUBSCRIPTION_RPC`:
 
 ```xml
 <establish-subscription
-    xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications"
-    xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push"
-    xmlns:cpu="http://cisco.com/ns/yang/Cisco-IOS-XE-process-cpu-oper">
-  <stream>yp:yang-push</stream>
-  <yp:xpath-filter>/cpu:cpu-usage/cpu-utilization/five-seconds</yp:xpath-filter>
-  <yp:period>500</yp:period>
+    xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications">
+  <stream xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push">yp:yang-push</stream>
+  <encoding>encode-xml</encoding>
+  <xpath-filter xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-push">/process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds</xpath-filter>
+  <period xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-push">500</period>
 </establish-subscription>
 ```
 
-The collector sends this operation on an established NETCONF session. IOS XE returns a subscription ID, followed by notifications on that same session. The collector must continue reading the session; repeatedly polling `<get>` would be a different design.
+This is the operation body generated and tested in Yangsuite. On the wire, it appears inside the NETCONF envelope:
+
+```xml
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="101">
+  <!-- establish-subscription operation shown above -->
+</rpc>
+```
+
+Do not include the outer `<rpc>` element in `SUBSCRIPTION_RPC`. `ncclient` creates that envelope and assigns the message ID when `dispatch()` is called. Supplying an outer `<rpc>` to `dispatch()` would cause the library to wrap an RPC inside another RPC.
+
+The script deliberately does not use `to_ele()`. Instead, it converts the tested operation string to an XML element and dispatches it:
+
+```python
+operation = SUBSCRIPTION_RPC.format(period=settings.period)
+operation_element = etree.fromstring(operation.encode("utf-8"))
+reply = session.dispatch(operation_element)
+```
+
+Passing the complete XML string directly to `dispatch()` is not correct with `ncclient` 0.7.x because a plain string is treated as an XML element name rather than parsed as an XML document. The collector therefore performs the explicit `etree.fromstring()` conversion while leaving RPC-envelope creation to `ncclient`.
+
+IOS XE returns a subscription ID, followed by notifications on the same NETCONF session. The collector must continue reading that session; repeatedly polling `<get>` would be a different design.
 
 ### Understand the `xmltodict` Parsing Flow
 

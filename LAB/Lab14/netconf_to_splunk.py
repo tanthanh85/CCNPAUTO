@@ -12,18 +12,17 @@ import requests
 import urllib3
 import xmltodict
 from dotenv import load_dotenv
+from lxml import etree
 from ncclient import manager
-from ncclient.xml_ import to_ele
 
 
 SUBSCRIPTION_RPC = """
 <establish-subscription
-    xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications"
-    xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push"
-    xmlns:cpu="http://cisco.com/ns/yang/Cisco-IOS-XE-process-cpu-oper">
-  <stream>yp:yang-push</stream>
-  <yp:xpath-filter>/cpu:cpu-usage/cpu-utilization/five-seconds</yp:xpath-filter>
-  <yp:period>{period}</yp:period>
+    xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications">
+  <stream xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push">yp:yang-push</stream>
+  <encoding>encode-xml</encoding>
+  <xpath-filter xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-push">/process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds</xpath-filter>
+  <period xmlns="urn:ietf:params:xml:ns:yang:ietf-yang-push">{period}</period>
 </establish-subscription>
 """.strip()
 
@@ -245,7 +244,8 @@ class IOSXENetconfCPUCollector:
             )
 
             operation = SUBSCRIPTION_RPC.format(period=self.settings.period)
-            reply = session.dispatch(to_ele(operation))
+            operation_element = etree.fromstring(operation.encode("utf-8"))
+            reply = session.dispatch(operation_element)
             reply_data = self._xml_to_dict(reply.xml)
             subscription_id = self._find_first_scalar(
                 reply_data,

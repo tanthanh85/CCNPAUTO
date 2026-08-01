@@ -345,7 +345,7 @@ Build the visualization entirely in Splunk Web. This lab does not import HTML, X
 
 ```spl
 index=network_telemetry sourcetype="cisco:iosxe:netconf:cpu" device!="hec-self-test"
-| timechart span=5s latest(cpu_five_seconds) AS cpu_percent BY device
+| stats avg(cpu_five_seconds) AS cpu_percent BY device
 ```
 
 9. Set the Y-axis minimum to `0`, maximum to `100`, and unit to percent when the selected editor exposes those options.

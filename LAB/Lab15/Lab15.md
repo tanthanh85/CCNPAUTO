@@ -151,9 +151,22 @@ Use `sudo` only for installing the executable into `/usr/local/bin`. Running nor
 Confirm access to the local Docker daemon and initialize the Docker connection used for packaging:
 
 ```bash
+sudo apt update
+sudo apt install -y e2fsprogs
 docker version
 ioxclient docker init
 ```
+
+`ioxclient docker package -p ext2` creates and formats a filesystem image on the learner workstation. The `e2fsprogs` package supplies the Linux utilities required for that operation. Verify them before continuing:
+
+```bash
+command -v mkfs.ext2
+command -v mke2fs
+command -v e2fsck
+command -v resize2fs
+```
+
+Each command must return an executable path such as `/usr/sbin/mkfs.ext2`. If a command returns no path, reinstall `e2fsprogs` before attempting to package the application.
 
 Accept the local socket and detected/default Docker API version:
 
@@ -475,6 +488,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
 | Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
 | `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Use the supplied `package.yaml` with `startup.rootfs: rootfs.img`, remove any incomplete output archive, and package again |
+| `Failed to format rootfs image file` | Install `e2fsprogs`, confirm `mkfs.ext2`, `mke2fs`, `e2fsck`, and `resize2fs` are in the command path, remove incomplete output, and package again |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |

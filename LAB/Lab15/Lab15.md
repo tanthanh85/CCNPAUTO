@@ -30,19 +30,67 @@ The application listens for an IOS XE syslog message stating that `Loopback1` wa
 ## Application and Management Flow
 
 ```mermaid
-flowchart TD
-    A["Python source and tests"] --> B["Docker image on learner workstation"]
-    B --> C["ioxclient creates IOx package"]
-    C --> D["Browser uploads package to Local Manager"]
-    D --> E["Local Manager deploys and activates resources"]
-    E --> F["Local Manager provisions application network"]
-    F --> G["IOS XE sends Loopback1 shutdown syslog"]
-    G --> H["Application validates source and event"]
-    H --> I["Netmiko sends interface Loopback1 and no shutdown"]
-    I --> J["Application verifies final interface state"]
+flowchart TB
+    subgraph WS["Learner Ubuntu workstation"]
+        SRC["Python application<br/>Dockerfile<br/>package.yaml<br/>package_config.ini"]
+        IMG["x86-64 Docker image<br/>lo1_recovery:1.0"]
+        PKG["IOx application package<br/>lo1_recovery.tar"]
+        WEB["Web browser"]
+
+        SRC -->|"docker build"| IMG
+        IMG -->|"ioxclient docker package"| PKG
+        PKG -->|"Select package for upload"| WEB
+    end
+
+    subgraph C8K["Cisco Catalyst 8000V sandbox"]
+        LM["IOx Local Manager<br/>10.10.20.48"]
+
+        subgraph IOS["IOS XE"]
+            LO1["Loopback1<br/>Monitored interface"]
+            VPG["VirtualPortGroup0<br/>192.168.35.101/24"]
+            SSH["IOS XE SSH service<br/>TCP port 22"]
+        end
+
+        subgraph IOX["IOx application-hosting environment"]
+            APP["lo1_recovery container<br/>Static IP 192.168.35.102/24<br/>UDP syslog listener 5514"]
+            LOGIC["Validate source and event<br/>Run Netmiko remediation<br/>Verify Loopback1 state"]
+            APP --> LOGIC
+        end
+
+        LM -->|"Deploy, activate, start,<br/>configure, and inspect"| APP
+        LO1 -->|"Administrative-down syslog"| VPG
+        VPG -->|"UDP 5514<br/>192.168.35.101 to 192.168.35.102"| APP
+        LOGIC -->|"Netmiko SSH<br/>192.168.35.102 to 192.168.35.101:22"| SSH
+        SSH -->|"interface Loopback1<br/>no shutdown"| LO1
+        LO1 -->|"Operational state<br/>up/up"| LOGIC
+    end
+
+    WEB -->|"HTTP through DevNet VPN"| LM
 ```
 
-The control paths are different:
+The diagram separates the management plane from the runtime closed loop. The learner uses Local Manager to control the application's lifecycle, whereas IOS XE and the running container communicate directly across `VirtualPortGroup0`. The container must use the static address `192.168.35.102/24`; Dynamic IPv4 addressing does not work on this sandbox application network.
+
+The event sequence is as follows:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Learner
+    participant IOS as "Catalyst 8000V IOS XE"
+    participant App as "lo1_recovery at 192.168.35.102"
+
+    Learner->>IOS: Configure shutdown under Loopback1
+    IOS-->>App: Send %LINK-5-CHANGED over UDP 5514
+    App->>App: Validate source 192.168.35.101
+    App->>App: Match Loopback1 administratively-down event
+    App->>IOS: Open Netmiko SSH connection to 192.168.35.101:22
+    App->>IOS: Send interface Loopback1 and no shutdown
+    App->>IOS: Run show interfaces Loopback1
+    IOS-->>App: Return Loopback1 is up, line protocol is up
+    App->>IOS: Close the SSH session
+```
+
+The four control paths therefore have distinct purposes:
 
 ```text
 Learner browser  -> http://10.10.20.48/iox/login -> IOx Local Manager

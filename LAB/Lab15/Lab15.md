@@ -163,6 +163,18 @@ unix:///var/run/docker.sock
 
 This lab does not require an `ioxclient` platform profile because Local Manager performs the deployment and lifecycle operations.
 
+### Check Docker-to-IOx Packaging Compatibility
+
+Display only the Docker server version:
+
+```bash
+docker version --format 'Docker Server: {{.Server.Version}}'
+```
+
+The C8000V IOx release in this sandbox expects the legacy Docker layer archive produced by Docker Engine 24.0.9 or earlier. Packages generated from Docker Engine 25 or later can upload successfully but fail in Local Manager with `Mandatory layer blobs is missing`.
+
+Do not downgrade or replace the workstation's main Docker installation. When the server version is 25 or later, Task 6 creates a temporary Docker 24.0.9 packaging daemon in a container. This isolates the compatibility requirement from the other course labs.
+
 ## Task 4: Understand the Application Configuration Boundary
 
 Open `loopback_recovery.py`. The application reads the path supplied by the IOx `CAF_APP_CONFIG_FILE` environment variable. Local Manager provisions that path and stores the uploaded `package_config.ini` separately from the immutable application image.
@@ -224,7 +236,11 @@ git check-ignore package_config.ini
 
 ## Task 6: Build and Inspect the x86-64 Container
 
-Catalyst 8000V is the application target, so build an x86-64 image even when the learner workstation uses ARM64:
+Catalyst 8000V is the application target, so the application image must be x86-64 even when the learner workstation uses ARM64.
+
+### Option A: Docker Server 24.0.9 or Earlier
+
+When the workstation's Docker server is version 24.0.9 or earlier, build normally:
 
 ```bash
 docker build \
@@ -245,9 +261,68 @@ The expected value is:
 amd64
 ```
 
+Retain the default `ioxclient` Docker connection at `unix:///var/run/docker.sock` and continue to the local startup test.
+
+### Option B: Docker Server 25 or Later
+
+When the workstation uses Docker 25 or later, start a temporary Docker 24.0.9 daemon. The container is privileged because it runs a nested Docker engine; use it only on the dedicated learner workstation and remove it after packaging.
+
+```bash
+docker run -d \
+  --privileged \
+  --name iox-docker24 \
+  -e DOCKER_TLS_CERTDIR="" \
+  -p 127.0.0.1:2375:2375 \
+  docker:24.0.9-dind
+```
+
+The empty `DOCKER_TLS_CERTDIR` value is intentional. The official Docker-in-Docker image otherwise creates certificates automatically and exposes an HTTPS daemon. `ioxclient` supports unauthenticated HTTP daemon connections, so this temporary daemon listens on plain HTTP port 2375 bound only to the workstation loopback address. Never expose this port on `0.0.0.0` or use this arrangement on a shared or production host.
+
+Confirm that the compatibility daemon is ready:
+
+```bash
+docker -H tcp://127.0.0.1:2375 version \
+  --format 'Compatibility Docker Server: {{.Server.Version}}'
+```
+
+If the command initially reports that the daemon is unavailable, wait briefly for the container to initialize and run it again. The expected server version begins with `24.0.9`.
+
+Build the application inside that daemon:
+
+```bash
+docker -H tcp://127.0.0.1:2375 build \
+  --platform linux/amd64 \
+  -t loopback1-auto-recovery:1.0 .
+```
+
+Inspect the image held by the Docker 24 daemon:
+
+```bash
+docker -H tcp://127.0.0.1:2375 image inspect \
+  loopback1-auto-recovery:1.0 \
+  --format '{{.Architecture}}'
+```
+
+The result must be `amd64`.
+
+Reconfigure `ioxclient` to use the compatibility daemon:
+
+```bash
+ioxclient docker init
+```
+
+Enter these values when prompted:
+
+```text
+Docker daemon URI: http://127.0.0.1:2375
+Docker API version: 1.43
+```
+
+Docker Engine 24.0 uses API version 1.43. Keep the `iox-docker24` container running until Task 7 finishes.
+
 The Dockerfile installs only the Python dependencies required by the application. It does not install `iproute2` because the recovery service uses Python sockets and Netmiko and never invokes the Linux `ip` command. Keeping unnecessary operating-system packages out of the image reduces its size and removes an avoidable dependency on the Alpine package repository during the build.
 
-Run a local startup check using the INI file:
+Run a local startup check using the INI file. With Option A, use `docker`; with Option B, insert `-H tcp://127.0.0.1:2375` immediately after `docker`:
 
 ```bash
 docker run --rm --name loopback-recovery-test \
@@ -293,6 +368,19 @@ tar -tf loopback1-recovery.tar
 
 Confirm that the IOx package contains its descriptor, generated root filesystem, and bootstrap configuration. Do not commit the TAR archive.
 
+Before uploading the package, perform one additional integrity check. This extracts the outer IOx envelope into a temporary directory, locates `rootfs.tar` inside `artifacts.tar.gz`, and confirms that the Docker archive contains a manifest and layer data:
+
+```bash
+rm -rf /tmp/lab15-package-check
+mkdir -p /tmp/lab15-package-check/outer /tmp/lab15-package-check/artifacts
+tar -xf loopback1-recovery.tar -C /tmp/lab15-package-check/outer
+tar -xzf /tmp/lab15-package-check/outer/artifacts.tar.gz \
+  -C /tmp/lab15-package-check/artifacts
+tar -tf /tmp/lab15-package-check/artifacts/rootfs.tar | sed -n '1,20p'
+```
+
+The listing must include `manifest.json` and Docker layer content. If the command reports that `rootfs.tar` is absent, or the listing contains no manifest or layer data, do not upload the package. Recheck which Docker daemon `ioxclient` is using and rebuild it through the Docker 24.0.9 compatibility daemon.
+
 This C8000V workflow deliberately omits `-p ext2`. `ioxclient` packages the Docker layers into `rootfs.tar`, so `package.yaml` must declare:
 
 ```yaml
@@ -301,6 +389,21 @@ startup:
 ```
 
 Do not add `-p ext2` to the command. That option invokes a flat ext2 conversion, expects `rootfs.img`, and can fail with `Failed to format rootfs image file`. Cisco's C8000V packaging example uses the Docker-layer `rootfs.tar` method shown here.
+
+After packaging with Option B, restore `ioxclient` to the workstation Docker daemon so later labs are not affected:
+
+```bash
+ioxclient docker init
+```
+
+Enter:
+
+```text
+Docker daemon URI: unix:///var/run/docker.sock
+Docker API version: accept the detected/default value
+```
+
+The completed `loopback1-recovery.tar` does not depend on the temporary daemon remaining active.
 
 ## Task 8: Deploy the Package through Local Manager
 
@@ -461,6 +564,12 @@ rm -f loopback1-recovery.tar package.tar
 docker image rm loopback1-auto-recovery:1.0
 ```
 
+If Option B was used, remove the temporary Docker 24 daemon:
+
+```bash
+docker rm -f iox-docker24
+```
+
 Commit and push only the source, tests, Dockerfile, descriptor, and documentation. Never commit `package_config.ini`, generated archives, sandbox credentials, or temporary passwords.
 
 ## Troubleshooting
@@ -470,11 +579,13 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Local Manager login page is unavailable | VPN, reservation state, browser proxy, or incorrect URL |
 | Local Manager credentials fail | Use the IOx credentials from the reservation, not automatically the IOS XE SSH credentials |
 | `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
+| `Client sent an HTTP request to an HTTPS server` on port 2375 | The temporary Docker daemon was created with automatic TLS enabled; remove it and recreate it with `-e DOCKER_TLS_CERTDIR=""` as shown in Task 6 |
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
 | Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
 | `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Remove `-p ext2` from the command and use the supplied C8000V descriptor with `startup.rootfs: rootfs.tar` |
 | `Failed to format rootfs image file` | The command is still invoking flat ext2 conversion; remove `-p ext2`, delete incomplete output, and use the Docker-layer packaging command in Task 7 |
+| `Mandatory layer blobs is missing` in Local Manager | The package was generated by an incompatible modern Docker archive; rebuild and package through the temporary Docker 24.0.9 daemon in Task 6 |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |
@@ -487,6 +598,8 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 ## References
 
 - [Cisco IOx Local Manager Reference](https://www.cisco.com/c/en/us/td/docs/routers/access/800/software/guides/iox/lm/reference-guide/1-1/iox_local_manager_ref_guide/workflows.html)
+- [Cisco: Deploy an IOx Application Using IOxClient](https://www.cisco.com/c/en/us/support/docs/cloud-systems-management/iox/223201-deploy-an-iox-application-using.html)
+- [Cisco DevNet: IOx Docker Commands](https://developer.cisco.com/docs/iox/docker-commands/)
 - [Cisco IOx Application Development Concepts](https://developer.cisco.com/docs/iox/application-development-concepts/)
 - [Cisco IOx Resource Downloads](https://developer.cisco.com/docs/iox/iox-resource-downloads/)
 - [Cisco IOx Docker Commands](https://developer.cisco.com/docs/iox/docker-commands/)

@@ -449,11 +449,22 @@ At the **DEPLOYED** state, the application card displays **Activate**, **Upgrade
 Select **Activate** for `lo1_recovery`. On the **Resources** page:
 
 1. Select the custom resource profile requested by the descriptor, or enter approximately 100 CPU units, 256 MB memory, and 10 MB application disk when Local Manager asks for explicit values.
-2. Confirm that the network section shows the application interface connected through `gateway1`, `VirtualPortGroup0`, or the equivalent IOS XE network mapping.
-3. Confirm that the guest address is `192.168.35.102/24` and the gateway is `192.168.35.101` when this Local Manager release displays those values.
-4. No NAT or external port mapping is required because IOS XE and the application communicate directly over the VirtualPortGroup subnet.
-5. Do not enable debug mode unless troubleshooting requires it.
-6. Select **Activate App** or **Activate**, and wait for the state to become **ACTIVATED**.
+2. In the network section, select the application interface and map it to `VirtualPortGroup0` through the interface shown by Local Manager.
+3. Select **Interface Setting** or **details** beside the application interface.
+4. Under **IPv4 Setting**, select **Static**. Do not leave IPv4 set to **Dynamic**; the sandbox application network does not provide a working DHCP service.
+5. Enter the following values:
+
+   | Setting | Value |
+   |---|---|
+   | IP address | `192.168.35.102` |
+   | Prefix length | `24` |
+   | DNS | `8.8.8.8` |
+   | Default gateway | `192.168.35.101` |
+
+6. Select **OK** and confirm that the resource page displays the static application address.
+7. No NAT or external port mapping is required because IOS XE and the application communicate directly over the VirtualPortGroup subnet.
+8. Do not enable debug mode unless troubleshooting requires it.
+9. Select **Activate App** or **Activate**, and wait for the state to become **ACTIVATED**.
 
 If Local Manager reports `App requires at least one interface in package.yaml, but no network is set up on the device`, select **OK** and return to IOS XE. Reapply the `VirtualPortGroup0` and `app-hosting appid lo1_recovery` configuration from Task 5, verify it in the running configuration, refresh Local Manager, and activate again.
 
@@ -493,6 +504,30 @@ show app-hosting utilization appid lo1_recovery
 ```
 
 The application log should report that it is listening on UDP 5514. If it exits immediately, open the application-specific management page and inspect **App-Config**; the most common cause is a missing configuration file or unchanged placeholder password.
+
+### Verify Runtime and Network Readiness
+
+Do not test Loopback1 recovery merely because Local Manager accepted the activation. Establish the application state and network identity first:
+
+```text
+show app-hosting list
+show app-hosting detail appid lo1_recovery
+show running-config interface VirtualPortGroup0
+show running-config | section app-hosting appid lo1_recovery
+show ip arp 192.168.35.102
+show logging | include Trap logging|192.168.35.102
+```
+
+Proceed only when all of the following are true:
+
+- `lo1_recovery` is `RUNNING`.
+- The application detail identifies guest interface 0 and the statically assigned address `192.168.35.102`.
+- `VirtualPortGroup0` is up with address `192.168.35.101/24`.
+- The application-hosting configuration binds `gateway1` to `VirtualPortGroup0` and guest interface 0.
+- Local Manager **App-Config** contains the correct temporary password and uses `192.168.35.101` for `host` and `syslog_source`.
+- The application log contains `Listening for IOS XE syslog on udp://0.0.0.0:5514`.
+
+A failed ping does not by itself prove that the Python process is stopped because ICMP handling depends on the hosted network. However, an unresolved or incomplete ARP entry together with a missing guest address in `show app-hosting detail` indicates that the application vNIC was not provisioned correctly. Stop and deactivate the application, confirm that **IPv4 Setting** uses the static address `192.168.35.102/24` rather than **Dynamic**, reapply the Task 5 `app-hosting` configuration if necessary, and then activate and start it again.
 
 ## Task 11: Deliver Syslog and Test Recovery
 
@@ -601,6 +636,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | `Mandatory layer blobs is missing` in Local Manager | `ioxclient` packaged from Docker 29 or the archive is incomplete; delete the generated TAR, point `ioxclient` to the Docker 24 daemon, and rebuild the package from the beginning |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
+| App starts but has no reachable IPv4 address | Deactivate it and set IPv4 to **Static** with `192.168.35.102/24`, DNS `8.8.8.8`, and gateway `192.168.35.101`; Dynamic addressing does not work on this sandbox application network |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |
 | Application is running but receives no event | Incorrect Local Manager network selection or UDP port mapping, wrong logging destination, or wrong logging severity |
 | Unexpected syslog source is rejected | Update only `syslog_source` to the observed authorized router address and restart |

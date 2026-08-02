@@ -244,11 +244,13 @@ docker run -d \
   --privileged \
   --name iox-docker24 \
   -e DOCKER_TLS_CERTDIR="" \
+  --dns 1.1.1.1 \
+  --dns 8.8.8.8 \
   -p 127.0.0.1:2375:2375 \
   docker:24.0.9-dind
 ```
 
-The empty `DOCKER_TLS_CERTDIR` value is required. Without it, the Docker-in-Docker image enables HTTPS automatically and a plain HTTP client receives `Client sent an HTTP request to an HTTPS server`. Port 2375 is bound only to `127.0.0.1`; never expose this unauthenticated daemon on an external interface.
+The empty `DOCKER_TLS_CERTDIR` value is required. Without it, the Docker-in-Docker image enables HTTPS automatically and a plain HTTP client receives `Client sent an HTTP request to an HTTPS server`. The explicit DNS servers prevent the nested daemon from inheriting an unusable loopback resolver such as `127.0.0.53` from the Ubuntu host. Port 2375 is bound only to `127.0.0.1`; never expose this unauthenticated daemon on an external interface.
 
 Confirm that the compatibility daemon is ready:
 
@@ -262,6 +264,15 @@ The result must be:
 ```text
 Compatibility Docker Server: 24.0.9
 ```
+
+Before building, verify DNS resolution from inside the compatibility container:
+
+```bash
+docker exec iox-docker24 \
+  nslookup registry-1.docker.io
+```
+
+The command must return one or more addresses. If it times out, the VPN or local network may block public DNS. Inspect the DNS servers assigned to the active Ubuntu interface with `resolvectl dns`, replace `1.1.1.1` and `8.8.8.8` in the `docker run` command with a reachable non-loopback DNS server, and recreate `iox-docker24` before continuing.
 
 Build the AMD64 application inside the Docker 24 daemon:
 
@@ -563,6 +574,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
 | `Client sent an HTTP request to an HTTPS server` on port 2375 | Remove `iox-docker24` and recreate it with `-e DOCKER_TLS_CERTDIR=""` exactly as shown in Task 6 |
 | Compatibility server does not report `24.0.9` | The command is addressing the wrong Docker daemon; include `-H tcp://127.0.0.1:2375` |
+| `lookup registry-1.docker.io: i/o timeout` | The Docker 24 container cannot resolve Docker Hub; recreate it with the explicit DNS options in Task 6 and verify with `docker exec iox-docker24 nslookup registry-1.docker.io` |
 | AMD64 build reports `exec format error` | AMD64 emulation was not registered; rerun the `tonistiigi/binfmt --install amd64` command before rebuilding |
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |

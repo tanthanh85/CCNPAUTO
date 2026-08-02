@@ -245,6 +245,8 @@ The expected value is:
 amd64
 ```
 
+The Dockerfile installs only the Python dependencies required by the application. It does not install `iproute2` because the recovery service uses Python sockets and Netmiko and never invokes the Linux `ip` command. Keeping unnecessary operating-system packages out of the image reduces its size and removes an avoidable dependency on the Alpine package repository during the build.
+
 Run a local startup check using the INI file:
 
 ```bash
@@ -460,6 +462,8 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Local Manager credentials fail | Use the IOx credentials from the reservation, not automatically the IOS XE SSH credentials |
 | `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
+| Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
+| Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |

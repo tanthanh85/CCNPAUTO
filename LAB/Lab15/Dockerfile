@@ -11,8 +11,10 @@ ENV SYSLOG_HOST=0.0.0.0 \
     SYSLOG_PORT=5514 \
     LOG_LEVEL=INFO
 
-RUN apk add --no-cache iproute2 \
-    && python3 -m pip install --no-cache-dir -r /app/requirements.txt
+RUN python3 -m pip install \
+    --no-cache-dir \
+    --disable-pip-version-check \
+    -r /app/requirements.txt
 
 EXPOSE 5514/udp
 

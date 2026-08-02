@@ -132,7 +132,7 @@ flowchart TD
     L14["Optional Lab 14<br/>NETCONF data in Splunk"]
     L15["Optional Lab 15<br/>Python Application Hosting on Cisco IOS XE"]
     L16["Optional Lab 16<br/>Kubernetes with Minikube"]
-    L17["Optional Lab 17<br/>pyATS CRC testing"]
+    L17["Optional Lab 17<br/>Catalyst switchport health with pyATS"]
     L18["Optional Lab 18<br/>RESTCONF with trusted TLS"]
     L19["Optional Lab 19<br/>Asynchronous RESTCONF"]
     L20["Optional Lab 20<br/>Pagination and HTTP 429"]
@@ -393,7 +393,7 @@ standalone operational or specialist projects and are described separately.
 | `optional_lab14_splunk_netconf` | Optional Lab 14 | NETCONF telemetry collector and Splunk integration |
 | `optional_lab15_c8000v_app_hosting` | Optional Lab 15 | Host a Python application using the application hosting service on Cisco IOS XE |
 | `optional_lab16_minikube` | Optional Lab 16 | Standalone beginner Kubernetes workload |
-| `optional_lab17_pyats_crc` | Optional Lab 17 | pyATS/Genie CRC counter test |
+| `optional_lab17_switchport_health` | Optional Lab 17 | pyATS/Genie Catalyst switchport health test |
 | `optional_lab18_restconf_pki` | Optional Lab 18 | Local CA and certificate-validating RESTCONF client |
 | `optional_lab19_async_restconf` | Optional Lab 19 | Trusted asynchronous RESTCONF collector |
 | `optional_lab21_sdwan_api` | Optional Lab 21 | SD-WAN 20.10 session authentication and device inventory |
@@ -415,7 +415,7 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 14](Lab14/Lab14.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
 | [Optional Lab 15: Python Application Hosting on Cisco IOS XE](Lab15/Lab15.md) | A network team needs an event-driven utility to run directly beside IOS XE. | Learners package a Python service and use the reservable C8000V application hosting service and IOx Local Manager to deploy, configure, activate, test, and remove it. |
 | [Optional Lab 16](Lab16/Lab16.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
-| [Optional Lab 17](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC counters and preserve structured evidence. |
+| [Optional Lab 17: Catalyst Switchport Health](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC errors, interface resets, collisions, output errors, and output drops while preserving structured evidence. |
 | [Optional Lab 18](Lab18/Lab18.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
 | [Optional Lab 19](Lab19/Lab19.md) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 18. |
 | [Optional Lab 21](Lab21/Lab21.md) | WAN operations needs controller-derived device and software inventory. | SD-WAN Manager 20.10 session authentication and `/dataservice` inventory. |

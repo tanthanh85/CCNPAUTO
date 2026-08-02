@@ -1,7 +1,7 @@
 descriptor-schema-version: "2.9"
 
 info:
-  name: loopback1-auto-recovery
+  name: lo1_recovery
   description: Receives IOS XE syslog and re-enables Loopback1 through Netmiko
   version: "1.0"
   author-name: CCNPAUTO

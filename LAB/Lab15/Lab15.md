@@ -47,7 +47,7 @@ The control paths are different:
 ```text
 Learner browser  -> http://10.10.20.48/iox/login -> IOx Local Manager
 Learner terminal -> SSH to Catalyst 8000V        -> IOS XE CLI
-Hosted app       -> SSH to 10.10.20.48:22        -> Netmiko remediation
+Hosted app       -> SSH to 192.168.35.101:22      -> Netmiko remediation
 IOS XE           -> Application UDP/5514         -> Shutdown event
 ```
 
@@ -173,20 +173,20 @@ The file contains:
 
 ```ini
 [router]
-host = 10.10.20.48
+host = 192.168.35.101
 port = 22
 username = apphost
 password = REPLACE_WITH_LAB_PASSWORD
 device_type = cisco_ios
 timeout = 10
-syslog_source = 10.10.20.48
+syslog_source = 192.168.35.101
 ```
 
 The fields have these purposes:
 
 | Field | Meaning |
 |---|---|
-| `host` | IOS XE address the application reaches with Netmiko |
+| `host` | IOS XE VirtualPortGroup address the application reaches with Netmiko |
 | `port` | SSH port as seen from the hosted application; normally 22 inside the sandbox |
 | `username` and `password` | Temporary router account used only by this lab |
 | `device_type` | Netmiko platform driver, `cisco_ios` |
@@ -195,14 +195,34 @@ The fields have these purposes:
 
 The application can also accept equivalent environment variables for portability, but this Local Manager workflow deliberately uses the managed bootstrap file.
 
-## Task 5: Create the Temporary IOS XE Account and Test Interface
+## Task 5: Prepare IOS XE Networking, Credentials, and the Test Interface
 
 Choose a temporary lab password containing letters and numbers but no spaces. Do not reuse any personal, reservation, GitLab, or Vault password.
 
-On IOS XE, create the application account and the test loopback:
+First, inspect whether the reserved router already has an application-hosting network. Do not overwrite a VirtualPortGroup used by another application:
+
+```text
+show ip interface brief | include VirtualPortGroup
+show running-config | section app-hosting
+show app-hosting list
+```
+
+The clean reservable sandbox used by this lab should not have another hosted application or an existing `VirtualPortGroup0` address. Configure a dedicated internal subnet between IOS XE and `lo1_recovery`, create the application account, and prepare the test loopback:
 
 ```text
 configure terminal
+interface VirtualPortGroup0
+ description LAB15-IOX-APPLICATION-NETWORK
+ ip address 192.168.35.101 255.255.255.0
+ no shutdown
+exit
+app-hosting appid lo1_recovery
+ app-vnic gateway1 virtualportgroup 0 guest-interface 0
+  guest-ipaddress 192.168.35.102 netmask 255.255.255.0
+ exit
+ app-default-gateway 192.168.35.101 guest-interface 0
+ name-server0 8.8.8.8
+exit
 username apphost privilege 15 secret <TEMPORARY-LAB-PASSWORD>
 ip ssh version 2
 interface Loopback1
@@ -210,12 +230,16 @@ interface Loopback1
  ip address 198.51.100.1 255.255.255.255
  no shutdown
 end
+show running-config interface VirtualPortGroup0
+show running-config | section app-hosting appid lo1_recovery
 show interfaces Loopback1 | include line protocol
 ```
 
+`192.168.35.101` is the IOS XE side of the internal link, while `192.168.35.102` becomes the application address. The application can therefore SSH directly to the router through the VirtualPortGroup, and IOS XE can send syslog directly to the application without NAT or an external port mapping.
+
 The account has privilege 15 only to keep this optional sandbox exercise focused on application hosting. A production implementation should use command authorization and the minimum privileges required for the remediation.
 
-In VS Code, open `package_config.ini` and replace `REPLACE_WITH_LAB_PASSWORD` with the temporary password. Retain `10.10.20.48` for `host` and `syslog_source` initially. If later logs show a different source address, update only `syslog_source` through Local Manager.
+In VS Code, open `package_config.ini` and replace `REPLACE_WITH_LAB_PASSWORD` with the temporary password. Retain `192.168.35.101` for both `host` and `syslog_source`. These values match the IOS XE VirtualPortGroup address configured above.
 
 Do not stage or commit `package_config.ini`. Verify that Git ignores it:
 
@@ -279,14 +303,14 @@ Build the AMD64 application inside the Docker 24 daemon:
 ```bash
 docker -H tcp://127.0.0.1:2375 build \
   --platform linux/amd64 \
-  -t loopback1-auto-recovery:1.0 .
+  -t lo1_recovery:1.0 .
 ```
 
 Inspect the resulting architecture:
 
 ```bash
 docker -H tcp://127.0.0.1:2375 image inspect \
-  loopback1-auto-recovery:1.0 \
+  lo1_recovery:1.0 \
   --format '{{.Architecture}}'
 ```
 
@@ -323,7 +347,7 @@ docker -H tcp://127.0.0.1:2375 run \
   -p 15514:5514/udp \
   -e CAF_APP_CONFIG_FILE=/data/package_config.ini \
   -v "$PWD/package_config.ini:/data/package_config.ini:ro" \
-  loopback1-auto-recovery:1.0
+  lo1_recovery:1.0
 ```
 
 Confirm that the process listens on UDP 5514. Do not generate the matching shutdown event during this local test. Stop the container with `Ctrl+C`.
@@ -343,21 +367,21 @@ Package the image:
 
 ```bash
 ioxclient docker package \
-  --name loopback1-recovery.tar \
-  loopback1-auto-recovery:1.0 .
+  --name lo1_recovery.tar \
+  lo1_recovery:1.0 .
 ```
 
 If the installed release does not support `--name` in that position, use:
 
 ```bash
-ioxclient docker package loopback1-auto-recovery:1.0 .
-mv package.tar loopback1-recovery.tar
+ioxclient docker package lo1_recovery:1.0 .
+mv package.tar lo1_recovery.tar
 ```
 
 Inspect the resulting archive:
 
 ```bash
-tar -tf loopback1-recovery.tar
+tar -tf lo1_recovery.tar
 ```
 
 Confirm that the IOx package contains its descriptor, generated root filesystem, and bootstrap configuration. Do not commit the TAR archive.
@@ -367,7 +391,7 @@ Before uploading the package, perform one additional integrity check. This extra
 ```bash
 rm -rf /tmp/lab15-package-check
 mkdir -p /tmp/lab15-package-check/outer /tmp/lab15-package-check/artifacts
-tar -xf loopback1-recovery.tar -C /tmp/lab15-package-check/outer
+tar -xf lo1_recovery.tar -C /tmp/lab15-package-check/outer
 tar -xzf /tmp/lab15-package-check/outer/artifacts.tar.gz \
   -C /tmp/lab15-package-check/artifacts
 tar -tf /tmp/lab15-package-check/artifacts/rootfs.tar | sed -n '1,20p'
@@ -409,85 +433,75 @@ Deploy the package:
 
 1. Select **Applications** from the Local Manager menu.
 2. Select **Add New**, **Add/Deploy**, or the equivalent deployment button shown by this Local Manager release.
-3. Enter `loopback1-recovery` as the application ID.
+3. Enter `lo1_recovery` as the application ID.
 4. Select **Choose File**.
-5. Browse to the project directory and select `loopback1-recovery.tar`.
+5. Browse to the project directory and select `lo1_recovery.tar`.
 6. Start the upload and wait without refreshing the browser.
 7. Confirm the successful deployment dialog.
 8. Return to **Applications** and verify that the application state is **DEPLOYED**.
 
 Deployment stores and validates the package, but it does not yet reserve CPU, memory, or networking resources.
 
-## Task 9: Verify the Bootstrap Configuration
+## Task 9: Activate the Application
 
-From the `loopback1-recovery` application page, open **App-Config** or the configuration tab exposed by the installed Local Manager release.
+At the **DEPLOYED** state, the application card displays **Activate**, **Upgrade**, and **Delete**. Selecting the application name may display tabs such as **Resources**, **App-Config**, **App-info**, **App-DataDir**, and **Logs**, but the management tabs are not usable yet. Selecting **App-Config** at this point produces `This tab is not valid in deployed state`; this is expected behavior, not a package failure. Select **OK**, return to **Resources** or **Applications**, and activate the application first.
 
-1. View or download the current application configuration.
-2. Confirm that it uses valid INI syntax and includes the `[router]` section.
-3. If the placeholder password is still present, select the option to update or upload the configuration.
-4. Choose the edited `package_config.ini` from the project folder.
-5. Save the configuration.
-6. View or download it again and confirm that the new configuration is active.
-
-Local Manager provisions this file at the path referenced by `CAF_APP_CONFIG_FILE` when the application starts. The application does not need to know the physical path in advance.
-
-Although this mechanism keeps the password outside the Docker image, Local Manager administrators can still read the configuration. It is appropriate only for this isolated lab account. Remove the account when the lab finishes.
-
-## Task 10: Activate and Start the Application
-
-Select **Activate** for `loopback1-recovery`. On the **Resources** page:
+Select **Activate** for `lo1_recovery`. On the **Resources** page:
 
 1. Select the custom resource profile requested by the descriptor, or enter approximately 100 CPU units, 256 MB memory, and 10 MB application disk when Local Manager asks for explicit values.
-2. Locate **Network Configuration** and map `eth0` to a network offered by the Catalyst 8000V sandbox.
-3. Prefer a bridged or directly reachable application network when one is available.
-4. If only `iox-nat0` is offered, select it and open **Port Mapping**.
-5. Map application UDP port `5514` to an available external UDP port. Use `5514` when available; otherwise record the external port assigned by Local Manager.
-6. Do not enable debug mode unless troubleshooting requires it.
-7. Select **Activate** and wait for the state to become **ACTIVATED**.
-8. Return to **Applications**, select **Start**, and wait for **RUNNING**.
+2. Confirm that the network section shows the application interface connected through `gateway1`, `VirtualPortGroup0`, or the equivalent IOS XE network mapping.
+3. Confirm that the guest address is `192.168.35.102/24` and the gateway is `192.168.35.101` when this Local Manager release displays those values.
+4. No NAT or external port mapping is required because IOS XE and the application communicate directly over the VirtualPortGroup subnet.
+5. Do not enable debug mode unless troubleshooting requires it.
+6. Select **Activate App** or **Activate**, and wait for the state to become **ACTIVATED**.
+
+If Local Manager reports `App requires at least one interface in package.yaml, but no network is set up on the device`, select **OK** and return to IOS XE. Reapply the `VirtualPortGroup0` and `app-hosting appid lo1_recovery` configuration from Task 5, verify it in the running configuration, refresh Local Manager, and activate again.
+
+Activation reserves the requested resources and creates the application network, but it does not start the Python process.
+
+## Task 10: Start and Manage the Application
+
+Return to **Applications**, select **Start** for `lo1_recovery`, and wait for **RUNNING**. Once the application is running, its card exposes **Manage**, or the application name/card becomes selectable depending on the Local Manager release.
+
+1. Select **Manage**. If no Manage button is shown, select the `lo1_recovery` name or application card.
+2. On the application-specific page, locate the tabs such as **Resources**, **App-Info**, **App-Config**, **App-DataDir**, and **Log**. These are not top-level Local Manager tabs.
+3. Open **App-Config**.
+4. Confirm that the displayed content uses valid INI syntax and includes the `[router]` section.
+5. Confirm that `host`, `username`, `password`, `device_type`, and `syslog_source` contain the Lab 15 values rather than the placeholder password.
+6. If a correction is necessary, edit the text in the page or upload the revised `package_config.ini`, depending on which controls this Local Manager release provides.
+7. Select **Save**.
+8. Stop and restart the application after changing the configuration so that the Python process rereads `CAF_APP_CONFIG_FILE`.
+
+Local Manager provisions `package_config.ini` at the path referenced by `CAF_APP_CONFIG_FILE`. Although this mechanism keeps the password outside the Docker image, Local Manager administrators can still read the configuration. It is appropriate only for this isolated lab account, which is removed at the end of the exercise.
 
 Do not refresh the browser during upload, activation, or start operations. Local Manager may need several minutes to allocate resources and create the container.
 
 Open the application's **Resources**, **App-Info**, and **Logs** or **App-Console** views. Record:
 
 - Application state.
-- Assigned application address.
-- Selected IOx network.
+- Application address `192.168.35.102`.
+- `VirtualPortGroup0` application network.
 - Internal UDP port.
-- External UDP port when NAT port mapping is used.
 - CPU and memory reservation.
 
 Corroborate the UI from IOS XE:
 
 ```text
 show app-hosting list
-show app-hosting detail appid loopback1-recovery
-show app-hosting utilization appid loopback1-recovery
+show app-hosting detail appid lo1_recovery
+show app-hosting utilization appid lo1_recovery
 ```
 
-The application log should report that it is listening on UDP 5514. If it exits immediately, inspect **App-Config** first; the most common cause is a missing configuration file or unchanged placeholder password.
+The application log should report that it is listening on UDP 5514. If it exits immediately, open the application-specific management page and inspect **App-Config**; the most common cause is a missing configuration file or unchanged placeholder password.
 
 ## Task 11: Deliver Syslog and Test Recovery
 
-Determine the correct syslog destination from the Local Manager network selection:
-
-| Activation choice | IOS XE syslog destination |
-|---|---|
-| Bridged or directly reachable network | Assigned application IP, UDP 5514 |
-| `iox-nat0` with port mapping | IOx host address `10.10.20.48` and the external UDP port recorded during activation |
-
-Determine which IOS XE interface owns `10.10.20.48`:
-
-```text
-show ip interface brief | include 10.10.20.48
-```
-
-Configure the router to send informational syslog to the selected destination. Replace every placeholder with the Local Manager values:
+The application uses `192.168.35.102` on the directly connected VirtualPortGroup subnet. Configure IOS XE to source informational syslog from its `192.168.35.101` VirtualPortGroup address and send it to application UDP port 5514:
 
 ```text
 configure terminal
-logging source-interface <INTERFACE-WITH-10.10.20.48>
-logging host <SYSLOG-DESTINATION> transport udp port <SYSLOG-PORT>
+logging source-interface VirtualPortGroup0
+logging host 192.168.35.102 transport udp port 5514
 logging trap informational
 end
 ```
@@ -501,7 +515,7 @@ interface Loopback1
 end
 ```
 
-The application should receive the syslog, validate its source, connect to `10.10.20.48` with Netmiko, apply `no shutdown`, and verify the result.
+The application should receive the syslog, validate source `192.168.35.101`, connect to that address with Netmiko, apply `no shutdown`, and verify the result.
 
 Check IOS XE:
 
@@ -526,10 +540,10 @@ If the log reports that the syslog came from an unexpected address, record that 
 Use Local Manager to remove resources in the correct order:
 
 1. Open **Applications**.
-2. Select **Stop** for `loopback1-recovery` and wait for **STOPPED**.
+2. Select **Stop** for `lo1_recovery` and wait for **STOPPED**.
 3. Select **Deactivate** and wait for **DEPLOYED**.
 4. Select **Delete**, **Remove**, or **Uninstall**, depending on the UI wording.
-5. Confirm only the `loopback1-recovery` application.
+5. Confirm only the `lo1_recovery` application.
 6. Verify that it no longer appears in **Applications**.
 
 Confirm from IOS XE:
@@ -538,12 +552,15 @@ Confirm from IOS XE:
 show app-hosting list
 ```
 
-Remove the temporary network and account configuration. Use the exact syslog destination and port configured earlier:
+Remove the temporary syslog, application-hosting network, and account configuration:
 
 ```text
 configure terminal
-no logging host <SYSLOG-DESTINATION> transport udp port <SYSLOG-PORT>
+no logging host 192.168.35.102 transport udp port 5514
+no logging source-interface VirtualPortGroup0
 no username apphost
+no app-hosting appid lo1_recovery
+no interface VirtualPortGroup0
 interface Loopback1
  no shutdown
 end
@@ -552,9 +569,9 @@ end
 On Ubuntu, delete the generated package and optional local image when they are no longer required:
 
 ```bash
-rm -f loopback1-recovery.tar package.tar
+rm -f lo1_recovery.tar package.tar
 docker -H tcp://127.0.0.1:2375 image rm \
-  loopback1-auto-recovery:1.0
+  lo1_recovery:1.0
 ```
 
 The Lab 15 image resides in the temporary daemon rather than the normal Docker 29 image store. Remove that daemon after packaging and deployment are complete. This does not change or remove the workstation's normal Docker 29 service:
@@ -588,7 +605,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Application is running but receives no event | Incorrect Local Manager network selection or UDP port mapping, wrong logging destination, or wrong logging severity |
 | Unexpected syslog source is rejected | Update only `syslog_source` to the observed authorized router address and restart |
 | Netmiko authentication fails | Temporary account or bootstrap username/password is incorrect |
-| Netmiko times out | The application cannot reach `10.10.20.48:22`; inspect IOx network and routing |
+| Netmiko times out | The application cannot reach `192.168.35.101:22`; inspect `VirtualPortGroup0`, the application vNIC, and the temporary IOS XE account |
 | Loopback remains down | Inspect event match, source validation, application log, SSH privileges, and verification output |
 
 ## References

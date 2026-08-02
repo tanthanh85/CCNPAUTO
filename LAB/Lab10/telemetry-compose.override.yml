@@ -1,4 +1,0 @@
-services:
-  telegraf:
-    volumes:
-      - ./telegraf-mdt.conf:/etc/telegraf/telegraf.conf:ro

@@ -37,6 +37,7 @@ class RouterSettings:
     password: str
     device_type: str
     timeout: int
+    syslog_source: str | None = None
 
     def device_dictionary(self) -> dict:
         return {
@@ -73,6 +74,7 @@ def load_settings(path: Path) -> RouterSettings:
             password=str(environment["password"]),
             device_type=os.getenv("ROUTER_DEVICE_TYPE", "cisco_ios"),
             timeout=int(os.getenv("ROUTER_TIMEOUT", "10")),
+            syslog_source=os.getenv("ROUTER_SYSLOG_SOURCE"),
         )
 
     parser = configparser.ConfigParser()
@@ -90,6 +92,7 @@ def load_settings(path: Path) -> RouterSettings:
         password=password,
         device_type=section.get("device_type", "cisco_ios"),
         timeout=section.getint("timeout", 10),
+        syslog_source=section.get("syslog_source", fallback=None),
     )
 
 
@@ -213,7 +216,11 @@ def main() -> None:
     server = SyslogRecoveryServer(
         host=os.getenv("SYSLOG_HOST", "0.0.0.0"),
         port=int(os.getenv("SYSLOG_PORT", "5514")),
-        expected_source=os.getenv("ROUTER_SYSLOG_SOURCE", settings.host),
+        expected_source=(
+            os.getenv("ROUTER_SYSLOG_SOURCE")
+            or settings.syslog_source
+            or settings.host
+        ),
         recovery=LoopbackRecovery(settings),
     )
     signal.signal(signal.SIGTERM, server.stop)

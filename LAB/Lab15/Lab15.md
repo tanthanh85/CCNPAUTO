@@ -1,49 +1,54 @@
-# Optional Lab 15: Host a Python Application on a Catalyst 8000V Router
+# Optional Lab 15: Host a Python Application with IOx Local Manager
 
 ## Lab Introduction
 
-Network automation normally runs from a workstation, runner, or controller. However, some operational functions benefit from running close to the network device. An application hosted directly on an IOS XE router can receive local events and respond without waiting for an external automation platform.
+Network automation normally runs from a workstation, runner, or controller. However, a small operational service can also run directly beside IOS XE. Hosting the service on the router reduces its dependency on an external automation server and demonstrates how edge applications can react to local events.
 
-In this optional lab, learners use the **reservable Cisco Catalyst 8000V DevNet Sandbox** as the application-hosting platform. They build a small Python service as a Docker image, convert it into an IOx package with `ioxclient`, copy the package to router storage, and control its lifecycle with IOS XE `app-hosting` commands.
+In this optional lab, learners reserve the **Cisco Catalyst 8000V DevNet Sandbox** and manage the hosted application through the router's **IOx Local Manager** at:
 
-The application listens for a syslog message reporting that `Loopback1` was administratively shut down. After validating the event source and message, it connects back to the hosting router with Netmiko, enters the interface configuration, applies `no shutdown`, and verifies the resulting state. The exercise demonstrates a compact closed-loop workflow while keeping the remediation deliberately narrow.
+```text
+http://10.10.20.48/iox/login
+```
 
-This is no longer a Local Manager exercise. The Catalyst 8000V router itself installs, activates, starts, monitors, stops, and uninstalls the application through IOS XE CLI.
+Learners build a Python service as an x86-64 Docker image, convert the image into an IOx application package with `ioxclient`, and use Local Manager to deploy, configure, activate, start, inspect, stop, and delete it. IOS XE CLI is still used to create the test interface, configure syslog, verify IOx state, and confirm the final network condition.
+
+The application listens for an IOS XE syslog message stating that `Loopback1` was administratively shut down. After validating the message and source address, it connects back to the Catalyst 8000V with Netmiko, applies `no shutdown`, and verifies that the interface is operational. The remediation is intentionally narrow so learners can concentrate on application hosting and lifecycle management.
 
 ## Learning Objectives
 
-- Explain the IOS XE and IOx application-hosting lifecycle.
-- Install `ioxclient` for an x86-64 or ARM64 learner workstation.
-- Build an x86-64 Docker image for Catalyst 8000V.
-- Package a Docker image as an IOx application.
-- Connect the hosted application through a `VirtualPortGroup` interface.
-- Transfer and install an application package on IOS XE.
-- Configure Docker runtime environment variables with `app-hosting` CLI.
-- Verify a closed loop from syslog detection through Netmiko remediation.
-- Remove application resources and temporary credentials safely.
+- Explain the relationship between IOS XE, IOx, Local Manager, Docker, and `ioxclient`.
+- Install `ioxclient` on an x86-64 or ARM64 learner workstation.
+- Build an x86-64 application image for Catalyst 8000V.
+- Package the Docker image as an IOx archive.
+- Deploy and activate an application through IOx Local Manager.
+- Supply deployment-specific settings through `package_config.ini`.
+- Configure application networking and UDP port exposure.
+- Inspect application state, resources, configuration, and logs.
+- Validate a small event-driven closed loop.
+- Remove the application and temporary credentials safely.
 
-## End-to-End Flow
+## Application and Management Flow
 
 ```mermaid
 flowchart TD
     A["Python source and tests"] --> B["Docker image on learner workstation"]
-    B --> C["ioxclient creates package.tar"]
-    C --> D["SCP package to Catalyst 8000V bootflash"]
-    D --> E["IOS XE installs and activates application"]
-    E --> F["Container receives an address through VirtualPortGroup0"]
+    B --> C["ioxclient creates IOx package"]
+    C --> D["Browser uploads package to Local Manager"]
+    D --> E["Local Manager deploys and activates resources"]
+    E --> F["Local Manager provisions application network"]
     F --> G["IOS XE sends Loopback1 shutdown syslog"]
-    G --> H["Application validates source and message"]
+    G --> H["Application validates source and event"]
     H --> I["Netmiko sends interface Loopback1 and no shutdown"]
-    I --> J["Application verifies Loopback1 is operational"]
+    I --> J["Application verifies final interface state"]
 ```
 
-The router and hosted application use an internal subnet. The following addresses are examples; learners must first inspect the reserved router and avoid addresses already assigned to Guest Shell or another application.
+The control paths are different:
 
 ```text
-Catalyst 8000V VirtualPortGroup0: 192.168.35.1/24
-Hosted application eth0:         192.168.35.103/24
-Default gateway and SSH target:  192.168.35.1
-Syslog destination:              192.168.35.103 UDP/5514
+Learner browser  -> http://10.10.20.48/iox/login -> IOx Local Manager
+Learner terminal -> SSH to Catalyst 8000V        -> IOS XE CLI
+Hosted app       -> SSH to 10.10.20.48:22        -> Netmiko remediation
+IOS XE           -> Application UDP/5514         -> Shutdown event
 ```
 
 ## Supplied Files
@@ -64,37 +69,43 @@ Lab15/
     └── test_loopback_recovery.py
 ```
 
-`package_config.ini` supports local container testing. On the router, IOS XE passes the deployment settings to the container through Docker environment variables.
+`package_config.ini` is a deployment-specific IOx bootstrap configuration. It is excluded from Git and from the Docker image, but `ioxclient` places it in the IOx application package so Local Manager can manage it separately from application code.
 
 ## Task 1: Reserve and Inspect the Catalyst 8000V
 
 1. Sign in to Cisco DevNet Sandbox.
 2. Reserve the **Cisco Catalyst 8000V** sandbox.
 3. Wait until the reservation is active and connect through the supplied VPN.
-4. Record the IOS XE hostname or address, SSH port, username, and password from the reservation.
+4. Record the IOS XE SSH username and password from the reservation.
 5. Open an SSH session to the router and enter privileged EXEC mode.
 
-Inspect the platform before changing it:
+Inspect the environment without changing it:
 
 ```text
 show version
 show iox
 show app-hosting list
 show app-hosting resource
-show ip interface brief | include VirtualPortGroup
-show running-config | section app-hosting
-dir bootflash:
+show ip interface brief
 ```
 
-Proceed only when `show iox` reports that the application-hosting infrastructure is running and sufficient memory, CPU, and bootflash space are available. Existing applications belong to the sandbox environment or another activity; do not stop, alter, or remove them.
+Confirm that the IOx services report a running state and that sufficient CPU, memory, and disk resources are available. Do not stop or remove existing applications.
 
-If `VirtualPortGroup0` already exists, record its address and subnet. Do not overwrite it. If Guest Shell or another application already uses an address in that subnet, select a different unused guest address for this application.
+Open the Local Manager URL in a browser:
+
+```text
+http://10.10.20.48/iox/login
+```
+
+Use the IOx Local Manager credentials provided by the active reservation. These credentials may differ from the IOS XE SSH credentials. Because this sandbox URL uses HTTP, use it only inside the protected DevNet VPN environment and never reuse its password elsewhere.
+
+After login, open **Applications** and confirm that the page displays the applications known to the Catalyst 8000V.
 
 ## Task 2: Prepare the Repository and Test the Code
 
-Create a private GitLab.com project named `optional_lab15_c8000v_app_hosting`. Clone it under `~/ccnpauto-workspace`, then use VS Code to copy the supplied Lab 15 files into the cloned folder.
+Create a private GitLab.com project named `optional_lab15_c8000v_app_hosting`. Clone it under `~/ccnpauto-workspace`, and then use VS Code to copy the supplied Lab 15 files into the cloned folder.
 
-Create the Python environment and run the supplied checks:
+Create a virtual environment and run the supplied validation:
 
 ```bash
 python3 -m venv .venv
@@ -105,11 +116,11 @@ python -m py_compile loopback_recovery.py scripts/send_test_syslog.py
 python -m pytest -q
 ```
 
-The tests confirm that only a `Loopback1` administrative-down event triggers remediation. They also confirm that Netmiko receives `interface Loopback1` and `no shutdown`, verifies the interface state, and disconnects cleanly. Mocked connections ensure that these local tests cannot modify the sandbox router.
+The tests confirm that only a `Loopback1` administrative-down event triggers remediation. They also verify that Netmiko receives `interface Loopback1` and `no shutdown`, checks the interface state, and disconnects. Mocked connections prevent the local tests from modifying the sandbox.
 
 ## Task 3: Install and Initialize `ioxclient`
 
-`ioxclient` is Cisco's packaging and lifecycle utility for IOx applications. It is a standalone executable, not a Python package.
+`ioxclient` is Cisco's command-line tool for converting an application image into an IOx-compatible package. It is a standalone executable rather than a Python library.
 
 Identify the learner workstation architecture:
 
@@ -118,14 +129,14 @@ uname -m
 dpkg --print-architecture
 ```
 
-| Result | Cisco download to select |
+| Result | Required `ioxclient` download |
 |---|---|
 | `x86_64` or `amd64` | Linux x86-64 |
 | `aarch64` or `arm64` | Linux ARM64 |
 
-Open [Cisco IOx Resource Downloads](https://developer.cisco.com/docs/iox/iox-resource-downloads/) and download the current Linux `ioxclient` binary matching the workstation. The workstation binary may be ARM64 even though the application image built for Catalyst 8000V must be x86-64.
+Open [Cisco IOx Resource Downloads](https://developer.cisco.com/docs/iox/iox-resource-downloads/) and download the current Linux binary matching the workstation. The `ioxclient` architecture must match the workstation, whereas the application image created later must match the x86-64 Catalyst 8000V.
 
-Extract the downloaded archive through Ubuntu Files, open a terminal in the extracted directory, and install the binary:
+Extract the archive with Ubuntu Files. Open a terminal in the extracted directory and install the executable:
 
 ```bash
 file ioxclient
@@ -135,234 +146,63 @@ sudo install -m 0755 ioxclient /usr/local/bin/ioxclient
 ioxclient --version
 ```
 
-Use `sudo` only for writing to `/usr/local/bin`; ordinary `ioxclient` commands should run as the learner account. An `Exec format error` means the wrong workstation architecture was downloaded.
+Use `sudo` only for installing the executable into `/usr/local/bin`. Running normal `ioxclient` commands with `sudo` can create root-owned settings and build files. An `Exec format error` indicates that the wrong workstation architecture was downloaded.
 
-Confirm Docker access and initialize the local Docker socket used during packaging:
+Confirm access to the local Docker daemon and initialize the Docker connection used for packaging:
 
 ```bash
 docker version
 ioxclient docker init
 ```
 
-Accept `unix:///var/run/docker.sock` and the detected/default Docker API version. Unlike the earlier IOx sandbox design, this lab does not create an `ioxclient` platform profile because application lifecycle operations are performed directly from IOS XE CLI.
-
-## Task 4: Review Configuration and Credential Handling
-
-Open `loopback_recovery.py`. The application accepts router settings through these environment variables:
+Accept the local socket and detected/default Docker API version:
 
 ```text
-ROUTER_HOST
-ROUTER_PORT
-ROUTER_USERNAME
-ROUTER_PASSWORD
-ROUTER_DEVICE_TYPE
-ROUTER_TIMEOUT
-ROUTER_SYSLOG_SOURCE
+unix:///var/run/docker.sock
 ```
 
-When those variables are absent during local development, the application falls back to `package_config.ini`. This file is ignored by Git and excluded from the Docker build.
+This lab does not require an `ioxclient` platform profile because Local Manager performs the deployment and lifecycle operations.
 
-For this isolated sandbox exercise, IOS XE Docker run options provide a temporary local account to the container. This makes the password visible to privileged administrators in the router configuration, so it is not an acceptable production secret-management design. Production deployments should use a supported secret injection mechanism, short-lived credentials, external authorization, and least privilege.
+## Task 4: Understand the Application Configuration Boundary
 
-Choose a temporary lab password containing letters and numbers but no spaces or quotation marks. Do not reuse the reservation, GitLab, Vault, or personal password. The account and all run options are removed during cleanup.
+Open `loopback_recovery.py`. The application reads the path supplied by the IOx `CAF_APP_CONFIG_FILE` environment variable. Local Manager provisions that path and stores the uploaded `package_config.ini` separately from the immutable application image.
 
-## Task 5: Prepare the Internal Application Network
+The file contains:
 
-First inspect `VirtualPortGroup0`:
-
-```text
-show running-config interface VirtualPortGroup0
-show ip interface brief | include VirtualPortGroup
-show running-config | section app-hosting
+```ini
+[router]
+host = 10.10.20.48
+port = 22
+username = apphost
+password = REPLACE_WITH_LAB_PASSWORD
+device_type = cisco_ios
+timeout = 10
+syslog_source = 10.10.20.48
 ```
 
-If `VirtualPortGroup0` is already configured, reuse its gateway and subnet without changing them. Select an unused address for the new application. The remaining examples assume the gateway is `192.168.35.1/24` and the unused application address is `192.168.35.103`.
+The fields have these purposes:
 
-Only when `VirtualPortGroup0` does not exist, create it:
+| Field | Meaning |
+|---|---|
+| `host` | IOS XE address the application reaches with Netmiko |
+| `port` | SSH port as seen from the hosted application; normally 22 inside the sandbox |
+| `username` and `password` | Temporary router account used only by this lab |
+| `device_type` | Netmiko platform driver, `cisco_ios` |
+| `timeout` | SSH establishment timeout |
+| `syslog_source` | Source address allowed to trigger remediation |
 
-```text
-configure terminal
-interface VirtualPortGroup0
- ip address 192.168.35.1 255.255.255.0
- no shutdown
-end
-```
+The application can also accept equivalent environment variables for portability, but this Local Manager workflow deliberately uses the managed bootstrap file.
 
-Create the temporary account and make the router send relevant syslog messages to the application:
+## Task 5: Create the Temporary IOS XE Account and Test Interface
+
+Choose a temporary lab password containing letters and numbers but no spaces. Do not reuse any personal, reservation, GitLab, or Vault password.
+
+On IOS XE, create the application account and the test loopback:
 
 ```text
 configure terminal
 username apphost privilege 15 secret <TEMPORARY-LAB-PASSWORD>
 ip ssh version 2
-logging source-interface VirtualPortGroup0
-logging host 192.168.35.103 transport udp port 5514
-logging trap informational
-end
-```
-
-Replace the password placeholder rather than entering the angle brackets. If the existing `VirtualPortGroup0` uses another address, substitute that actual gateway throughout the remaining tasks. Likewise, change the syslog destination when a different unused guest address was selected.
-
-## Task 6: Build and Test the x86-64 Container
-
-Catalyst 8000V is the target platform, so build an x86-64 image even when the learner workstation is ARM64:
-
-```bash
-docker build \
-  --platform linux/amd64 \
-  -t loopback1-auto-recovery:1.0 .
-```
-
-Confirm the resulting image architecture:
-
-```bash
-docker image inspect loopback1-auto-recovery:1.0 \
-  --format '{{.Architecture}}'
-```
-
-The expected value is `amd64`.
-
-Optionally run it locally with controlled values. Use the real sandbox password only when the VPN is active and the workstation is authorized to reach the reservation:
-
-```bash
-docker run --rm --name loopback-recovery-test \
-  -p 15514:5514/udp \
-  -e ROUTER_HOST='<IOSXE-HOST>' \
-  -e ROUTER_PORT='<IOSXE-SSH-PORT>' \
-  -e ROUTER_USERNAME='apphost' \
-  -e ROUTER_PASSWORD='<TEMPORARY-LAB-PASSWORD>' \
-  -e ROUTER_DEVICE_TYPE='cisco_ios' \
-  -e ROUTER_SYSLOG_SOURCE='127.0.0.1' \
-  loopback1-auto-recovery:1.0
-```
-
-This test proves that the process starts and listens on UDP 5514. Do not send the matching shutdown event during local testing unless the instructor explicitly authorizes it. Stop the container with `Ctrl+C`.
-
-## Task 7: Package the Docker Image for IOx
-
-Open `package.yaml` and confirm:
-
-- `app.type` is `docker`.
-- `app.cpuarch` is `x86_64`.
-- UDP port `5514` is declared.
-- The custom profile requests 256 MB memory.
-- The startup command launches `/app/loopback_recovery.py`.
-
-Create the IOx package:
-
-```bash
-ioxclient docker package \
-  -p ext2 \
-  --name loopback1-recovery.tar \
-  loopback1-auto-recovery:1.0 .
-```
-
-If the installed `ioxclient` release does not accept `--name` with this command, use:
-
-```bash
-ioxclient docker package -p ext2 loopback1-auto-recovery:1.0 .
-mv package.tar loopback1-recovery.tar
-```
-
-Inspect the archive:
-
-```bash
-tar -tf loopback1-recovery.tar
-```
-
-The package must contain its descriptor and generated root filesystem. Do not commit the TAR file because it is large and is specific to this build.
-
-## Task 8: Copy the Package to Router Bootflash
-
-If the sandbox does not already permit SCP, enable its server temporarily:
-
-```text
-configure terminal
-ip scp server enable
-end
-```
-
-From Ubuntu, use the reservation's external SSH address and port to copy the package. Replace every placeholder:
-
-```bash
-scp -P <IOSXE-SSH-PORT> \
-  loopback1-recovery.tar \
-  <IOSXE-USERNAME>@<IOSXE-HOST>:bootflash:loopback1-recovery.tar
-```
-
-Back on IOS XE, verify the file:
-
-```text
-dir bootflash:loopback1-recovery.tar
-```
-
-If the SCP client does not accept the filesystem syntax, initiate the transfer from IOS XE with `copy scp: bootflash:` and enter the Ubuntu SSH server details supplied by the instructor. Do not enable an Ubuntu SSH server solely for this fallback unless the course environment permits it.
-
-## Task 9: Configure and Start the Hosted Application
-
-Configure the application network, resources, and Docker environment. Substitute the actual gateway, guest address, and temporary password chosen earlier:
-
-```text
-configure terminal
-app-hosting appid loopback1-recovery
- app-vnic gateway1 virtualportgroup 0 guest-interface 0
-  guest-ipaddress 192.168.35.103 netmask 255.255.255.0
- exit
- app-default-gateway 192.168.35.1 guest-interface 0
- name-server0 8.8.8.8
- app-resource profile custom
-  cpu 100
-  memory 256
-  disk 10
-  vcpu 1
- exit
- app-resource docker
-  run-opts 1 "--env ROUTER_HOST=192.168.35.1"
-  run-opts 2 "--env ROUTER_PORT=22"
-  run-opts 3 "--env ROUTER_USERNAME=apphost"
-  run-opts 4 "--env ROUTER_PASSWORD=<TEMPORARY-LAB-PASSWORD>"
-  run-opts 5 "--env ROUTER_DEVICE_TYPE=cisco_ios"
-  run-opts 6 "--env ROUTER_SYSLOG_SOURCE=192.168.35.1"
- exit
-end
-```
-
-Install the package and wait for each lifecycle transition to finish before issuing the next command:
-
-```text
-app-hosting install appid loopback1-recovery package bootflash:loopback1-recovery.tar
-show app-hosting list
-app-hosting activate appid loopback1-recovery
-show app-hosting list
-app-hosting start appid loopback1-recovery
-show app-hosting list
-```
-
-The expected progression is `DEPLOYED`, `ACTIVATED`, and finally `RUNNING`. Installation and activation can take several minutes. Do not repeat lifecycle commands while an earlier transition is still running.
-
-## Task 10: Inspect the Running Application
-
-Use IOS XE to inspect state, addressing, resources, and utilization:
-
-```text
-show app-hosting list
-show app-hosting detail appid loopback1-recovery
-show app-hosting utilization appid loopback1-recovery
-```
-
-The detailed view should report `RUNNING` and show the selected guest address. Connect to the application session when supported by the sandbox image:
-
-```text
-app-hosting connect appid loopback1-recovery session
-```
-
-Confirm that the process reports it is listening on UDP 5514. Use the IOS XE escape sequence shown by the session to return to the router CLI. If this image does not expose an interactive session, use `show app-hosting detail` and IOS XE system logging as the primary lifecycle evidence.
-
-## Task 11: Test the Closed-Loop Recovery
-
-Create `Loopback1` in an enabled state:
-
-```text
-configure terminal
 interface Loopback1
  description LAB15-CLOSED-LOOP-TEST
  ip address 198.51.100.1 255.255.255.255
@@ -371,7 +211,182 @@ end
 show interfaces Loopback1 | include line protocol
 ```
 
-Confirm the application remains `RUNNING`. Then generate the intended event:
+The account has privilege 15 only to keep this optional sandbox exercise focused on application hosting. A production implementation should use command authorization and the minimum privileges required for the remediation.
+
+In VS Code, open `package_config.ini` and replace `REPLACE_WITH_LAB_PASSWORD` with the temporary password. Retain `10.10.20.48` for `host` and `syslog_source` initially. If later logs show a different source address, update only `syslog_source` through Local Manager.
+
+Do not stage or commit `package_config.ini`. Verify that Git ignores it:
+
+```bash
+git status --short
+git check-ignore package_config.ini
+```
+
+## Task 6: Build and Inspect the x86-64 Container
+
+Catalyst 8000V is the application target, so build an x86-64 image even when the learner workstation uses ARM64:
+
+```bash
+docker build \
+  --platform linux/amd64 \
+  -t loopback1-auto-recovery:1.0 .
+```
+
+Inspect the resulting architecture:
+
+```bash
+docker image inspect loopback1-auto-recovery:1.0 \
+  --format '{{.Architecture}}'
+```
+
+The expected value is:
+
+```text
+amd64
+```
+
+Run a local startup check using the INI file:
+
+```bash
+docker run --rm --name loopback-recovery-test \
+  -p 15514:5514/udp \
+  -e CAF_APP_CONFIG_FILE=/data/package_config.ini \
+  -v "$PWD/package_config.ini:/data/package_config.ini:ro" \
+  loopback1-auto-recovery:1.0
+```
+
+Confirm that the process listens on UDP 5514. Do not generate the matching shutdown event during this local test. Stop the container with `Ctrl+C`.
+
+## Task 7: Create the IOx Application Package
+
+Open `package.yaml` and confirm that it declares:
+
+- Docker application type.
+- `x86_64` CPU architecture.
+- UDP port 5514.
+- A custom resource profile with 256 MB memory.
+- The Python startup target.
+
+Package the image:
+
+```bash
+ioxclient docker package \
+  -p ext2 \
+  --name loopback1-recovery.tar \
+  loopback1-auto-recovery:1.0 .
+```
+
+If the installed release does not support `--name` in that position, use:
+
+```bash
+ioxclient docker package -p ext2 loopback1-auto-recovery:1.0 .
+mv package.tar loopback1-recovery.tar
+```
+
+Inspect the resulting archive:
+
+```bash
+tar -tf loopback1-recovery.tar
+```
+
+Confirm that the IOx package contains its descriptor, generated root filesystem, and bootstrap configuration. Do not commit the TAR archive.
+
+## Task 8: Deploy the Package through Local Manager
+
+Return to:
+
+```text
+http://10.10.20.48/iox/login
+```
+
+Deploy the package:
+
+1. Select **Applications** from the Local Manager menu.
+2. Select **Add New**, **Add/Deploy**, or the equivalent deployment button shown by this Local Manager release.
+3. Enter `loopback1-recovery` as the application ID.
+4. Select **Choose File**.
+5. Browse to the project directory and select `loopback1-recovery.tar`.
+6. Start the upload and wait without refreshing the browser.
+7. Confirm the successful deployment dialog.
+8. Return to **Applications** and verify that the application state is **DEPLOYED**.
+
+Deployment stores and validates the package, but it does not yet reserve CPU, memory, or networking resources.
+
+## Task 9: Verify the Bootstrap Configuration
+
+From the `loopback1-recovery` application page, open **App-Config** or the configuration tab exposed by the installed Local Manager release.
+
+1. View or download the current application configuration.
+2. Confirm that it uses valid INI syntax and includes the `[router]` section.
+3. If the placeholder password is still present, select the option to update or upload the configuration.
+4. Choose the edited `package_config.ini` from the project folder.
+5. Save the configuration.
+6. View or download it again and confirm that the new configuration is active.
+
+Local Manager provisions this file at the path referenced by `CAF_APP_CONFIG_FILE` when the application starts. The application does not need to know the physical path in advance.
+
+Although this mechanism keeps the password outside the Docker image, Local Manager administrators can still read the configuration. It is appropriate only for this isolated lab account. Remove the account when the lab finishes.
+
+## Task 10: Activate and Start the Application
+
+Select **Activate** for `loopback1-recovery`. On the **Resources** page:
+
+1. Select the custom resource profile requested by the descriptor, or enter approximately 100 CPU units, 256 MB memory, and 10 MB application disk when Local Manager asks for explicit values.
+2. Locate **Network Configuration** and map `eth0` to a network offered by the Catalyst 8000V sandbox.
+3. Prefer a bridged or directly reachable application network when one is available.
+4. If only `iox-nat0` is offered, select it and open **Port Mapping**.
+5. Map application UDP port `5514` to an available external UDP port. Use `5514` when available; otherwise record the external port assigned by Local Manager.
+6. Do not enable debug mode unless troubleshooting requires it.
+7. Select **Activate** and wait for the state to become **ACTIVATED**.
+8. Return to **Applications**, select **Start**, and wait for **RUNNING**.
+
+Do not refresh the browser during upload, activation, or start operations. Local Manager may need several minutes to allocate resources and create the container.
+
+Open the application's **Resources**, **App-Info**, and **Logs** or **App-Console** views. Record:
+
+- Application state.
+- Assigned application address.
+- Selected IOx network.
+- Internal UDP port.
+- External UDP port when NAT port mapping is used.
+- CPU and memory reservation.
+
+Corroborate the UI from IOS XE:
+
+```text
+show app-hosting list
+show app-hosting detail appid loopback1-recovery
+show app-hosting utilization appid loopback1-recovery
+```
+
+The application log should report that it is listening on UDP 5514. If it exits immediately, inspect **App-Config** first; the most common cause is a missing configuration file or unchanged placeholder password.
+
+## Task 11: Deliver Syslog and Test Recovery
+
+Determine the correct syslog destination from the Local Manager network selection:
+
+| Activation choice | IOS XE syslog destination |
+|---|---|
+| Bridged or directly reachable network | Assigned application IP, UDP 5514 |
+| `iox-nat0` with port mapping | IOx host address `10.10.20.48` and the external UDP port recorded during activation |
+
+Determine which IOS XE interface owns `10.10.20.48`:
+
+```text
+show ip interface brief | include 10.10.20.48
+```
+
+Configure the router to send informational syslog to the selected destination. Replace every placeholder with the Local Manager values:
+
+```text
+configure terminal
+logging source-interface <INTERFACE-WITH-10.10.20.48>
+logging host <SYSLOG-DESTINATION> transport udp port <SYSLOG-PORT>
+logging trap informational
+end
+```
+
+Confirm the application remains **RUNNING**. Then generate the intended event:
 
 ```text
 configure terminal
@@ -380,9 +395,9 @@ interface Loopback1
 end
 ```
 
-The router sends the administrative-down syslog to the hosted application. The application validates that it came from the configured `VirtualPortGroup0` address, connects to that gateway through SSH, and applies `no shutdown`.
+The application should receive the syslog, validate its source, connect to `10.10.20.48` with Netmiko, apply `no shutdown`, and verify the result.
 
-Verify the final state:
+Check IOS XE:
 
 ```text
 show interfaces Loopback1 | include line protocol
@@ -390,74 +405,83 @@ show logging | include Loopback1
 show app-hosting list
 ```
 
-The expected final result is:
+The expected final interface state is:
 
 ```text
 Loopback1 is up, line protocol is up
 ```
 
-If the interface remains down, do not keep repeating the shutdown. Inspect the application state, VPG addressing, syslog source, SSH account, and run options in a controlled order.
+Review the application log in Local Manager. It should show event detection, Netmiko configuration output, and final verification.
 
-## Task 12: Stop, Remove, and Clean Up
+If the log reports that the syslog came from an unexpected address, record that observed source. Stop the application, update `syslog_source` in `package_config.ini`, upload it through **App-Config**, and restart the application. Do not weaken the application by accepting every source.
 
-Stop and remove only the application created by this lab:
+## Task 12: Stop, Deactivate, and Delete the Application
+
+Use Local Manager to remove resources in the correct order:
+
+1. Open **Applications**.
+2. Select **Stop** for `loopback1-recovery` and wait for **STOPPED**.
+3. Select **Deactivate** and wait for **DEPLOYED**.
+4. Select **Delete**, **Remove**, or **Uninstall**, depending on the UI wording.
+5. Confirm only the `loopback1-recovery` application.
+6. Verify that it no longer appears in **Applications**.
+
+Confirm from IOS XE:
 
 ```text
-app-hosting stop appid loopback1-recovery
-app-hosting deactivate appid loopback1-recovery
-app-hosting uninstall appid loopback1-recovery
 show app-hosting list
 ```
 
-Remove the temporary router configuration:
+Remove the temporary network and account configuration. Use the exact syslog destination and port configured earlier:
 
 ```text
 configure terminal
-no logging host 192.168.35.103 transport udp port 5514
+no logging host <SYSLOG-DESTINATION> transport udp port <SYSLOG-PORT>
 no username apphost
-no app-hosting appid loopback1-recovery
+interface Loopback1
+ no shutdown
 end
-delete /force bootflash:loopback1-recovery.tar
 ```
 
-Remove `VirtualPortGroup0` only if this lab created it and no Guest Shell or other application uses it. Never remove a pre-existing VPG from the sandbox.
-
-On Ubuntu, remove the generated package and optional local image when no longer needed:
+On Ubuntu, delete the generated package and optional local image when they are no longer required:
 
 ```bash
 rm -f loopback1-recovery.tar package.tar
 docker image rm loopback1-auto-recovery:1.0
 ```
 
-Commit and push only the source, tests, descriptor, Dockerfile, and lab documentation. Do not commit the temporary password, reservation credentials, generated package, or local configuration file.
+Commit and push only the source, tests, Dockerfile, descriptor, and documentation. Never commit `package_config.ini`, generated archives, sandbox credentials, or temporary passwords.
 
 ## Troubleshooting
 
 | Evidence | Likely cause and next check |
 |---|---|
-| `show iox` is not running | The reserved image or day-zero configuration does not currently provide application hosting; verify the correct Catalyst 8000V reservation before continuing |
-| `Exec format error` for `ioxclient` | The workstation downloaded the wrong `ioxclient` architecture |
+| Local Manager login page is unavailable | VPN, reservation state, browser proxy, or incorrect URL |
+| Local Manager credentials fail | Use the IOx credentials from the reservation, not automatically the IOS XE SSH credentials |
+| `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
-| Package installation fails validation | Check `package.yaml`, x86-64 architecture, package format, available resources, and sandbox signature policy |
-| Activation reports an address conflict | The selected guest address is already used by Guest Shell or another application |
-| Application exits immediately | Review environment run options and confirm all router variables are present |
-| No syslog event reaches the application | Check `logging host`, UDP port 5514, `logging source-interface`, VPG address, and application state |
-| Netmiko authentication fails | Check the temporary local account and `ROUTER_USERNAME`/`ROUTER_PASSWORD` run options |
-| Netmiko times out | Check that `ROUTER_HOST` is the VPG gateway and SSH is available on that interface |
-| Loopback remains down | Check the matched syslog text, application logs, privilege level, and final verification command |
+| Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
+| Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
+| Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |
+| Application is running but receives no event | Incorrect Local Manager network selection or UDP port mapping, wrong logging destination, or wrong logging severity |
+| Unexpected syslog source is rejected | Update only `syslog_source` to the observed authorized router address and restart |
+| Netmiko authentication fails | Temporary account or bootstrap username/password is incorrect |
+| Netmiko times out | The application cannot reach `10.10.20.48:22`; inspect IOx network and routing |
+| Loopback remains down | Inspect event match, source validation, application log, SSH privileges, and verification output |
 
 ## References
 
+- [Cisco IOx Local Manager Reference](https://www.cisco.com/c/en/us/td/docs/routers/access/800/software/guides/iox/lm/reference-guide/1-1/iox_local_manager_ref_guide/workflows.html)
+- [Cisco IOx Application Development Concepts](https://developer.cisco.com/docs/iox/application-development-concepts/)
 - [Cisco IOx Resource Downloads](https://developer.cisco.com/docs/iox/iox-resource-downloads/)
 - [Cisco IOx Docker Commands](https://developer.cisco.com/docs/iox/docker-commands/)
-- [Cisco IOS XE Application Hosting](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1715/b_1715_programmability_cg/m_1715_prog_app_hosting.html)
-- [Cisco Catalyst 8000V Guest Shell and IOx Verification](https://www.cisco.com/c/en/us/td/docs/routers/C8000V/HighAvailability/c8000v-high-availability-configuration-guide/troubleshoot-high-availability-issues.html)
+- [Cisco Catalyst 8000V IOx Verification](https://www.cisco.com/c/en/us/td/docs/routers/C8000V/HighAvailability/c8000v-high-availability-configuration-guide/troubleshoot-high-availability-issues.html)
 
 ## Key Takeaways
 
-- Catalyst 8000V can provide an IOS XE-managed application-hosting environment when IOx is enabled in the reserved image.
-- `ioxclient` packages the local Docker image, while IOS XE CLI controls the application lifecycle on the router.
-- The learner workstation architecture and the hosted application architecture are separate decisions.
-- `VirtualPortGroup0` provides the internal path between IOS XE and the hosted container.
-- A safe closed loop validates the event source, limits the intended change, handles connection failures, and verifies final state.
-- Runtime passwords in router configuration are acceptable only for this isolated exercise and must be removed during cleanup.
+- `ioxclient` creates the package, while IOx Local Manager controls deployment and runtime lifecycle.
+- Local Manager separates immutable application code from deployment-specific bootstrap configuration.
+- Activation reserves CPU, memory, disk, networking, and port mappings before the application starts.
+- The workstation architecture and hosted application architecture are separate decisions.
+- A closed loop must validate its event source, limit the intended change, handle connection failures, and verify final state.
+- Local Manager configuration is manageable by administrators and is not a substitute for enterprise secret management.

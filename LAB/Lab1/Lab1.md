@@ -342,9 +342,9 @@ Learners who want to host their own IOS XE router can complete the separate [opt
 
 ### Option A: Deploy the Complete TIG Stack Locally
 
-This option gives the learner control of Telegraf inputs, InfluxDB buckets, tokens, and Grafana dashboards. It is the appropriate choice when Lab 10 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.
+This option gives the learner control of Telegraf inputs, the InfluxDB database, and Grafana dashboards. It is the appropriate choice when Lab 10 uses a locally hosted Catalyst C8KV. Docker Compose expresses the three local services as one repeatable application.
 
-The supplied Compose file pins explicit application versions rather than using `latest`. This is particularly important for InfluxDB because its maintainers announced that the `latest` image tag would move from InfluxDB 2 to InfluxDB 3 Core. A silent major-version change would invalidate the initialization variables and Flux configuration used in this lab.
+The supplied Compose file deliberately pins InfluxDB OSS `1.12.4`. InfluxDB 1.x uses a named database, username, password, and InfluxQL. Grafana provides both a visual query builder and a code editor for InfluxQL, whereas Flux provides only a code editor. This course therefore uses InfluxDB 1.x locally so learners can explore measurements, fields, tags, filters, and aggregation functions through Grafana's visual editor before writing queries manually. Do not replace the pinned image with `latest` because a silent major-version change would alter initialization and query behavior.
 
 The Compose project is explicitly named `ccnpauto-tig`, so Docker resource names remain predictable even when commands are issued from different directories. Nevertheless, learners should operate it from `~/lab-services/tig` throughout the course.
 
@@ -390,26 +390,58 @@ docker compose --env-file .env -f compose.yaml ps
 docker compose --env-file .env -f compose.yaml logs --tail=50 telegraf
 ```
 
+On first startup, InfluxDB creates the `mdt` database and three accounts from `.env`: an administrator, a write-only Telegraf user, and a read-only Grafana user. This separation prevents the dashboard account from changing stored telemetry. Initialization variables run only when the InfluxDB data volume is empty. The supplied Compose file uses the new volume name `influxdb1-data`, so an older InfluxDB 2 volume from a previous course build is not mounted into InfluxDB 1.x.
+
+Verify the database from the InfluxDB command-line client inside the container:
+
+```bash
+docker compose --env-file .env -f compose.yaml exec influxdb sh -c \
+  'influx -username "$INFLUXDB_ADMIN_USER" \
+  -password "$INFLUXDB_ADMIN_PASSWORD" \
+  -execute "SHOW DATABASES"'
+```
+
+The result must include `mdt`, or the alternative value assigned to `INFLUXDB_DB` in `.env`. InfluxDB 1.x does not provide the InfluxDB 2 web interface, so use this command-line client for database checks and use Grafana for visual exploration.
+
 Telegraf listens for Cisco model-driven telemetry on TCP port `57000`. Docker publishes that port on all workstation interfaces, so an external router can send a gRPC dial-out stream to `<workstation-reachable-ip>:57000`. Configure the router with an actual workstation address that it can route to; do not configure the Docker container address or `127.0.0.1`. If the workstation firewall is enabled, permit TCP `57000` only from the router management subnet rather than exposing the receiver broadly.
 
-Open InfluxDB at `http://127.0.0.1:8086` and sign in with the values from `.env`. Open Grafana at `http://127.0.0.1:3000` and use the Grafana credentials.
+Open Grafana at `http://127.0.0.1:3000` and sign in with the Grafana credentials from `.env`.
+
+If this workstation previously ran the older InfluxDB 2 version of the course stack, update `.env` with every key in the current `.env.example`, recreate the three services, and replace the old Flux data source in Grafana with the InfluxQL data source below. The previous InfluxDB 2 volume remains unused; the course does not delete it automatically.
 
 In Grafana, add an InfluxDB data source:
 
 1. Select **Connections > Data sources > Add data source**.
 2. Choose **InfluxDB**.
-3. Set the query language to **Flux**.
-4. Use `http://influxdb:8086`. Grafana runs inside the TIG Compose bridge network, so it reaches InfluxDB by its Compose service name. Do not use `127.0.0.1` here because loopback inside the Grafana container refers to Grafana itself.
-5. Enter the organization, bucket, and token from `.env`.
-6. Select **Save & test**.
+3. Set **Query language** to **InfluxQL**.
+4. Set **URL** to `http://influxdb:8086`. Grafana runs inside the TIG Compose bridge network, so it reaches InfluxDB by its Compose service name. Do not use `127.0.0.1` because loopback inside the Grafana container refers to Grafana itself.
+5. Under **InfluxDB details**, enter the database from `INFLUXDB_DB`, the user from `INFLUXDB_READ_USER`, and its password from `INFLUXDB_READ_USER_PASSWORD`. With the supplied example, the database is `mdt` and the user is `grafana`.
+6. Set **HTTP method** to **POST** and **Min time interval** to `10s`.
+7. Select **Save & test**. A successful result confirms that Grafana can execute InfluxQL against the database.
+
+Confirm that the visual editor is available before moving on:
+
+1. Select **Explore** and choose the InfluxDB data source.
+2. Keep the query in **Builder** mode rather than **Code** mode.
+3. In **FROM**, select the `cpu` measurement written by the local Telegraf agent.
+4. In **SELECT**, choose the `usage_active` field and the `mean()` aggregation.
+5. In **WHERE**, select the `cpu` tag and value `cpu-total`.
+6. Keep the time filter and group by the Grafana interval, and then run the query.
+
+The visual editor should display CPU data from the Telegraf container. It also shows how a measurement resembles a table, a field stores a measured value, and a tag provides indexed metadata for filtering. Lab 10 repeats this workflow with IOS XE telemetry measurements.
 
 The host metrics shown by Telegraf are container-visible metrics. In addition, the Cisco model-driven telemetry input is ready to accept external gRPC dial-out streams on workstation TCP port `57000`. Later telemetry labs explain how to identify YANG paths, configure IOS XE subscriptions, and build Grafana dashboards from the received measurements.
 
-Verify that Telegraf is writing:
+Verify that Telegraf is writing and that measurements exist:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs --tail=100 telegraf
+docker compose --env-file .env -f compose.yaml exec influxdb sh -c \
+  'influx -username "$INFLUXDB_READ_USER" \
+  -password "$INFLUXDB_READ_USER_PASSWORD" \
+  -database "$INFLUXDB_DB" \
+  -execute "SHOW MEASUREMENTS"'
 ```
 
 Stop without deleting data:
@@ -715,7 +747,7 @@ Record the following without exposing tokens, passwords, private keys, or full e
 - Successful Python import validation
 - Successful `ansible.builtin.ping` result
 - Docker `hello-world` result
-- Local TIG container status and InfluxDB health result, or access to Cisco DevNet Sandbox Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000`
+- Local TIG container status, successful InfluxDB `SHOW DATABASES` result, and Grafana visual-editor result; or access to Cisco DevNet Sandbox Telegraf at `10.10.20.50:57500` and Grafana at `http://10.10.20.50:3000`
 - Local Yangsuite page at `https://localhost:8443`, or Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`
 - NetBox login page
 - Successful GitLab.com SSH authentication and the installed, unregistered Runner service
@@ -806,13 +838,15 @@ This lab assigns separate ports, so a conflict often indicates an earlier manual
 
 ### TIG starts, but Grafana cannot reach InfluxDB
 
-The TIG containers share a Compose bridge network, so Grafana and Telegraf must use `http://influxdb:8086`. Learners use `http://127.0.0.1:8086` only from the workstation browser. A container-side URL of `http://127.0.0.1:8086` fails because container loopback refers to the container itself. Inspect the resolved configuration and logs:
+The TIG containers share a Compose bridge network, so Grafana and Telegraf must use `http://influxdb:8086`. A command-line client running directly on the workstation can use `http://127.0.0.1:8086`, but a container-side URL of `http://127.0.0.1:8086` fails because container loopback refers to that container itself. Inspect the resolved configuration and logs:
 
 ```bash
 cd "$HOME/lab-services/tig"
 docker compose --env-file .env -f compose.yaml logs influxdb telegraf grafana
 docker compose --env-file .env -f compose.yaml config
 ```
+
+For the local InfluxDB 1.x data source, also confirm that the query language is **InfluxQL**, the database matches `INFLUXDB_DB`, and Grafana uses the read account rather than an InfluxDB 2 token. If **Save & test** reports that no measurements exist, wait for two Telegraf collection intervals and run `SHOW MEASUREMENTS` from the InfluxDB CLI as shown in Task 6.
 
 If Grafana does not open from the workstation, confirm that the resolved configuration publishes `127.0.0.1:3000` to container port `3000` and that `GF_SERVER_HTTP_ADDR` is `0.0.0.0`. After changing the Compose file, recreate the services:
 
@@ -913,6 +947,7 @@ Do not remove Docker volumes, NetBox data, or the virtual environment unless the
 - Docker provides a common runtime for TIG, NetBox, and containerized CI jobs, but Docker access carries elevated privilege.
 - Cisco Yangsuite can run locally or be accessed through Cisco DevNet Sandbox Yangsuite at `http://10.10.20.50:8480`.
 - Grafana can run as part of the local TIG stack or through the integrated Cisco DevNet Sandbox TIG environment; the sandbox C8KV sends telemetry to `10.10.20.50:57500`, and learners view it at `http://10.10.20.50:3000`.
+- The local TIG stack uses InfluxDB 1.x and InfluxQL so Grafana exposes both its visual query builder and its code editor.
 - NetBox provides the API-driven source of truth used by the cumulative automation project.
 - `kubectl` remains available for optional authorized external-cluster exercises, but no local Kubernetes cluster is installed.
 - Vault development mode is disposable and intentionally insecure; it teaches the client workflow but not production deployment.
@@ -930,9 +965,10 @@ The workstation is now ready for Lab 2, where learners can begin using Python an
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 - [Terraform installation](https://developer.hashicorp.com/terraform/install)
 - [Vault installation](https://developer.hashicorp.com/vault/docs/install)
-- [InfluxDB Docker Compose installation](https://docs.influxdata.com/influxdb/v2/install/use-docker-compose/)
+- [Run InfluxDB OSS 1.x with Docker](https://docs.influxdata.com/influxdb/v1/introduction/install/docker/)
 - [Telegraf installation](https://docs.influxdata.com/telegraf/v1/install/)
 - [Grafana installation documentation](https://grafana.com/docs/grafana/latest/setup-grafana/installation/)
+- [Grafana InfluxDB query editor](https://grafana.com/docs/grafana/latest/datasources/influxdb/query-editor/)
 - [Cisco Yangsuite documentation](https://developer.cisco.com/docs/yangsuite/)
 - [Visual Studio Code on Linux](https://code.visualstudio.com/docs/setup/linux)
 - [GitLab Runner installation](https://docs.gitlab.com/runner/install/)

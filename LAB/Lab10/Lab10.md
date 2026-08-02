@@ -352,7 +352,7 @@ Successful configuration without received measurements usually indicates routing
 
 ## Task 8: Create the Grafana Dashboard
 
-Choose the dashboard procedure that matches the TIG path selected at the beginning of the lab. The Cisco DevNet Sandbox TIG stack is already integrated and exposes its prepared measurements through the sandbox Grafana data source. By contrast, the locally installed TIG stack uses the InfluxDB 2 `workstation` bucket and the Flux query editor configured in Lab 1.
+Choose the dashboard procedure that matches the TIG path selected at the beginning of the lab. The Cisco DevNet Sandbox TIG stack is already integrated and exposes its prepared measurements through the sandbox Grafana data source. By contrast, the locally installed TIG stack uses the InfluxDB 1.x `mdt` database and the InfluxQL visual query builder configured in Lab 1.
 
 ### Option A: Cisco DevNet Sandbox TIG
 
@@ -370,7 +370,7 @@ Open `http://10.10.20.50:3000`. Then:
 
 Field and measurement names in the sandbox can vary with its Telegraf Cisco MDT decoder and IOS XE release. Select the fields exposed by the prepared data source rather than substituting names from the local stack. Learners do not reconfigure the shared sandbox InfluxDB or Telegraf services.
 
-### Option B: Locally Installed TIG with Exact Flux Queries
+### Option B: Locally Installed TIG with the InfluxQL Visual Editor
 
 The queries in this option match the subscription IDs and Cisco IOS XE native operational paths configured earlier:
 
@@ -380,171 +380,76 @@ The queries in this option match the subscription IDs and Cisco IOS XE native op
 | `202` | `memory-statistic` | `total-memory`, `used-memory`, `free-memory` |
 | `203` | `GigabitEthernet1/statistics` | `in-octets`, `out-octets`, `in-errors`, `out-errors` |
 
-The local Telegraf Cisco MDT input adds `source`, `path`, and `subscription` tags to every decoded metric. Therefore, the queries filter on the known subscription tag instead of depending on a long measurement name that can vary with the IOS XE release and telemetry encoding path.
+The local Telegraf Cisco MDT input adds `source`, `path`, and `subscription` tags to every decoded metric. The measurement name comes from the telemetry encoding path and can vary slightly between IOS XE releases. For that reason, learners first select the measurement that contains each subscription and then use the stable subscription tag and YANG leaf names to construct the panel.
 
-These Flux queries use the `workstation` bucket created by the local TIG stack in Lab 1. If the value of `INFLUX_BUCKET` was changed, replace `workstation` with that value.
+Open `http://127.0.0.1:3000`, sign in, select **Explore**, choose the local InfluxDB data source, and set the time range to **Last 30 minutes**. The query must open in **Builder** mode. If only a text editor appears, return to **Connections > Data sources**, edit the local data source, and confirm that its query language is **InfluxQL**, not Flux.
 
-Open `http://127.0.0.1:3000`, sign in, select **Explore**, choose the local InfluxDB data source, and set the time range to **Last 30 minutes**.
+#### Discover the Stored Measurements and Fields
 
-#### Confirm That the Subscriptions Are Stored
+In **Builder** mode, open the **FROM** list. It should contain the local host measurements such as `cpu` and the longer IOS XE measurements created by subscriptions `201`, `202`, and `203`. Select one IOS XE measurement, add a **WHERE** condition for the `subscription` tag, and inspect the available tag values. Repeat until you identify the measurement for each subscription.
 
-Run this query before building the dashboard:
+If the drop-down list is difficult to interpret, temporarily switch the query to **Code** mode and run these metadata queries one at a time:
 
-```flux
-from(bucket: "workstation")
-  |> range(start: -30m)
-  |> filter(fn: (r) => exists r.subscription)
-  |> filter(fn: (r) =>
-    contains(
-      value: r.subscription,
-      set: ["201", "202", "203"],
-    )
-  )
-  |> keep(columns: [
-    "_time",
-    "_measurement",
-    "_field",
-    "_value",
-    "source",
-    "path",
-    "subscription",
-    "name",
-  ])
-  |> limit(n: 50)
+```sql
+SHOW MEASUREMENTS
+SHOW TAG VALUES WITH KEY = "subscription"
+SHOW FIELD KEYS FROM "<MEASUREMENT_NAME>"
+SHOW TAG KEYS FROM "<MEASUREMENT_NAME>"
 ```
 
-The result should contain recent rows for subscriptions `201`, `202`, and `203`. The `name` column may be absent from CPU data, but it commonly identifies the memory pool or interface in list-based telemetry. If the query returns no rows, return to Task 7 and correct the telemetry stream before creating empty panels.
+Replace `<MEASUREMENT_NAME>` with a name returned by `SHOW MEASUREMENTS`. Return to **Builder** mode after discovery. Recent rows should exist for all three subscriptions; otherwise, return to Task 7 and correct the telemetry stream before building empty panels.
 
 #### Create the CPU Utilization Panel
 
-Select **Dashboards > New > New dashboard**, choose **Add visualization**, and select the InfluxDB data source. Paste this query into query **A**:
+Select **Dashboards > New > New dashboard**, choose **Add visualization**, and select the local InfluxDB data source. Configure query **A** in the visual editor:
 
-```flux
-from(bucket: "workstation")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r.subscription == "201")
-  |> filter(fn: (r) => r._field == "five-seconds")
-  |> aggregateWindow(
-    every: v.windowPeriod,
-    fn: mean,
-    createEmpty: false,
-  )
+1. In **FROM**, select the measurement associated with subscription `201`.
+2. In **WHERE**, add `subscription = 201`.
+3. In **SELECT**, select field `five-seconds` and function `mean()`.
+4. Keep the Grafana time filter, group by the dashboard interval, and use `fill(null)`.
+
+The equivalent query shown in Code mode resembles the following. The visual editor inserts the real measurement name:
+
+```sql
+SELECT mean("five-seconds") AS "CPU"
+FROM "<CPU_MEASUREMENT>"
+WHERE ("subscription" = '201') AND $timeFilter
+GROUP BY time($__interval) fill(null)
 ```
 
-Use a **Time series** visualization, title it **CPU Utilization**, and set the unit to **Percent (0–100)**. The `five-seconds` field represents the recent total CPU utilization reported by IOS XE. To compare short- and longer-term behavior, duplicate query **A** and change `_field` to `one-minute` or `five-minutes`.
+Use a **Time series** visualization, title it **CPU Utilization**, and set the unit to **Percent (0–100)**.
 
 #### Create the Memory Panel
 
-Add another visualization and use:
-
-```flux
-from(bucket: "workstation")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r.subscription == "202")
-  |> filter(fn: (r) =>
-    r._field == "total-memory" or
-    r._field == "used-memory" or
-    r._field == "free-memory"
-  )
-  |> aggregateWindow(
-    every: v.windowPeriod,
-    fn: last,
-    createEmpty: false,
-  )
-```
-
-Use a **Time series** or **Gauge** visualization, title it **Memory Utilization**, and set the unit to **Bytes (IEC)**. IOS XE can report more than one memory pool. When several series appear, retain the `name` tag in the legend so the dashboard distinguishes their pools.
+Add a second visualization. Select the measurement associated with subscription `202`, add `subscription = 202`, and select `last("used-memory")`. Add query **B** with the same measurement and filter but select `last("free-memory")`. Group both queries by the dashboard interval and use `fill(null)`. Set the unit to **Bytes (IEC)** and title the panel **Memory Utilization**. If IOS XE reports several memory pools, add a `name` tag filter or keep that tag in the legend so the series remain distinguishable.
 
 #### Create the GigabitEthernet1 Traffic Panel
 
-The interface octet values are cumulative counters. This query selects the newest counter in each display window, calculates its non-negative change per second, and multiplies bytes by eight so Grafana displays bits per second:
+Add a third visualization and select the measurement associated with subscription `203`. Add `subscription = 203`; if a `name` tag is present, also filter `name = GigabitEthernet1`. Because `in-octets` and `out-octets` are cumulative counters, display their rate of change rather than their raw values.
 
-```flux
-from(bucket: "workstation")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r.subscription == "203")
-  |> filter(fn: (r) =>
-    r._field == "in-octets" or
-    r._field == "out-octets"
-  )
-  |> aggregateWindow(
-    every: v.windowPeriod,
-    fn: last,
-    createEmpty: false,
-  )
-  |> derivative(unit: 1s, nonNegative: true)
-  |> map(fn: (r) => ({
-    r with
-    _value: float(v: r._value) * 8.0
-  }))
+Create query **A** for `in-octets` and query **B** for `out-octets`. In Builder mode, apply `last()` followed by `non_negative_derivative(1s)` to each field. The resulting queries resemble:
+
+```sql
+SELECT non_negative_derivative(last("in-octets"), 1s) AS "Input bytes/s"
+FROM "<INTERFACE_MEASUREMENT>"
+WHERE ("subscription" = '203') AND $timeFilter
+GROUP BY time($__interval) fill(null)
+
+SELECT non_negative_derivative(last("out-octets"), 1s) AS "Output bytes/s"
+FROM "<INTERFACE_MEASUREMENT>"
+WHERE ("subscription" = '203') AND $timeFilter
+GROUP BY time($__interval) fill(null)
 ```
 
-Use a **Time series** visualization, title it **GigabitEthernet1 Traffic Rate**, and set the unit to **bits/sec (SI)**. The two series represent ingress and egress traffic. Do not graph raw octet counters as bandwidth because they increase for the lifetime of the interface.
+Use a **Time series** visualization, title it **GigabitEthernet1 Traffic Rate**, and set the unit to **bytes/sec (SI)**. This panel now shows traffic rate rather than an ever-increasing lifetime counter.
 
-#### Create the Interface Errors Panel
+#### Create the Interface Error Panel
 
-Use the same counter-to-rate method for interface errors:
+Duplicate the traffic panel. Change the two selected fields to `in-errors` and `out-errors`, retain `last()` and `non_negative_derivative(1s)`, and title the panel **GigabitEthernet1 Error Rate**. Use **operations per second** or the custom unit `errors/s`. A flat zero is a healthy result; a positive value means that the cumulative error counter increased during the displayed interval.
 
-```flux
-from(bucket: "workstation")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) => r.subscription == "203")
-  |> filter(fn: (r) =>
-    r._field == "in-errors" or
-    r._field == "out-errors"
-  )
-  |> aggregateWindow(
-    every: v.windowPeriod,
-    fn: last,
-    createEmpty: false,
-  )
-  |> derivative(unit: 1s, nonNegative: true)
-```
+Set the dashboard refresh interval to five seconds, save it as **IOS XE Model-Driven Telemetry**, and confirm that each panel updates after at least two subscription periods. The finished local dashboard should show CPU utilization, used and free memory, GigabitEthernet1 input and output rate, and interface error rate.
 
-Use a **Time series** visualization, title it **GigabitEthernet1 Error Rate**, and set the unit to **operations per second** or a custom `errors/s` unit. A flat zero is a valid healthy result. A positive value means that the cumulative error counter increased during the interval.
-
-#### Create the Telemetry Freshness Panel
-
-The final query converts the age of the newest point from nanoseconds to seconds:
-
-```flux
-from(bucket: "workstation")
-  |> range(start: -15m)
-  |> filter(fn: (r) => exists r.subscription)
-  |> filter(fn: (r) =>
-    contains(
-      value: r.subscription,
-      set: ["201", "202", "203"],
-    )
-  )
-  |> group(columns: ["subscription"])
-  |> last()
-  |> map(fn: (r) => ({
-    r with
-    _field: "age-seconds",
-    _value: float(
-      v: uint(v: now()) - uint(v: r._time)
-    ) / 1000000000.0
-  }))
-  |> keep(columns: [
-    "_time",
-    "_field",
-    "_value",
-    "subscription",
-  ])
-```
-
-Use a **Stat** visualization, title it **Telemetry Freshness**, and set the unit to **seconds**. Configure a green threshold below `30`, amber from `30` to `60`, and red above `60`. Memory subscription `202` uses a 30-second period, so its age can legitimately be higher than CPU and interface telemetry between updates.
-
-Set the dashboard refresh interval to five seconds, save it as **IOS XE Model-Driven Telemetry**, and confirm that each panel updates after at least two subscription periods. The finished dashboard should cover:
-
-- CPU utilization over time
-- Used and free memory
-- GigabitEthernet1 input and output bits per second
-- GigabitEthernet1 input and output errors per second
-- Telemetry freshness, showing time since the last received point
-
-If the discovery query shows the expected subscription but an exact field query is empty, compare `_field` with the active device's result. A different IOS XE model revision or a learner-selected XPath may produce a different leaf name. Correct the field filter to match the validated YANG tree; do not change unrelated parts of the query.
+If the subscription tag appears but an expected field is absent, run `SHOW FIELD KEYS` for that measurement and compare the result with the active device's YANG tree. A different IOS XE model revision or a different learner-selected XPath can produce another leaf name. Correct the selected field to match the validated model rather than guessing.
 
 For either TIG option, remember that octet and error counters are cumulative. Apply a derivative or rate function when displaying change per second; graphing a raw counter as bandwidth or an error rate is misleading.
 
@@ -599,7 +504,7 @@ Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 | gNMI returns no values | Origin, module prefix, list key, encoding, and selected subtree |
 | Sandbox dial-out subscription remains disconnected | Receiver `10.10.20.50`, TCP `57500`, subscription state, encoding, and validated XPath |
 | Local dial-out subscription remains disconnected | Route, host firewall, C8KV-reachable receiver IP, TCP `57000`, and local Telegraf listener |
-| Data arrives but Grafana is empty | Telegraf output URL, InfluxDB token, bucket, measurement, and time range |
+| Data arrives but Grafana is empty | Telegraf output URL, InfluxDB database, writer credentials, Grafana reader credentials, selected measurement, subscription tag, and time range |
 | Interface traffic appears constantly increasing | Raw counter plotted instead of derivative or rate |
 
 ## Key Takeaways
@@ -608,7 +513,7 @@ Do not stop NetBox, Vault, or GitLab Runner while a project pipeline is active.
 - RESTCONF resource URIs and telemetry XPath filters describe the same tree with different syntax.
 - NETCONF and gNMI dial-in avoid reverse-path requirements but depend on a client session.
 - Configured gRPC dial-out persists and reconnects, but the router must reach the receiver.
-- Host-networked containers use the workstation's VPN and cloud routes and use `127.0.0.1` for local service-to-service communication.
+- The local TIG containers use a Compose bridge network, communicate through service names such as `influxdb`, and publish Telegraf TCP `57000` so an external C8KV can reach the collector.
 - A dashboard is trustworthy only when its XPath, encoding, counter semantics, timestamps, and collection path are understood.
 
 Lab 11 applies these API and model-driven foundations to a controlled FastMCP and LLM route assistant.
@@ -621,3 +526,5 @@ Lab 11 applies these API and model-driven foundations to a controlled FastMCP an
 - [RESTCONF in Yangsuite](https://developer.cisco.com/docs/yangsuite/restconf-in-yang-suite/)
 - [Using gNMI with Yangsuite](https://developer.cisco.com/docs/yangsuite/using-gnmi-with-yang-suite/)
 - [Telegraf Cisco Model-Driven Telemetry input](https://docs.influxdata.com/telegraf/v1/input-plugins/cisco_telemetry_mdt/)
+- [Grafana InfluxDB query editor](https://grafana.com/docs/grafana/latest/datasources/influxdb/query-editor/)
+- [InfluxQL reference](https://docs.influxdata.com/influxdb/v1/query_language/)

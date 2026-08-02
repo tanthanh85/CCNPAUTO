@@ -390,7 +390,7 @@ docker compose --env-file .env -f compose.yaml ps
 docker compose --env-file .env -f compose.yaml logs --tail=50 telegraf
 ```
 
-On first startup, InfluxDB creates the `mdt` database and three accounts from `.env`: an administrator, a write-only Telegraf user, and a read-only Grafana user. This separation prevents the dashboard account from changing stored telemetry. Initialization variables run only when the InfluxDB data volume is empty. The supplied Compose file uses the new volume name `influxdb1-data`, so an older InfluxDB 2 volume from a previous course build is not mounted into InfluxDB 1.x.
+On first startup, InfluxDB creates the `mdt` database and three accounts from `.env`: an administrator, a write-only Telegraf user, and a read-only Grafana user. This separation prevents the dashboard account from changing stored telemetry. The supplied Telegraf configuration sets `skip_database_creation = true` because the restricted writer can write measurements but must not issue `CREATE DATABASE`. Initialization variables run only when the InfluxDB data volume is empty. The supplied Compose file uses the new volume name `influxdb1-data`, so an older InfluxDB 2 volume from a previous course build is not mounted into InfluxDB 1.x.
 
 Verify the database from the InfluxDB command-line client inside the container:
 
@@ -847,6 +847,20 @@ docker compose --env-file .env -f compose.yaml config
 ```
 
 For the local InfluxDB 1.x data source, also confirm that the query language is **InfluxQL**, the database matches `INFLUXDB_DB`, and Grafana uses the read account rather than an InfluxDB 2 token. If **Save & test** reports that no measurements exist, wait for two Telegraf collection intervals and run `SHOW MEASUREMENTS` from the InfluxDB CLI as shown in Task 6.
+
+If the Telegraf log reports `database creation failed: 403 Forbidden`, confirm that its active `telegraf.conf` contains the following option inside `[[outputs.influxdb]]`:
+
+```toml
+skip_database_creation = true
+```
+
+The InfluxDB container creates the database during first initialization. Telegraf then writes through the restricted writer account without attempting an administrative database-creation operation. After correcting the copied configuration, recreate Telegraf and inspect the newest log entries:
+
+```bash
+cd "$HOME/lab-services/tig"
+docker compose --env-file .env -f compose.yaml up -d --force-recreate telegraf
+docker compose --env-file .env -f compose.yaml logs --since=2m telegraf
+```
 
 If Grafana does not open from the workstation, confirm that the resolved configuration publishes `127.0.0.1:3000` to container port `3000` and that `GF_SERVER_HTTP_ADDR` is `0.0.0.0`. After changing the Compose file, recreate the services:
 

@@ -50,7 +50,19 @@ python -m pip install -r requirements.txt
 pyats version check
 ```
 
-Installation can take several minutes because pyATS and Genie include platform models and parsers.
+The requirements file installs `pyats[full]`, Cisco's complete bundle containing pyATS, Genie parsers, Unicon, and the platform connection plugins. Installation can take several minutes because the bundle includes platform models, parsers, and connection support.
+
+If an earlier copy of this lab installed only `pyats` and `genie`, upgrade the existing virtual environment before continuing:
+
+```bash
+python -m pip install --upgrade 'pyats[full]'
+```
+
+The quotation marks prevent the shell from interpreting the square brackets. Confirm that the IOS XE connection plugin and parser libraries import successfully:
+
+```bash
+python -c "import unicon.plugins; import genie.libs.parser; print('pyATS full installation is ready')"
+```
 
 ## Task 3: Configure Connection Variables
 
@@ -71,7 +83,7 @@ source .env
 set +a
 ```
 
-The `%ENV{...}` expressions in `testbed.yaml` read these values without storing a password in YAML.
+The `%ENV{...}` expressions in `testbed.yaml` read these values without storing a password in YAML. The CLI connection also sets `learn_hostname: true`. Consequently, Unicon learns the actual Catalyst prompt instead of assuming that the testbed key `catalyst` is the switch hostname.
 
 ## Task 4: Validate the Testbed
 
@@ -82,7 +94,33 @@ pyats parse "show version" \
   --devices catalyst
 ```
 
+The validation command can display this warning:
+
+```text
+Device 'catalyst' has no interface definitions
+```
+
+This is expected and does not indicate a failed testbed. Static interface definitions are required when a pyATS topology models links between devices. This lab does not model a topology or depend on predetermined port names; instead, Genie parses `show interfaces`, and the Python test discovers eligible physical Ethernet interfaces from the returned operational data. Therefore, do not add placeholder interfaces merely to suppress the warning. Continue when the device appears under **Testbed Devices**, no message appears under **YAML Lint Messages**, and the subsequent `show version` parse connects successfully.
+
 If validation succeeds but connection fails, confirm the reservation host, SSH port, VPN, username, and password. `os: iosxe` is required so Genie selects IOS XE parsers.
+
+If `pyats parse` reports `device is not connected, output must be provided`, it means the parser received no CLI output because connection establishment did not complete. Confirm that `pyats[full]` is installed, reload the `.env` values, and verify that none are missing without displaying their contents:
+
+```bash
+python - <<'PY'
+import os
+
+for name in (
+    "CATALYST_HOST",
+    "CATALYST_PORT",
+    "CATALYST_USERNAME",
+    "CATALYST_PASSWORD",
+):
+    print(f"{name}: {'set' if os.getenv(name) else 'MISSING'}")
+PY
+```
+
+Then retry the `show version` parse before proceeding to `show interfaces`. The testbed's `learn_hostname: true` setting handles a switch prompt that differs from the logical device name `catalyst`.
 
 ## Task 5: Explore Parsed Interface Data
 

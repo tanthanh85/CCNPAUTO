@@ -267,6 +267,7 @@ Open `package.yaml` and confirm that it declares:
 - `x86_64` CPU architecture.
 - UDP port 5514.
 - A custom resource profile with 256 MB memory.
+- `rootfs.img` as the startup root filesystem required by ext2 packaging.
 - The Python startup target.
 
 Package the image:
@@ -292,6 +293,15 @@ tar -tf loopback1-recovery.tar
 ```
 
 Confirm that the IOx package contains its descriptor, generated root filesystem, and bootstrap configuration. Do not commit the TAR archive.
+
+The `-p ext2` option and the descriptor must agree. With ext2 packaging, `package.yaml` must declare:
+
+```yaml
+startup:
+  rootfs: rootfs.img
+```
+
+Do not change this value to `rootfs.tar`. That filename belongs to a different package representation and causes `ioxclient` to reject the project before creating the archive.
 
 ## Task 8: Deploy the Package through Local Manager
 
@@ -464,6 +474,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
 | Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
+| `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Use the supplied `package.yaml` with `startup.rootfs: rootfs.img`, remove any incomplete output archive, and package again |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |

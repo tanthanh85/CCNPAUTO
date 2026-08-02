@@ -22,7 +22,7 @@ app:
           udp:
             - 5514
   startup:
-    rootfs: rootfs.img
+    rootfs: rootfs.tar
     target:
       - python3
       - /app/loopback_recovery.py

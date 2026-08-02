@@ -151,22 +151,9 @@ Use `sudo` only for installing the executable into `/usr/local/bin`. Running nor
 Confirm access to the local Docker daemon and initialize the Docker connection used for packaging:
 
 ```bash
-sudo apt update
-sudo apt install -y e2fsprogs
 docker version
 ioxclient docker init
 ```
-
-`ioxclient docker package -p ext2` creates and formats a filesystem image on the learner workstation. The `e2fsprogs` package supplies the Linux utilities required for that operation. Verify them before continuing:
-
-```bash
-command -v mkfs.ext2
-command -v mke2fs
-command -v e2fsck
-command -v resize2fs
-```
-
-Each command must return an executable path such as `/usr/sbin/mkfs.ext2`. If a command returns no path, reinstall `e2fsprogs` before attempting to package the application.
 
 Accept the local socket and detected/default Docker API version:
 
@@ -280,14 +267,13 @@ Open `package.yaml` and confirm that it declares:
 - `x86_64` CPU architecture.
 - UDP port 5514.
 - A custom resource profile with 256 MB memory.
-- `rootfs.img` as the startup root filesystem required by ext2 packaging.
+- `rootfs.tar` as the Docker-layer root filesystem used by the C8000V workflow.
 - The Python startup target.
 
 Package the image:
 
 ```bash
 ioxclient docker package \
-  -p ext2 \
   --name loopback1-recovery.tar \
   loopback1-auto-recovery:1.0 .
 ```
@@ -295,7 +281,7 @@ ioxclient docker package \
 If the installed release does not support `--name` in that position, use:
 
 ```bash
-ioxclient docker package -p ext2 loopback1-auto-recovery:1.0 .
+ioxclient docker package loopback1-auto-recovery:1.0 .
 mv package.tar loopback1-recovery.tar
 ```
 
@@ -307,14 +293,14 @@ tar -tf loopback1-recovery.tar
 
 Confirm that the IOx package contains its descriptor, generated root filesystem, and bootstrap configuration. Do not commit the TAR archive.
 
-The `-p ext2` option and the descriptor must agree. With ext2 packaging, `package.yaml` must declare:
+This C8000V workflow deliberately omits `-p ext2`. `ioxclient` packages the Docker layers into `rootfs.tar`, so `package.yaml` must declare:
 
 ```yaml
 startup:
-  rootfs: rootfs.img
+  rootfs: rootfs.tar
 ```
 
-Do not change this value to `rootfs.tar`. That filename belongs to a different package representation and causes `ioxclient` to reject the project before creating the archive.
+Do not add `-p ext2` to the command. That option invokes a flat ext2 conversion, expects `rootfs.img`, and can fail with `Failed to format rootfs image file`. Cisco's C8000V packaging example uses the Docker-layer `rootfs.tar` method shown here.
 
 ## Task 8: Deploy the Package through Local Manager
 
@@ -487,8 +473,8 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
 | Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
-| `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Use the supplied `package.yaml` with `startup.rootfs: rootfs.img`, remove any incomplete output archive, and package again |
-| `Failed to format rootfs image file` | Install `e2fsprogs`, confirm `mkfs.ext2`, `mke2fs`, `e2fsck`, and `resize2fs` are in the command path, remove incomplete output, and package again |
+| `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Remove `-p ext2` from the command and use the supplied C8000V descriptor with `startup.rootfs: rootfs.tar` |
+| `Failed to format rootfs image file` | The command is still invoking flat ext2 conversion; remove `-p ext2`, delete incomplete output, and use the Docker-layer packaging command in Task 7 |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |

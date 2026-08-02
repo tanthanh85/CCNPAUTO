@@ -148,22 +148,22 @@ ioxclient --version
 
 Use `sudo` only for installing the executable into `/usr/local/bin`. Running normal `ioxclient` commands with `sudo` can create root-owned settings and build files. An `Exec format error` indicates that the wrong workstation architecture was downloaded.
 
-Confirm access to the local Docker daemon and initialize the Docker connection used for packaging:
+Confirm the workstation Docker environment:
 
 ```bash
-docker version --format 'Docker Server: {{.Server.Version}}'
-ioxclient docker init
+docker version
 ```
 
-This lab assumes that the Docker server used for IOx packaging is version `24.0.9`. Cisco identifies Docker 24.0.9 as the latest version compatible with this C8000V `ioxclient` packaging workflow. A numerically newer Docker release is not necessarily compatible; Docker 25 and later must not be used to create the Lab 15 package.
-
-Accept the local socket and detected/default Docker API version:
+The course workstation used for this lab has an ARM64 Docker 29 installation. Typical evidence is:
 
 ```text
-unix:///var/run/docker.sock
+Server Version: 29.6.2
+OS/Arch: linux/arm64
 ```
 
-This lab does not require an `ioxclient` platform profile because Local Manager performs the deployment and lifecycle operations.
+Docker 29 remains the workstation's normal engine for the other course services. Do not downgrade or remove it. However, Cisco identifies Docker 24.0.9 as the latest engine compatible with the C8000V `ioxclient` packaging workflow. Task 6 therefore starts a temporary ARM64 Docker 24.0.9 daemon and uses it to cross-build and package the AMD64 application.
+
+This lab does not require an `ioxclient` platform profile because Local Manager performs deployment and lifecycle operations. The Docker connection used internally by `ioxclient` is configured in Task 6.
 
 ## Task 4: Understand the Application Configuration Boundary
 
@@ -226,10 +226,47 @@ git check-ignore package_config.ini
 
 ## Task 6: Build and Inspect the x86-64 Container
 
-Catalyst 8000V is the application target, so the application image must be x86-64 even when the learner workstation uses ARM64. This task uses the Docker 24.0.9 server and the local socket configured in Task 3.
+Catalyst 8000V is the application target, so the application image must be AMD64 even though the learner workstation is ARM64. Meanwhile, `ioxclient` must obtain the image from Docker 24.0.9 to generate the legacy layer archive accepted by this IOx release.
+
+First, register AMD64 binary emulation with the workstation kernel. This permits the temporary ARM64 Docker daemon to execute AMD64 build steps:
 
 ```bash
-docker build \
+docker run --privileged --rm \
+  tonistiigi/binfmt --install amd64
+```
+
+Remove a compatibility container left by an earlier attempt, and then start a clean Docker 24.0.9 daemon:
+
+```bash
+docker rm -f iox-docker24 2>/dev/null || true
+
+docker run -d \
+  --privileged \
+  --name iox-docker24 \
+  -e DOCKER_TLS_CERTDIR="" \
+  -p 127.0.0.1:2375:2375 \
+  docker:24.0.9-dind
+```
+
+The empty `DOCKER_TLS_CERTDIR` value is required. Without it, the Docker-in-Docker image enables HTTPS automatically and a plain HTTP client receives `Client sent an HTTP request to an HTTPS server`. Port 2375 is bound only to `127.0.0.1`; never expose this unauthenticated daemon on an external interface.
+
+Confirm that the compatibility daemon is ready:
+
+```bash
+docker -H tcp://127.0.0.1:2375 version \
+  --format 'Compatibility Docker Server: {{.Server.Version}}'
+```
+
+The result must be:
+
+```text
+Compatibility Docker Server: 24.0.9
+```
+
+Build the AMD64 application inside the Docker 24 daemon:
+
+```bash
+docker -H tcp://127.0.0.1:2375 build \
   --platform linux/amd64 \
   -t loopback1-auto-recovery:1.0 .
 ```
@@ -237,7 +274,8 @@ docker build \
 Inspect the resulting architecture:
 
 ```bash
-docker image inspect loopback1-auto-recovery:1.0 \
+docker -H tcp://127.0.0.1:2375 image inspect \
+  loopback1-auto-recovery:1.0 \
   --format '{{.Architecture}}'
 ```
 
@@ -249,12 +287,28 @@ amd64
 
 If the architecture is not `amd64`, do not continue to packaging. Rebuild the image with the explicit `--platform linux/amd64` option.
 
+Configure `ioxclient` to obtain the image from the temporary Docker 24 daemon:
+
+```bash
+ioxclient docker init
+```
+
+Enter:
+
+```text
+Docker daemon URI: http://127.0.0.1:2375
+Docker API version: 1.43
+```
+
+Keep `iox-docker24` running until Task 7 is complete.
+
 The Dockerfile installs only the Python dependencies required by the application. It does not install `iproute2` because the recovery service uses Python sockets and Netmiko and never invokes the Linux `ip` command. Keeping unnecessary operating-system packages out of the image reduces its size and removes an avoidable dependency on the Alpine package repository during the build.
 
 Run a local startup check using the INI file:
 
 ```bash
-docker run --rm --name loopback-recovery-test \
+docker -H tcp://127.0.0.1:2375 run \
+  --rm --name loopback-recovery-test \
   -p 15514:5514/udp \
   -e CAF_APP_CONFIG_FILE=/data/package_config.ini \
   -v "$PWD/package_config.ini:/data/package_config.ini:ro" \
@@ -308,7 +362,7 @@ tar -xzf /tmp/lab15-package-check/outer/artifacts.tar.gz \
 tar -tf /tmp/lab15-package-check/artifacts/rootfs.tar | sed -n '1,20p'
 ```
 
-The listing must include `manifest.json` and Docker layer content. If the command reports that `rootfs.tar` is absent, or the listing contains no manifest or layer data, do not upload the package. Confirm that `ioxclient` is using the local Docker 24.0.9 daemon and rebuild the package.
+The listing must include `manifest.json` and Docker layer content. If the command reports that `rootfs.tar` is absent, or the listing contains no manifest or layer data, do not upload the package. Confirm that `ioxclient` is using `http://127.0.0.1:2375`, verify that the compatibility server reports `24.0.9`, and rebuild the package.
 
 This C8000V workflow deliberately omits `-p ext2`. `ioxclient` packages the Docker layers into `rootfs.tar`, so `package.yaml` must declare:
 
@@ -318,6 +372,19 @@ startup:
 ```
 
 Do not add `-p ext2` to the command. That option invokes a flat ext2 conversion, expects `rootfs.img`, and can fail with `Failed to format rootfs image file`. Cisco's C8000V packaging example uses the Docker-layer `rootfs.tar` method shown here.
+
+After the package is created and inspected, return `ioxclient` to the workstation's normal Docker 29 socket:
+
+```bash
+ioxclient docker init
+```
+
+Enter:
+
+```text
+Docker daemon URI: unix:///var/run/docker.sock
+Docker API version: accept the detected/default value
+```
 
 ## Task 8: Deploy the Package through Local Manager
 
@@ -475,7 +542,14 @@ On Ubuntu, delete the generated package and optional local image when they are n
 
 ```bash
 rm -f loopback1-recovery.tar package.tar
-docker image rm loopback1-auto-recovery:1.0
+docker -H tcp://127.0.0.1:2375 image rm \
+  loopback1-auto-recovery:1.0
+```
+
+The Lab 15 image resides in the temporary daemon rather than the normal Docker 29 image store. Remove that daemon after packaging and deployment are complete. This does not change or remove the workstation's normal Docker 29 service:
+
+```bash
+docker rm -f iox-docker24
 ```
 
 Commit and push only the source, tests, Dockerfile, descriptor, and documentation. Never commit `package_config.ini`, generated archives, sandbox credentials, or temporary passwords.
@@ -487,12 +561,15 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | Local Manager login page is unavailable | VPN, reservation state, browser proxy, or incorrect URL |
 | Local Manager credentials fail | Use the IOx credentials from the reservation, not automatically the IOS XE SSH credentials |
 | `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
+| `Client sent an HTTP request to an HTTPS server` on port 2375 | Remove `iox-docker24` and recreate it with `-e DOCKER_TLS_CERTDIR=""` exactly as shown in Task 6 |
+| Compatibility server does not report `24.0.9` | The command is addressing the wrong Docker daemon; include `-H tcp://127.0.0.1:2375` |
+| AMD64 build reports `exec format error` | AMD64 emulation was not registered; rerun the `tonistiigi/binfmt --install amd64` command before rebuilding |
 | Docker image reports `arm64` | Rebuild with `--platform linux/amd64` |
 | Build reports `DNS: transient error` | Docker cannot resolve an external package repository; confirm workstation Internet access, restart Docker, and retry the build |
 | Build reports `iproute2 (no such package)` with preceding DNS warnings | Use the supplied revised Dockerfile; the application does not require `iproute2`, and the apparent package error follows a failed Alpine index download |
 | `Incompatible package type(ext2) and rootfs(rootfs.tar)` | Remove `-p ext2` from the command and use the supplied C8000V descriptor with `startup.rootfs: rootfs.tar` |
 | `Failed to format rootfs image file` | The command is still invoking flat ext2 conversion; remove `-p ext2`, delete incomplete output, and use the Docker-layer packaging command in Task 7 |
-| `Mandatory layer blobs is missing` in Local Manager | The package was generated with an incompatible Docker release or is incomplete; confirm Docker Server `24.0.9`, delete the generated TAR, and rebuild the image and package from the beginning |
+| `Mandatory layer blobs is missing` in Local Manager | `ioxclient` packaged from Docker 29 or the archive is incomplete; delete the generated TAR, point `ioxclient` to the Docker 24 daemon, and rebuild the package from the beginning |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |

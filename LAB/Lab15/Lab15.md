@@ -1,4 +1,4 @@
-# Optional Lab 15: Host a Python Application with IOx Local Manager
+# Optional Lab 15: Host a Python Application Using the Application Hosting Service on the Cisco IOS XE Platform
 
 ## Lab Introduction
 

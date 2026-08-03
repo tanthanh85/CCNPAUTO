@@ -4,11 +4,13 @@
 
 Network automation normally runs from a workstation, runner, or controller. However, a small operational service can also run directly beside IOS XE. Hosting the service on the router reduces its dependency on an external automation server and demonstrates how edge applications can react to local events.
 
-In this optional lab, learners reserve the **Cisco Catalyst 8000V DevNet Sandbox** and manage the hosted application through the router's **IOx Local Manager** at:
+The Cisco Catalyst 8000V DevNet Sandbox has limited compute and application-hosting resources. Consequently, it may boot IOS XE successfully but still lack enough available capacity to activate and run this container reliably. For this lab, learners should host a dedicated **Cisco Catalyst 8000V** virtual router on **VMware Workstation** and manage the application through the router's **IOx Local Manager** at:
 
 ```text
-http://10.10.20.48/iox/login
+http://<C8000V-MANAGEMENT-IP>/iox/login
 ```
+
+Allocate **2 vCPUs as the absolute minimum, 4 vCPUs as the recommended lab configuration, and 8 GB RAM**. Four vCPUs provide useful headroom for IOS XE, IOx, and the hosted Python container to run together. Do not use the DevNet reservation as the application execution platform for this lab; its application-hosting allocation is too constrained for reliable activation and runtime. It may still be used only to observe the IOS XE and IOx interfaces when available.
 
 Learners build a Python service as an x86-64 Docker image, convert the image into an IOx application package with `ioxclient`, and use Local Manager to deploy, configure, activate, start, inspect, stop, and delete it. IOS XE CLI is still used to create the test interface, configure syslog, verify IOx state, and confirm the final network condition.
 
@@ -42,8 +44,8 @@ flowchart TB
         PKG -->|"Select package for upload"| WEB
     end
 
-    subgraph C8K["Cisco Catalyst 8000V sandbox"]
-        LM["IOx Local Manager<br/>10.10.20.48"]
+    subgraph C8K["Locally hosted Cisco Catalyst 8000V"]
+        LM["IOx Local Manager<br/>C8000V management IP"]
 
         subgraph IOS["IOS XE"]
             LO1["Loopback1<br/>Monitored interface"]
@@ -65,10 +67,10 @@ flowchart TB
         LO1 -->|"Operational state<br/>up/up"| LOGIC
     end
 
-    WEB -->|"HTTP through DevNet VPN"| LM
+    WEB -->|"HTTP through the VMware lab network"| LM
 ```
 
-The diagram separates the management plane from the runtime closed loop. The learner uses Local Manager to control the application's lifecycle, whereas IOS XE and the running container communicate directly across `VirtualPortGroup0`. The container must use the static address `192.168.35.102/24`; Dynamic IPv4 addressing does not work on this sandbox application network.
+The diagram separates the management plane from the runtime closed loop. The learner uses Local Manager to control the application's lifecycle, whereas IOS XE and the running container communicate directly across `VirtualPortGroup0`. The container must use the static address `192.168.35.102/24`; this lab does not depend on DHCP inside the application-hosting network.
 
 The event sequence is as follows:
 
@@ -93,10 +95,10 @@ sequenceDiagram
 The four control paths therefore have distinct purposes:
 
 ```text
-Learner browser  -> http://10.10.20.48/iox/login -> IOx Local Manager
-Learner terminal -> SSH to Catalyst 8000V        -> IOS XE CLI
-Hosted app       -> SSH to 192.168.35.101:22      -> Netmiko remediation
-IOS XE           -> Application UDP/5514         -> Shutdown event
+Learner browser  -> http://<C8000V-MANAGEMENT-IP>/iox/login -> IOx Local Manager
+Learner terminal -> SSH to the C8000V management IP         -> IOS XE CLI
+Hosted app       -> SSH to 192.168.35.101:22                 -> Netmiko remediation
+IOS XE           -> Application UDP/5514                    -> Shutdown event
 ```
 
 ## Supplied Files
@@ -119,13 +121,37 @@ Lab15/
 
 `package_config.ini` is a deployment-specific IOx bootstrap configuration. It is excluded from Git and from the Docker image, but `ioxclient` places it in the IOx application package so Local Manager can manage it separately from application code.
 
-## Task 1: Reserve and Inspect the Catalyst 8000V
+## Task 1: Host and Inspect the Catalyst 8000V
 
-1. Sign in to Cisco DevNet Sandbox.
-2. Reserve the **Cisco Catalyst 8000V** sandbox.
-3. Wait until the reservation is active and connect through the supplied VPN.
-4. Record the IOS XE SSH username and password from the reservation.
-5. Open an SSH session to the router and enter privileged EXEC mode.
+Deploy the Catalyst 8000V on an x86-64 computer running VMware Workstation. Use a legally obtained Cisco C8000V image appropriate for the course and comply with Cisco licensing requirements. VMware Workstation is suitable for this self-contained learning exercise; consult Cisco's current supported-hypervisor documentation before designing a production deployment.
+
+Use the following virtual-machine allocation:
+
+| Resource | Lab allocation | Reason |
+|---|---:|---|
+| vCPU | 2 minimum; 4 recommended | IOS XE and IOx must run concurrently, and application activation needs spare CPU capacity. |
+| Memory | 8 GB | Provides headroom beyond base router operation for IOx and the Python container. |
+| Storage | At least 16 GB, with several GB free | The router needs space for IOS XE, IOx application storage, uploaded packages, and extracted container layers. |
+| Management NIC | Bridged or NAT, reachable from Ubuntu | Learners must reach IOS XE SSH and IOx Local Manager from the workstation. |
+
+The C8000V guest is x86-64. Therefore, run it on an x86-64 VMware host. An ARM64 learner workstation cannot run this guest natively in VMware Workstation; use a separate x86-64 computer or an instructor-provided x86-64 VMware/ESXi host in that situation.
+
+In VMware Workstation, import the Cisco-provided virtual appliance or create the VM using the matching Cisco installation image, then open **VM Settings** before the first boot. Assign the CPU, memory, disk, and management NIC shown above. Do not oversubscribe the host so heavily that the VM cannot receive its configured CPU and memory. Complete the initial IOS XE setup, assign a reachable management address, configure local administrative access, and enable IOx if it is not already enabled:
+
+```text
+configure terminal
+iox
+end
+```
+
+Allow IOx several minutes to initialize after the first boot or after enabling it. Record the following values before continuing:
+
+- C8000V management IP address.
+- IOS XE administrative username and password.
+- IOx Local Manager username and password.
+- IOS XE release and C8000V image used for the lab.
+
+Open an SSH session to the local router and enter privileged EXEC mode.
 
 Inspect the environment without changing it:
 
@@ -137,15 +163,15 @@ show app-hosting resource
 show ip interface brief
 ```
 
-Confirm that the IOx services report a running state and that sufficient CPU, memory, and disk resources are available. Do not stop or remove existing applications.
+Confirm that the IOx services report a running state and that sufficient CPU, memory, vCPU, and disk resources are available. If the output shows no usable application-hosting CPU or memory, power off the VM, increase it to the recommended **4 vCPUs and 8 GB RAM**, power it on again, and repeat the checks. Do not proceed until IOx is healthy and application resources are available.
 
-Open the Local Manager URL in a browser:
+Open the Local Manager URL in a browser, replacing the placeholder with the reachable management address of the local C8000V:
 
 ```text
-http://10.10.20.48/iox/login
+http://<C8000V-MANAGEMENT-IP>/iox/login
 ```
 
-Use the IOx Local Manager credentials provided by the active reservation. These credentials may differ from the IOS XE SSH credentials. Because this sandbox URL uses HTTP, use it only inside the protected DevNet VPN environment and never reuse its password elsewhere.
+Use the IOx Local Manager credentials configured for the local router. These credentials may differ from the IOS XE SSH credentials. If the router redirects the session to HTTPS, accept only the expected locally managed certificate. Keep the management interface on an isolated lab network and do not expose Local Manager directly to the Internet.
 
 After login, open **Applications** and confirm that the page displays the applications known to the Catalyst 8000V.
 
@@ -164,7 +190,7 @@ python -m py_compile loopback_recovery.py scripts/send_test_syslog.py
 python -m pytest -q
 ```
 
-The tests confirm that only a `Loopback1` administrative-down event triggers remediation. They also verify that Netmiko receives `interface Loopback1` and `no shutdown`, checks the interface state, and disconnects. Mocked connections prevent the local tests from modifying the sandbox.
+The tests confirm that only a `Loopback1` administrative-down event triggers remediation. They also verify that Netmiko receives `interface Loopback1` and `no shutdown`, checks the interface state, and disconnects. Mocked connections prevent the local tests from modifying the router.
 
 ## Task 3: Install and Initialize `ioxclient`
 
@@ -235,7 +261,7 @@ The fields have these purposes:
 | Field | Meaning |
 |---|---|
 | `host` | IOS XE VirtualPortGroup address the application reaches with Netmiko |
-| `port` | SSH port as seen from the hosted application; normally 22 inside the sandbox |
+| `port` | SSH port as seen from the hosted application; normally 22 on the internal application network |
 | `username` and `password` | Temporary router account used only by this lab |
 | `device_type` | Netmiko platform driver, `cisco_ios` |
 | `timeout` | SSH establishment timeout |
@@ -245,9 +271,9 @@ The application can also accept equivalent environment variables for portability
 
 ## Task 5: Prepare IOS XE Networking, Credentials, and the Test Interface
 
-Choose a temporary lab password containing letters and numbers but no spaces. Do not reuse any personal, reservation, GitLab, or Vault password.
+Choose a temporary lab password containing letters and numbers but no spaces. Do not reuse any personal, GitLab, Vault, or production password.
 
-First, inspect whether the reserved router already has an application-hosting network. Do not overwrite a VirtualPortGroup used by another application:
+First, inspect whether the local router already has an application-hosting network. Do not overwrite a VirtualPortGroup used by another application:
 
 ```text
 show ip interface brief | include VirtualPortGroup
@@ -255,9 +281,13 @@ show running-config | section app-hosting
 show app-hosting list
 ```
 
-The clean reservable sandbox used by this lab should not have another hosted application or an existing `VirtualPortGroup0` address. Configure a dedicated internal subnet between IOS XE and `lo1_recovery`, create the application account, and prepare the test loopback:
+The dedicated local C8000V used by this lab should not have another hosted application or an existing `VirtualPortGroup0` address. Because the learner-built IOx archive is not Cisco-signed, disable signed-application verification for this isolated lab before deploying it. This is a global security control, so do not disable it on a production router merely to bypass package validation.
+
+Configure a dedicated internal subnet between IOS XE and `lo1_recovery`, create the application account with privilege level 15, and prepare the test loopback:
 
 ```text
+app-hosting verification disable
+show app-hosting infra
 configure terminal
 interface VirtualPortGroup0
  description LAB15-IOX-APPLICATION-NETWORK
@@ -280,12 +310,16 @@ interface Loopback1
 end
 show running-config interface VirtualPortGroup0
 show running-config | section app-hosting appid lo1_recovery
+show running-config | include ^username apphost
+show app-hosting infra
 show interfaces Loopback1 | include line protocol
 ```
 
 `192.168.35.101` is the IOS XE side of the internal link, while `192.168.35.102` becomes the application address. The application can therefore SSH directly to the router through the VirtualPortGroup, and IOS XE can send syslog directly to the application without NAT or an external port mapping.
 
-The account has privilege 15 only to keep this optional sandbox exercise focused on application hosting. A production implementation should use command authorization and the minimum privileges required for the remediation.
+The command `username apphost privilege 15 secret <TEMPORARY-LAB-PASSWORD>` is required: it creates the `apphost` SSH account and assigns privilege level 15 so the hosted application can enter configuration mode and issue `no shutdown`. Confirm that the username appears in the running configuration before continuing. The account has this broad privilege only to keep this optional lab focused on application hosting. A production implementation should use command authorization and the minimum privileges required for the remediation.
+
+In `show app-hosting infra`, confirm that `App signature verification` is reported as `disabled` before uploading the learner-built package.
 
 In VS Code, open `package_config.ini` and replace `REPLACE_WITH_LAB_PASSWORD` with the temporary password. Retain `192.168.35.101` for both `host` and `syslog_source`. These values match the IOS XE VirtualPortGroup address configured above.
 
@@ -474,7 +508,7 @@ Docker API version: accept the detected/default value
 Return to:
 
 ```text
-http://10.10.20.48/iox/login
+http://<C8000V-MANAGEMENT-IP>/iox/login
 ```
 
 Deploy the package:
@@ -499,7 +533,7 @@ Select **Activate** for `lo1_recovery`. On the **Resources** page:
 1. Select the custom resource profile requested by the descriptor, or enter approximately 100 CPU units, 256 MB memory, and 10 MB application disk when Local Manager asks for explicit values.
 2. In the network section, select the application interface and map it to `VirtualPortGroup0` through the interface shown by Local Manager.
 3. Select **Interface Setting** or **details** beside the application interface.
-4. Under **IPv4 Setting**, select **Static**. Do not leave IPv4 set to **Dynamic**; the sandbox application network does not provide a working DHCP service.
+4. Under **IPv4 Setting**, select **Static**. Do not leave IPv4 set to **Dynamic**; this lab intentionally uses a fixed application address and does not rely on DHCP.
 5. Enter the following values:
 
    | Setting | Value |
@@ -563,6 +597,7 @@ show app-hosting detail appid lo1_recovery
 show running-config interface VirtualPortGroup0
 show running-config | section app-hosting appid lo1_recovery
 show ip arp 192.168.35.102
+ping 192.168.35.102
 show logging | include Trap logging|192.168.35.102
 ```
 
@@ -572,10 +607,11 @@ Proceed only when all of the following are true:
 - The application detail identifies guest interface 0 and the statically assigned address `192.168.35.102`.
 - `VirtualPortGroup0` is up with address `192.168.35.101/24`.
 - The application-hosting configuration binds `gateway1` to `VirtualPortGroup0` and guest interface 0.
+- IOS XE can successfully ping the application at `192.168.35.102`.
 - Local Manager **App-Config** contains the correct temporary password and uses `192.168.35.101` for `host` and `syslog_source`.
 - The application log contains `Listening for IOS XE syslog on udp://0.0.0.0:5514`.
 
-A failed ping does not by itself prove that the Python process is stopped because ICMP handling depends on the hosted network. However, an unresolved or incomplete ARP entry together with a missing guest address in `show app-hosting detail` indicates that the application vNIC was not provisioned correctly. Stop and deactivate the application, confirm that **IPv4 Setting** uses the static address `192.168.35.102/24` rather than **Dynamic**, reapply the Task 5 `app-hosting` configuration if necessary, and then activate and start it again.
+Do not continue to the recovery test until `ping 192.168.35.102` succeeds. If it fails, stop and deactivate the application, confirm that **IPv4 Setting** uses the static address `192.168.35.102/24` rather than **Dynamic**, and verify that the default gateway is `192.168.35.101`. Then reapply the Task 5 `VirtualPortGroup0` and `app-hosting` configuration if necessary, activate and start the application again, and repeat the ping test. An unresolved or incomplete ARP entry, or a missing guest address in `show app-hosting detail`, is further evidence that the application vNIC was not provisioned correctly.
 
 ## Task 11: Deliver Syslog and Test Recovery
 
@@ -647,7 +683,11 @@ no interface VirtualPortGroup0
 interface Loopback1
  no shutdown
 end
+app-hosting verification enable
+show app-hosting infra
 ```
+
+The `app-hosting verification enable` command restores package-signature verification after the unsigned lab application has been removed. Confirm that `show app-hosting infra` reports signature verification as enabled before finishing the lab.
 
 On Ubuntu, delete the generated package and optional local image when they are no longer required:
 
@@ -663,14 +703,15 @@ The Lab 15 image resides in the temporary daemon rather than the normal Docker 2
 docker rm -f iox-docker24
 ```
 
-Commit and push only the source, tests, Dockerfile, descriptor, and documentation. Never commit `package_config.ini`, generated archives, sandbox credentials, or temporary passwords.
+Commit and push only the source, tests, Dockerfile, descriptor, and documentation. Never commit `package_config.ini`, generated archives, router credentials, or temporary passwords.
 
 ## Troubleshooting
 
 | Evidence | Likely cause and next check |
 |---|---|
-| Local Manager login page is unavailable | VPN, reservation state, browser proxy, or incorrect URL |
-| Local Manager credentials fail | Use the IOx credentials from the reservation, not automatically the IOS XE SSH credentials |
+| Local Manager login page is unavailable | Incorrect management address, VMware NIC mode, local routing, IOx state, browser proxy, or host firewall |
+| Local Manager credentials fail | Use the IOx Local Manager credentials configured for the local router, not automatically the IOS XE SSH credentials |
+| `show app-hosting resource` reports inadequate resources or activation remains pending | Power off the C8000V, assign the recommended 4 vCPUs and 8 GB RAM, confirm sufficient virtual disk space, then boot it and recheck IOx |
 | `Exec format error` for `ioxclient` | Wrong workstation binary architecture |
 | `Client sent an HTTP request to an HTTPS server` on port 2375 | Remove `iox-docker24` and recreate it with `-e DOCKER_TLS_CERTDIR=""` exactly as shown in Task 6 |
 | Compatibility server does not report `24.0.9` | The command is addressing the wrong Docker daemon; include `-H tcp://127.0.0.1:2375` |
@@ -684,7 +725,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 | `Mandatory layer blobs is missing` in Local Manager | `ioxclient` packaged from Docker 29 or the archive is incomplete; delete the generated TAR, point `ioxclient` to the Docker 24 daemon, and rebuild the package from the beginning |
 | Package upload or validation fails | Descriptor syntax, x86-64 image, package format, available storage, or application signature policy |
 | Activation fails | Resource shortage, invalid profile, unavailable network, or port conflict |
-| App starts but has no reachable IPv4 address | Deactivate it and set IPv4 to **Static** with `192.168.35.102/24`, DNS `8.8.8.8`, and gateway `192.168.35.101`; Dynamic addressing does not work on this sandbox application network |
+| App starts but has no reachable IPv4 address | Deactivate it and set IPv4 to **Static** with `192.168.35.102/24`, DNS `8.8.8.8`, and gateway `192.168.35.101`; do not select Dynamic for this lab |
 | Application starts and immediately stops | Missing/invalid `package_config.ini` or placeholder password |
 | Application is running but receives no event | Incorrect Local Manager network selection or UDP port mapping, wrong logging destination, or wrong logging severity |
 | Unexpected syslog source is rejected | Update only `syslog_source` to the observed authorized router address and restart |
@@ -700,6 +741,7 @@ Commit and push only the source, tests, Dockerfile, descriptor, and documentatio
 - [Cisco IOx Application Development Concepts](https://developer.cisco.com/docs/iox/application-development-concepts/)
 - [Cisco IOx Resource Downloads](https://developer.cisco.com/docs/iox/iox-resource-downloads/)
 - [Cisco IOx Docker Commands](https://developer.cisco.com/docs/iox/docker-commands/)
+- [Cisco Catalyst 8000V: Installing in a VMware ESXi Environment](https://www.cisco.com/c/en/us/td/docs/routers/C8000V/Configuration/c8000v-installation-configuration-guide/install-cisco-catalyst-8000v-in-vmware-esxi-environment/installing-in-vmware-esxienviroment.html)
 - [Cisco Catalyst 8000V IOx Verification](https://www.cisco.com/c/en/us/td/docs/routers/C8000V/HighAvailability/c8000v-high-availability-configuration-guide/troubleshoot-high-availability-issues.html)
 
 ## Key Takeaways

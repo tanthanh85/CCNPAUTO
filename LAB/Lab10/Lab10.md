@@ -146,10 +146,10 @@ An XPath and a RESTCONF URI describe the same modeled tree differently. The XPat
    /interfaces-ios-xe-oper:interfaces/interface[name='GigabitEthernet1']/statistics
    ```
 
-6. CPU and memory candidates commonly resemble:
+6. For CPU, select the `five-seconds` leaf rather than the complete `cpu-utilization` container. This keeps subscription `201` focused on the single value required by the dashboard. CPU and memory candidates commonly resemble:
 
    ```text
-   /process-cpu-ios-xe-oper:cpu-usage/cpu-utilization
+   /process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds
    /memory-ios-xe-oper:memory-statistics/memory-statistic
    ```
 
@@ -192,7 +192,7 @@ NETCONF dial-in creates a dynamic subscription over the same SSH session that re
       xmlns="urn:ietf:params:xml:ns:yang:ietf-event-notifications"
       xmlns:yp="urn:ietf:params:xml:ns:yang:ietf-yang-push">
     <stream>yp:yang-push</stream>
-    <yp:xpath-filter>/process-cpu-ios-xe-oper:cpu-usage/cpu-utilization</yp:xpath-filter>
+    <yp:xpath-filter>/process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds</yp:xpath-filter>
     <yp:period>500</yp:period>
   </establish-subscription>
 </rpc>
@@ -287,13 +287,13 @@ Record the three validated paths in the lab worksheet. A syntactically valid XPa
 
 ## Task 7: Configure gRPC Dial-Out Manually
 
-Open an SSH or console session to the reserved C8KV. Begin with CPU subscription `201`, replacing `<CPU_XPATH>` with the path validated in Task 3:
+Open an SSH or console session to the reserved C8KV. Begin with CPU subscription `201`. The filter ends at the `five-seconds` leaf validated in Task 3:
 
 ```text
 configure terminal
 telemetry ietf subscription 201
  encoding encode-kvgpb
- filter xpath <CPU_XPATH>
+ filter xpath /process-cpu-ios-xe-oper:cpu-usage/cpu-utilization/five-seconds
  stream yang-push
  update-policy periodic 1000
  receiver ip address 10.10.20.50 57500 protocol grpc-tcp
@@ -376,7 +376,7 @@ The queries in this option match the subscription IDs and Cisco IOS XE native op
 
 | Subscription | Data | Expected fields |
 |---:|---|---|
-| `201` | `cpu-utilization` | `five-seconds`, `one-minute`, `five-minutes` |
+| `201` | CPU `five-seconds` leaf | `five-seconds` |
 | `202` | `memory-statistic` | `total-memory`, `used-memory`, `free-memory` |
 | `203` | `GigabitEthernet1/statistics` | `in-octets`, `out-octets`, `in-errors`, `out-errors` |
 

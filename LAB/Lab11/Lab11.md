@@ -342,6 +342,30 @@ get_all_routes()
 
 This design keeps the AI prompt grounded in live data while preserving the right trust boundary. The LLM receives a JSON context produced by the MCP tool layer and is instructed to answer only from that context. The LLM does not receive the router password, does not send RESTCONF requests, and cannot create or change routes.
 
+### Why the Lab Uses `choose_route_context()`
+
+An LLM cannot select an MCP tool merely because a FastMCP server exists. The application must either select the tool itself or provide the model with tool descriptions, accept a structured tool-call response, execute that call, and return the result to the model. This lab deliberately begins with the first and simpler design.
+
+Open `app.py` and examine `choose_route_context()`:
+
+```python
+def choose_route_context(question: str) -> dict[str, Any]:
+    text = question.lower()
+```
+
+The function is a deterministic intent router. It looks for protocol names, an IP prefix, or words associated with a count or summary. It then calls one approved read-only route tool. If no specific intent is recognized, it retrieves all routes as a safe fallback.
+
+| Question characteristic | Selected tool |
+|---|---|
+| Contains `static`, `connected`, `local`, or `ospf` | `get_routes_by_protocol` |
+| Contains a destination prefix such as `10.10.10.0/24` | `get_route_detail` |
+| Contains `how many`, `number`, `count`, or `summary` | `get_route_summary` |
+| Does not match a specific rule | `get_all_routes` |
+
+Consequently, the current LLM does not choose a tool. It receives the learner's question together with JSON already returned by the selected tool, and its responsibility is limited to explaining that evidence. This approach behaves consistently across different model providers, reduces prompt size, works with smaller local models, and makes every selection easy to audit. However, keyword matching is not language understanding. A compound request may require more than one tool, an unfamiliar phrase may select the fallback, and a negated statement such as “show routes that are not static” can be misclassified.
+
+The supplied `mcp_client.py` is an in-process adapter for the Flask learning application: it imports the controlled tool implementations from `mcp_server.py` and calls them directly. Running `mcp_server.py` separately exposes the same tools through FastMCP for inspection and for future standards-based MCP clients. Therefore, the supplied Flask application does not require the separate FastMCP process to answer its current questions; the server process demonstrates how those approved tools can be published to an external MCP-capable agent.
+
 ## Task 6: Start the FastMCP Route Server
 
 Run the FastMCP server:
@@ -391,7 +415,7 @@ http://127.0.0.1:5050
 
 The page should display a dark professional assistant interface. The left panel shows a live route summary returned by the MCP tool layer. The chat area lets learners ask route-related questions.
 
-The MCP server and Flask application are separate processes and therefore create separate log files. Correlate them by timestamp and nonsecret request context. This boundary helps prove whether a route fact came from RESTCONF and MCP before evaluating the LLM's wording.
+When FastMCP and Flask are both running, they create separate log files. In the supplied deterministic workflow, Flask uses the local MCP adapter; a request made through an external MCP client appears in the FastMCP server log. Correlate timestamps, selected tool names, and nonsecret request arguments so that the origin of every route fact can be established before evaluating the LLM's wording.
 
 Ask:
 
@@ -409,20 +433,20 @@ The Flask application selects the appropriate MCP tool, receives route context f
 
 ## Task 8: Understand the Assistant Workflow
 
-The request path is intentionally simple:
+The current request path is intentionally simple and deterministic:
 
 ```mermaid
 sequenceDiagram
     participant U as Learner
     participant W as Flask Web UI
-    participant C as MCP Client
-    participant M as FastMCP Server
+    participant C as Local MCP adapter
+    participant M as Approved route tool
     participant D as IOS XE RESTCONF
     participant L as Configured LLM provider
 
     U->>W: Ask route question
     W->>C: Select route-information tool
-    C->>M: Call controlled MCP tool
+    C->>M: Call selected read-only tool
     M->>D: RESTCONF GET routing data
     D-->>M: YANG-modeled JSON
     M-->>C: Normalized route context
@@ -432,7 +456,56 @@ sequenceDiagram
     W-->>U: Answer in web UI
 ```
 
-This workflow avoids a risky pattern where the LLM directly decides which network endpoint to call. The MCP server is the deterministic software boundary that decides what data can be retrieved, how much data can be returned, and how RESTCONF errors are handled.
+This workflow avoids a risky pattern where the LLM directly decides which network endpoint to call. The application selects the tool, while the tool implementation decides what data can be retrieved, how much data can be returned, and how RESTCONF errors are handled.
+
+### Extending the Project with Dynamic LLM Tool Selection
+
+A more agentic implementation can allow the LLM to choose among the four approved MCP tools. Importantly, the model still should not invent a RESTCONF URL or receive router credentials. It chooses only a tool name and validated arguments from schemas supplied by the MCP server.
+
+```mermaid
+sequenceDiagram
+    participant U as Learner
+    participant A as Agent orchestrator
+    participant L as Tool-capable LLM
+    participant C as MCP client transport
+    participant M as FastMCP server
+    participant D as IOS XE RESTCONF
+
+    U->>A: Ask a routing question
+    A->>M: Discover approved tool schemas
+    A->>L: Question and available tools
+    L-->>A: Structured tool call and arguments
+    A->>A: Validate tool, arguments, and call limit
+    A->>C: Execute approved tool call
+    C->>M: MCP request
+    M->>D: Controlled RESTCONF GET
+    D-->>M: YANG-modeled JSON
+    M-->>C: Normalized tool result
+    C-->>A: Evidence
+    A->>L: Tool result and original question
+    L-->>A: Final answer or another tool call
+    A-->>U: Grounded answer and evidence
+```
+
+The agent orchestrator owns this loop. It discovers or defines the available tool schemas, sends them to a model and runtime that support structured tool calling, validates the returned tool name and arguments, invokes the tool through an MCP client transport, and sends the result back to the model. The loop continues only until the model has enough evidence or a configured call limit is reached. MCP standardizes tool discovery and invocation, but it does not automatically implement this orchestration logic.
+
+| Approach | Benefits | Limitations and risks |
+|---|---|---|
+| Deterministic `choose_route_context()` | Predictable, inexpensive, easy to debug, compatible with small models, and straightforward to audit | Brittle keyword rules, one primary tool per question, weak handling of ambiguity and compound requests |
+| Dynamic LLM tool selection | Understands more natural phrasing, can choose arguments, and can combine several tools to answer a compound question | Additional latency and token use, provider-dependent tool support, harder testing, incorrect tool or argument selection, repeated calls, and a larger attack surface |
+| Hybrid selection | Uses deterministic rules for common questions and invokes the LLM selector only for ambiguous requests | More branches to maintain and two decision paths to test and audit |
+
+Learners who extend the project should begin with read-only operations and apply the following controls:
+
+1. Give the model only an allowlist of narrow MCP tools; never expose a generic CLI, Python execution, or arbitrary RESTCONF tool.
+2. Validate arguments independently of the model. For example, parse a requested prefix with Python's `ipaddress.ip_network()` and reject unsupported protocol values.
+3. Limit each question to a small number of tool calls, apply timeouts, and cap returned routes so a faulty model cannot create an endless or excessively expensive loop.
+4. Treat questions and tool results as untrusted data. A route description, hostname, or external text must not be allowed to override the system policy or request another tool implicitly.
+5. Log the selected tool, validated arguments, duration, result count, and final outcome without recording credentials or authorization headers.
+6. Require explicit human approval before any future configuration-changing tool is executed. The tools in this lab remain read-only.
+7. Retain a deterministic fallback when the selected model or runtime cannot produce a valid structured tool call.
+
+As an extension exercise, learners can replace `choose_route_context()` with an `agent_turn()` function that accepts the question, exposes the four read-only MCP schemas, processes at most three tool calls, and finally returns both the answer and a list of tools used. They should then run the same questions through both implementations and compare correctness, latency, tool-call count, and audit clarity. A more fluent result is not automatically a safer or more accurate result; the returned route data remains the source of truth.
 
 ## Task 9: Compare Local and Cloud Models
 

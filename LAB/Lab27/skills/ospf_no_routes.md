@@ -9,13 +9,17 @@ enabled: true
 
 # Missing OSPF Routes
 
-Use this skill when a learner asks why no OSPF routes are present, or whenever
-live route evidence shows that the OSPF route count is zero.
+Use this skill only when the learner explicitly asks why OSPF routes are absent
+or asks to troubleshoot the missing OSPF routes. A general route-summary request
+may reveal that OSPF is absent, but that observation alone must not start this
+deeper workflow. Report the routing distribution and wait for the learner's
+follow-up question.
 
 ## Procedure
 
-1. Call `get_routes_by_protocol` with `protocol` set to `ospf`. Do not diagnose
-   OSPF from a route summary alone when the focused route tool is available.
+1. After the explicit follow-up, call `get_routes_by_protocol` with `protocol`
+   set to `ospf`. Do not diagnose OSPF from a route summary alone when the
+   focused route tool is available.
 2. When `matched_count` is greater than zero, report the learned prefixes and
    stop this missing-route workflow unless the user explicitly asks for an
    additional OSPF health check.

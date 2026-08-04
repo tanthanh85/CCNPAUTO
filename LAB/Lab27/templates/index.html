@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CCNPAUTO Skilled OSPF Assistant</title>
+  <title>CCNPAUTO Skilled Network Assistant</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <header class="hero">
       <div>
         <p class="eyebrow">IOS XE · RESTCONF · FastMCP · Markdown skills</p>
-        <h1>Skilled OSPF Assistant</h1>
+        <h1>Skilled Network Assistant</h1>
         <p class="subtitle">
           The model selects one or more discovered read-only tools. The orchestrator
           validates every selection, while trusted Markdown skills guide the
@@ -39,16 +39,16 @@
           <button>How many routes exist and how are they distributed by protocol?</button>
           <button>Compare static and connected routes, including next hops.</button>
           <button>Show details for 0.0.0.0/0 and explain its next hop.</button>
-          <button>Why are there no OSPF routes in the routing table?</button>
+          <button>Which routing protocols currently contribute routes?</button>
         </div>
         <div id="messages" class="messages">
           <div class="message assistant"><div class="bubble">
-            Ask why OSPF routes are missing. I will use a trusted diagnostic skill,
-            choose only discovered MCP tools, and show the evidence sequence.
+            Ask a question about the live routing table. I will select only
+            discovered MCP tools and show the evidence used for the answer.
           </div></div>
         </div>
         <form id="chat-form" class="composer">
-          <textarea id="question" rows="3" maxlength="1000" placeholder="Ask about missing OSPF routes or the live IOS XE routing table..."></textarea>
+          <textarea id="question" rows="3" maxlength="1000" placeholder="Ask a question about the live IOS XE routing table..."></textarea>
           <button type="submit">Run agent</button>
         </form>
       </section>

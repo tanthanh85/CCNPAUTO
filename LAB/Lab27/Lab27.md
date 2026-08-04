@@ -17,10 +17,12 @@ collected, how the evidence should be interpreted, and where the safety boundary
 lies. A skill does not execute Python, hold credentials, or contact the router.
 It guides the agent, while MCP tools remain the only executable capabilities.
 
-The first skill diagnoses a routing table with no OSPF-learned routes. The agent
-must first prove that the OSPF route count is zero. It then calls a new OSPF
-operational-state tool to inspect processes, areas, interfaces, and neighbors.
-The final response must distinguish observed facts from possible causes.
+The learner first asks for a normal routing-table summary. If the answer shows
+that OSPF contributes no routes, the learner can ask a follow-up question about
+that absence. Only then does the first skill activate. The agent proves that the
+OSPF route count is zero and calls a new operational-state tool to inspect
+processes, areas, interfaces, and neighbors. The final response must distinguish
+observed facts from possible causes.
 
 ## Learning Objectives
 
@@ -52,10 +54,13 @@ must not make configuration changes.
 
 ```mermaid
 flowchart TD
-    User["Engineer asks why OSPF routes are missing"]
+    User["Engineer requests route distribution"]
     Flask["Flask assistant"]
     Loader["Skill loader"]
     Skills["skills/*.md<br/>reviewed procedures"]
+    RouteSummary["get_route_summary"]
+    Summary["General routing summary"]
+    Followup["Engineer asks a follow-up:<br/>Why are OSPF routes absent?"]
     LLM["Tool-capable LLM"]
     Policy["Tool allowlist and JSON Schema validation"]
     MCP["FastMCP server"]
@@ -67,10 +72,15 @@ flowchart TD
 
     User --> Flask
     Skills --> Loader
-    Loader --> Flask
+    Loader --> LLM
     Flask --> LLM
     LLM --> Policy
     Policy --> MCP
+    MCP --> RouteSummary
+    RouteSummary --> IOSXE
+    IOSXE --> Summary
+    Summary --> Followup
+    Followup --> Flask
     MCP --> Routes
     Routes --> IOSXE
     IOSXE --> Decision
@@ -308,15 +318,29 @@ Open `http://127.0.0.1:5057`. The left panel should display five MCP tools and
 one loaded operational skill. The skill card lists both required tools, making
 the dependency visible before the agent runs.
 
-## Task 8: Trigger the Missing-OSPF-Routes Skill
+## Task 8: Discover the Issue and Ask a Follow-Up Question
 
-Ask this focused question:
+Begin with a normal operational question rather than mentioning OSPF:
+
+```text
+How many routes are in the routing table, grouped by protocol?
+```
+
+The agent should use the route-summary tool and present the protocol
+distribution. Inspect the result as a network engineer. When OSPF is absent
+from the distribution, ask the follow-up question:
 
 ```text
 Why are there no OSPF routes in the routing table?
 ```
 
-When the router has no OSPF-learned routes, the trace should show this sequence:
+The first question must not automatically trigger a complete OSPF diagnosis.
+The omission is an observation, and the learner decides whether it deserves
+further investigation. The explicit follow-up activates the skill and gives the
+agent permission to collect the additional read-only OSPF evidence.
+
+For the follow-up question, when the router has no OSPF-learned routes, the
+trace should show this sequence:
 
 ```text
 1. get_routes_by_protocol {"protocol": "ospf"}

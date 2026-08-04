@@ -743,3 +743,51 @@ feature branch, then use a GitLab merge request for peer review.
 - [Cisco IOS XE RESTCONF Programmability Guide](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1715/b_1715_programmability_cg/restconf_protocol.html)
 - [Cisco IOS XE OSPF Operational YANG Model](https://www.netconfcentral.org/modules/Cisco-IOS-XE-ospf-oper/2020-07-01/)
 - [YAML Specification](https://yaml.org/spec/1.2.2/)
+
+## Further Development: From a Chat Assistant to a Proactive Operations Agent
+
+Lab 27 ends with a conversational assistant that waits for an operator to ask a
+question. However, the same architecture can develop into a proactive,
+event-driven operations agent. Instead of relying only on chat input, the agent
+could continuously receive model-driven telemetry and accept webhooks from
+Splunk when a correlation search, threshold, or notable event identifies an
+operational problem.
+
+When an event arrives, the agent could immediately enrich it by selecting an
+appropriate operational skill and invoking only the approved MCP tools required
+by that procedure. For example, a Splunk webhook reporting repeated interface
+flaps could cause the agent to retrieve the current interface state, examine
+error counters, collect relevant device logs, identify recent configuration
+changes, and check adjacent routing or neighbor state. This additional evidence
+would give the original alert useful operational context instead of forwarding
+an isolated symptom to the network team.
+
+The operational skill collection would continue to grow as network experts add
+and review procedures for common incidents. Each skill could capture the
+evidence order, stopping conditions, safety boundaries, and interpretation
+guidance that experienced engineers normally apply during troubleshooting.
+Because those skills remain version-controlled and the underlying MCP tools
+remain narrow and validated, the organization can improve the agent's coverage
+without giving the language model unrestricted access to the infrastructure.
+
+After completing its enrichment workflow, the agent could notify the network
+operator through an approved channel. The notification would include the
+triggering event, timestamps, affected resources, tool-call trace, collected
+logs, observed facts, remaining uncertainties, and supporting evidence. It
+could also suggest the next investigation or recovery steps derived from the
+reviewed skill, while leaving any disruptive or configuration-changing action
+subject to explicit operator approval. This progression creates a practical
+foundation for human-governed AIOps: observe an event, enrich it quickly,
+explain the evidence, recommend a controlled response, and preserve an audit
+trail.
+
+This lab is therefore not the end of the project. It is a starting point for an
+automation platform in which telemetry, observability, expert knowledge, MCP
+tools, and human judgment work together. New tools and skills can be added over
+time as operational experience reveals new failure patterns and better ways to
+diagnose them.
+
+Thank you for your hard work, sustained attention, and professional curiosity
+throughout the CCNP Automation course. The systems built during these labs are
+more than isolated exercises: together, they form the foundations of a modern,
+safe, observable, and increasingly intelligent network automation practice.

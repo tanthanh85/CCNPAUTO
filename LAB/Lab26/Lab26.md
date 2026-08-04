@@ -166,6 +166,12 @@ IOSXE_PASSWORD=<password>
 IOSXE_VERIFY_TLS=false
 ```
 
+Leave `IOSXE_ROUTE_ENDPOINT` blank. The supplied code first uses the IOS XE
+`ietf-routing` operational hierarchy commonly exposed by the reservable
+sandbox, including the final `routes/route` list. It then tries documented
+fallbacks for releases with a different model revision. A learner should set
+the override only after confirming an alternative resource in Yangsuite.
+
 Retain these safety limits:
 
 ```text
@@ -311,6 +317,13 @@ http://127.0.0.1:5056
 
 The left panel should display the four tools discovered from the MCP server. Tool discovery itself does not contact RESTCONF. A RESTCONF request occurs only after the model selects a tool for a question.
 
+The terminal now emphasizes the lab's own agent events: iteration number,
+selected tool, validated arguments, RESTCONF status, and completion. FastMCP,
+HTTP transport, and event-loop DEBUG records are suppressed from the console
+because they duplicate protocol internals rather than explain the automation
+decision. Detailed timestamped application logs remain available under
+`logs/`.
+
 ## Task 7: Observe Single and Multiple Tool Selection
 
 Begin with a focused question:
@@ -401,7 +414,8 @@ git pull origin main
 | Protocol is rejected | Use one of the protocols explicitly permitted by `mcp_server.py`. |
 | Prefix is rejected | Supply a valid IPv4 CIDR prefix such as `0.0.0.0/0` or `192.0.2.0/24`. |
 | RESTCONF returns HTTP 401 or 403 | Correct the sandbox credentials and confirm RESTCONF authorization. |
-| No supported route endpoint returns data | Use Yangsuite to inspect the routing operational model for the active IOS XE release, then update `ROUTE_ENDPOINTS` deliberately. |
+| The first route request returns HTTP 404 | Pull the corrected Lab 26 files. The IOS XE sandbox normally uses `/ietf-routing:routing-state/routing-instance=default/ribs/rib=ipv4-default/routes/route`, not the newer `/ietf-routing:routing/ribs/...` hierarchy. |
+| No supported route endpoint returns data | Use Yangsuite to confirm the `ietf-routing` operational route list for the active release. Only when the device exposes a different resource, place its path in `IOSXE_ROUTE_ENDPOINT` in `.env`; do not edit the Python list. |
 | Agent reaches its call or iteration limit | Simplify the question, inspect repeated selections, and improve the prompt or model; do not raise limits without understanding the loop. |
 | Cloud provider returns HTTP 401, 403, or 429 | Verify the project key, model access, endpoint permission, credits, and rate limits. |
 

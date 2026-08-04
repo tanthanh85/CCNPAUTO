@@ -11,7 +11,7 @@ from restconf_routes import get_routes, route_detail, route_summary, routes_by_p
 
 
 logger = logging.getLogger(__name__)
-mcp = FastMCP("ccnpauto-dynamic-route-tools")
+mcp = FastMCP("ccnpauto-dynamic-route-tools", log_level="WARNING")
 ALLOWED_PROTOCOLS = {"static", "connected", "local", "ospf", "eigrp", "bgp", "rip", "isis"}
 
 

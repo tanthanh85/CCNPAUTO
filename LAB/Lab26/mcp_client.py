@@ -85,17 +85,29 @@ class McpRouteSession:
 async def open_mcp_route_session() -> AsyncIterator[McpRouteSession]:
     root = Path(__file__).resolve().parent
     server = root / "mcp_server.py"
+    server_environment = os.environ.copy()
+    # The parent Flask process owns the classroom console. The MCP subprocess
+    # still writes its timestamped file log, but it does not duplicate every
+    # protocol event in the same terminal.
+    server_environment["ENABLE_CONSOLE_LOGGING"] = "false"
     parameters = StdioServerParameters(
         command=sys.executable,
         args=[str(server)],
-        env=os.environ.copy(),
+        env=server_environment,
     )
     logger.info("Opening MCP stdio session server=%s", server)
     try:
-        async with stdio_client(parameters) as (read_stream, write_stream):
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                yield McpRouteSession(session)
+        # FastMCP writes protocol diagnostics to the child process's stderr.
+        # Keep the classroom terminal focused on the parent agent trace; the
+        # child still writes its detailed timestamped file under logs/.
+        with open(os.devnull, "w", encoding="utf-8") as quiet_stderr:
+            async with stdio_client(parameters, errlog=quiet_stderr) as (
+                read_stream,
+                write_stream,
+            ):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    yield McpRouteSession(session)
     except McpClientError:
         raise
     except Exception as exc:

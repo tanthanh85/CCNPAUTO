@@ -89,6 +89,12 @@ def configure_logging(application_name: str) -> Path | None:
         file_handler._lab26_handler = True
         root_logger.addHandler(file_handler)
 
+    # The lab's own INFO/DEBUG events show the useful agent and tool flow.
+    # Protocol libraries are deliberately quieter because their wire-level
+    # messages otherwise obscure that flow and FastMCP may add a Rich handler.
+    for name in ("mcp", "httpcore", "httpx", "urllib3", "asyncio"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
     logging.getLogger(__name__).info(
         "Logging initialized application=%s log_file=%s",
         application_name,

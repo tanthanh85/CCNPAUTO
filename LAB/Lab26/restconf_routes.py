@@ -20,6 +20,10 @@ class RestconfError(RuntimeError):
     """Raised when IOS XE route information cannot be retrieved safely."""
 
 
+class RestconfResourceNotFound(RestconfError):
+    """Raised when one candidate YANG resource is not implemented."""
+
+
 @dataclass(frozen=True)
 class IosXeSettings:
     host: str
@@ -81,16 +85,31 @@ class IosXeRestconfClient:
             raise RestconfError(f"RESTCONF request timed out for {path}") from exc
         except requests.exceptions.HTTPError as exc:
             status = exc.response.status_code if exc.response is not None else "unknown"
+            if status == 404:
+                raise RestconfResourceNotFound(
+                    f"RESTCONF resource is not implemented: {path}"
+                ) from exc
             raise RestconfError(f"RESTCONF GET {path} returned HTTP {status}") from exc
         except (requests.exceptions.RequestException, ValueError) as exc:
             raise RestconfError(f"RESTCONF GET failed for {path}: {exc}") from exc
 
 
-ROUTE_ENDPOINTS = [
-    "/ietf-routing:routing/ribs/rib=ipv4-default/routes",
+DEFAULT_ROUTE_ENDPOINTS = [
+    # IOS XE releases used by the reservable sandbox commonly implement the
+    # RFC 8022-era ietf-routing operational tree below.
+    "/ietf-routing:routing-state/routing-instance=default/ribs/rib=ipv4-default/routes/route",
     "/ietf-routing:routing-state/routing-instance=default/ribs/rib=ipv4-default/routes",
-    "/Cisco-IOS-XE-rib-oper:rib-ios-xe-oper-data/rib",
+    # Native FIB data is retained as a fallback for releases that do not expose
+    # the IETF operational route tree.
+    "/Cisco-IOS-XE-fib-oper:fib-oper-data",
 ]
+
+
+def route_endpoints() -> list[str]:
+    """Return an optional learner override followed by safe fallbacks."""
+    override = os.getenv("IOSXE_ROUTE_ENDPOINT", "").strip()
+    endpoints = ([override] if override else []) + DEFAULT_ROUTE_ENDPOINTS
+    return list(dict.fromkeys(endpoints))
 
 
 def _collect_by_key(value: Any, wanted: set[str]) -> list[Any]:
@@ -109,7 +128,14 @@ def _collect_by_key(value: Any, wanted: set[str]) -> list[Any]:
 def _find_routes(value: Any) -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
     if isinstance(value, dict):
-        indicators = {"destination-prefix", "source-protocol", "route-pre", "next-hop"}
+        indicators = {
+            "destination-prefix",
+            "source-protocol",
+            "route-pre",
+            "prefix",
+            "ip-addr",
+            "next-hop",
+        }
         if indicators.intersection(value):
             matches.append(value)
         for child in value.values():
@@ -126,7 +152,13 @@ def _protocol(value: Any) -> str:
 
 
 def _normalize(route: dict[str, Any]) -> dict[str, Any]:
-    prefix = route.get("destination-prefix") or route.get("prefix") or route.get("route-pre") or "unknown"
+    prefix = (
+        route.get("destination-prefix")
+        or route.get("prefix")
+        or route.get("route-pre")
+        or route.get("ip-addr")
+        or "unknown"
+    )
     protocol = _protocol(
         route.get("source-protocol")
         or route.get("protocol")
@@ -150,17 +182,24 @@ def _normalize(route: dict[str, Any]) -> dict[str, Any]:
 def get_routes() -> dict[str, Any]:
     client = IosXeRestconfClient()
     failures: list[str] = []
-    for endpoint in ROUTE_ENDPOINTS:
+    endpoints = route_endpoints()
+    for endpoint in endpoints:
         try:
             records = [_normalize(item) for item in _find_routes(client.get(endpoint))]
             if records:
                 return {"source_endpoint": endpoint, "route_count": len(records), "routes": records}
+            logger.info("Route endpoint returned no recognizable records endpoint=%s", endpoint)
+        except RestconfResourceNotFound as exc:
+            # Different IOS XE releases expose different revisions of the
+            # routing model. A missing candidate is expected during discovery.
+            logger.info("Route model unavailable endpoint=%s", endpoint)
+            failures.append(str(exc))
         except RestconfError as exc:
             logger.warning("Route endpoint failed endpoint=%s error=%s", endpoint, exc)
             failures.append(str(exc))
     raise RestconfError(
         "No supported RESTCONF route endpoint returned route data. "
-        f"Tried {ROUTE_ENDPOINTS}. Errors: {failures}"
+        f"Tried {endpoints}. Errors: {failures}"
     )
 
 

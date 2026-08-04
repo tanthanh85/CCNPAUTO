@@ -108,7 +108,9 @@ Lab 11 is a separate application called `ai_route_assistant`. It demonstrates
 how an LLM can answer operational routing questions while FastMCP—not the
 model—controls access to RESTCONF and live network evidence. Optional Lab 20
 is also standalone: it provides a deterministic local API for practising
-pagination and HTTP `429` recovery.
+pagination and HTTP `429` recovery. Optional Lab 26 then revisits the AI
+assistant and replaces keyword-based selection with a bounded, auditable LLM
+tool-calling loop over a real MCP client session.
 
 The complete learning path is shown below. Every required lab is displayed separately because each one introduces a distinct release of the system. The optional labs branch from the completed core program and can be selected according to platform access, course time, and learner interest.
 
@@ -141,6 +143,7 @@ flowchart TD
     L23["Optional Lab 23<br/>Meraki API"]
     L24["Optional Lab 24<br/>FMC API"]
     L25["Optional Lab 25<br/>ACI three-tier policy"]
+    L26["Optional Lab 26<br/>Dynamic MCP tool selection"]
 
     L1 --> L2
     L2 --> L3
@@ -168,11 +171,12 @@ flowchart TD
     OPTIONAL --> L23
     OPTIONAL --> L24
     OPTIONAL --> L25
+    OPTIONAL --> L26
 ```
 
 Follow the required labs in order. Labs 3–9 modify the same repository, so
 each release assumes that the preceding release exists. Labs 10 and 11 are
-separate projects. Optional Labs 12–25 can be selected according to platform
+separate projects. Optional Labs 12–26 can be selected according to platform
 access, available time, and learner interest.
 
 ## Required Project Journey
@@ -401,6 +405,7 @@ standalone operational or specialist projects and are described separately.
 | `optional_lab23_meraki_api` | Optional Lab 23 | Meraki organization, network, and device discovery |
 | `optional_lab24_fmc_api` | Optional Lab 24 | FMC token, domain, and managed-device discovery |
 | `optional_lab25_aci_api` | Optional Lab 25 | APIC three-tier application-policy provisioning and verification |
+| `optional_lab26_dynamic_mcp_agent` | Optional Lab 26 | LLM-selected, schema-validated tools over a real MCP stdio session |
 
 Optional Lab 13 uses an NSO development runtime and service package rather than a conventional standalone application repository.
 
@@ -423,6 +428,7 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 23](Lab23/Lab23.md) | Cloud operations must navigate Meraki resources at scale. | Organization, network, and device discovery with pagination awareness. |
 | [Optional Lab 24](Lab24/Lab24.md) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
 | [Optional Lab 25](Lab25/Lab25.md) | A data-center team must model a Web, App, and Database service in ACI. | APIC creates an enforced VRF, three BDs and EPGs, and provider/consumer contracts in a reservable simulator. |
+| [Optional Lab 26](Lab26/Lab26.md) | Network operations needs a more flexible AI assistant without exposing unrestricted device access. | A tool-capable LLM dynamically selects one or more discovered FastMCP tools while deterministic validation, call limits, and an audit trace control execution. |
 
 ## Optional Standalone API Resilience Assignment
 

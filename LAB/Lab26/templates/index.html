@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CCNPAUTO Dynamic MCP Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">IOS XE · RESTCONF · FastMCP · Dynamic tool calling</p>
+        <h1>Dynamic MCP Route Assistant</h1>
+        <p class="subtitle">
+          The model selects one or more discovered read-only tools. The orchestrator
+          validates every selection before the MCP server reaches IOS XE.
+        </p>
+      </div>
+      <div class="status-card">
+        <span class="status-dot"></span>
+        <div><small>{{ provider }} · {{ location }}</small><strong>{{ model }}</strong></div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <aside class="panel">
+        <h2>Discovered MCP tools</h2>
+        <div id="tools" class="tool-list">Discovering tools...</div>
+        <h2>Latest execution trace</h2>
+        <pre id="trace">Ask a question to see the selected tools, arguments, timing, and evidence.</pre>
+      </aside>
+
+      <section class="panel chat">
+        <div class="prompts">
+          <button>How many routes exist and how are they distributed by protocol?</button>
+          <button>Compare static and connected routes, including next hops.</button>
+          <button>Show details for 0.0.0.0/0 and explain its next hop.</button>
+          <button>Which routing protocols are present, then list the OSPF routes?</button>
+        </div>
+        <div id="messages" class="messages">
+          <div class="message assistant"><div class="bubble">
+            Ask a routing question. I will choose only from the tools discovered from
+            the FastMCP server and show you the complete audit trace.
+          </div></div>
+        </div>
+        <form id="chat-form" class="composer">
+          <textarea id="question" rows="3" maxlength="1000" placeholder="Ask a compound question about the live IOS XE routing table..."></textarea>
+          <button type="submit">Run agent</button>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

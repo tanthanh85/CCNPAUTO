@@ -753,6 +753,55 @@ could continuously receive model-driven telemetry and accept webhooks from
 Splunk when a correlation search, threshold, or notable event identifies an
 operational problem.
 
+The following message flow illustrates that possible next stage. It is a
+future-development pattern rather than a task learners must implement in this
+lab.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Device as IOS XE telemetry source
+    participant Observe as Telemetry platform and Splunk
+    participant Webhook as Event webhook receiver
+    participant Agent as Operations agent
+    participant Skills as Operational skill library
+    participant Model as Tool-capable LLM
+    participant MCP as Approved MCP tools
+    participant Target as Affected network device
+    actor Operator as Network operator
+
+    Device->>Observe: Stream metrics, state changes, and logs
+    Observe->>Observe: Correlate data and detect an operational event
+    Observe->>Webhook: Send event webhook with device, severity, and timestamp
+    Webhook->>Agent: Submit normalized event context
+    Agent->>Skills: Select a reviewed operational skill
+    Skills-->>Agent: Evidence order, limits, and stopping conditions
+    Agent->>Model: Event context, selected skill, and approved tool catalog
+    Model-->>Agent: Request the next evidence-gathering tool
+    Agent->>Agent: Validate tool name, arguments, and safety policy
+    Agent->>MCP: Execute approved read-only tool
+    MCP->>Target: Retrieve operational state and relevant logs
+    Target-->>MCP: YANG-modeled data, counters, and log evidence
+    MCP-->>Agent: Bounded and normalized evidence
+    Agent->>Model: Return evidence for interpretation
+    Model-->>Agent: Request further checks when the skill requires them
+    loop Until evidence is sufficient or a stopping condition is reached
+        Agent->>MCP: Execute the next validated enrichment tool
+        MCP->>Target: Collect additional operational evidence
+        Target-->>MCP: Current device state
+        MCP-->>Agent: Structured result
+        Agent->>Model: Add result to the incident context
+    end
+    Model-->>Agent: Findings, uncertainties, and skill-based suggestions
+    Agent->>Operator: Notify with event, evidence, logs, and audit trace
+    alt A disruptive or configuration-changing response is proposed
+        Operator->>Agent: Approve, reject, or modify the proposed action
+        Agent->>Agent: Enforce approval and change-control policy
+    else Investigation remains read-only
+        Operator-->>Agent: Continue manual investigation as needed
+    end
+```
+
 When an event arrives, the agent could immediately enrich it by selecting an
 appropriate operational skill and invoking only the approved MCP tools required
 by that procedure. For example, a Splunk webhook reporting repeated interface

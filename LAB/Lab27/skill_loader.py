@@ -23,6 +23,7 @@ class SkillError(RuntimeError):
 class Skill:
     name: str
     description: str
+    triggers: tuple[str, ...]
     required_tools: tuple[str, ...]
     instructions: str
     source: Path
@@ -31,6 +32,7 @@ class Skill:
         return {
             "name": self.name,
             "description": self.description,
+            "triggers": list(self.triggers),
             "required_tools": list(self.required_tools),
             "source": str(self.source.relative_to(ROOT)),
         }
@@ -70,6 +72,7 @@ def load_skills(directory: Path = SKILLS_DIR) -> list[Skill]:
             continue
         name = str(metadata.get("name", "")).strip()
         description = str(metadata.get("description", "")).strip()
+        triggers = metadata.get("triggers", [])
         required = metadata.get("required_tools", [])
         if not VALID_NAME.fullmatch(name):
             raise SkillError(f"{source.name} has an invalid skill name")
@@ -77,6 +80,10 @@ def load_skills(directory: Path = SKILLS_DIR) -> list[Skill]:
             raise SkillError(f"Duplicate skill name: {name}")
         if not description or not instructions:
             raise SkillError(f"{source.name} needs a description and instructions")
+        if not isinstance(triggers, list) or not all(
+            isinstance(item, str) and item.strip() for item in triggers
+        ):
+            raise SkillError(f"{source.name} triggers must be a list of phrases")
         if not isinstance(required, list) or not all(
             isinstance(item, str) and VALID_NAME.fullmatch(item) for item in required
         ):
@@ -85,6 +92,7 @@ def load_skills(directory: Path = SKILLS_DIR) -> list[Skill]:
             Skill(
                 name=name,
                 description=description,
+                triggers=tuple(item.strip().lower() for item in triggers),
                 required_tools=tuple(required),
                 instructions=instructions,
                 source=source,
@@ -108,3 +116,19 @@ def render_skill_collection(skills: list[Skill]) -> str:
     if not skills:
         return "No local operational skills are loaded."
     return "\n\n".join(skill.as_prompt() for skill in skills)
+
+
+def select_skills(question: str, skills: list[Skill]) -> list[Skill]:
+    """Select skills whose declared trigger appears in the learner's question."""
+    normalized = question.casefold()
+    selected = [
+        skill
+        for skill in skills
+        if any(trigger.casefold() in normalized for trigger in skill.triggers)
+    ]
+    logger.info(
+        "Selected skills question_characters=%d names=%s",
+        len(question),
+        [skill.name for skill in selected],
+    )
+    return selected

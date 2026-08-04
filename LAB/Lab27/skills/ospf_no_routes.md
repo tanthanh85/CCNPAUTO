@@ -1,6 +1,8 @@
 ---
 name: ospf_no_routes
 description: Diagnose why the IPv4 routing table contains no OSPF-learned routes.
+triggers:
+  - ospf
 required_tools:
   - get_routes_by_protocol
   - get_ospf_operational_status
@@ -9,11 +11,10 @@ enabled: true
 
 # Missing OSPF Routes
 
-Use this skill only when the learner explicitly asks why OSPF routes are absent
-or asks to troubleshoot the missing OSPF routes. A general route-summary request
-may reveal that OSPF is absent, but that observation alone must not start this
-deeper workflow. Report the routing distribution and wait for the learner's
-follow-up question.
+Use this skill only after the learner explicitly mentions OSPF. A general
+route-summary request does not load this document into the model context. The
+learner must inspect the protocols that are present and decide whether to ask a
+follow-up question about OSPF.
 
 ## Procedure
 

@@ -204,12 +204,14 @@ validated. Never commit `.env`, generated logs, or model API keys.
 
 ## Task 3: Understand the Skill Contract
 
-Open `skills/ospf_no_routes.md`. Its YAML front matter declares four properties:
+Open `skills/ospf_no_routes.md`. Its YAML front matter declares five properties:
 
 ```yaml
 ---
 name: ospf_no_routes
 description: Diagnose why the IPv4 routing table contains no OSPF-learned routes.
+triggers:
+  - ospf
 required_tools:
   - get_routes_by_protocol
   - get_ospf_operational_status
@@ -218,8 +220,10 @@ enabled: true
 ```
 
 The `name` is a stable machine-readable identifier. The `description` tells an
-engineer what the skill is for. `required_tools` lists executable dependencies,
-and `enabled` allows a procedure to be retained in Git without loading it.
+engineer what the skill is for. A `trigger` is a phrase that must occur in the
+current learner question before the skill body enters the model context.
+`required_tools` lists executable dependencies, and `enabled` allows a procedure
+to be retained in Git without making it available.
 
 The Markdown body defines the procedure. Notice that it contains activation
 conditions, an ordered workflow, interpretation rules, a stopping condition,
@@ -233,18 +237,20 @@ Open `skill_loader.py` and follow `load_skills()`:
 3. It separates and parses YAML front matter.
 4. It validates names, descriptions, dependency lists, and duplicate names.
 5. It converts each document into a `Skill` object.
-6. It renders the validated collection into the trusted system context.
+6. It compares the current question with each skill's declared triggers.
+7. It renders only selected skill bodies into the trusted system context.
 
 `validate_skill_tools()` compares every declared dependency with tools actually
 discovered from MCP. A typographical error such as
 `get_ospf_operation_status` therefore stops startup instead of silently leaving
 the skill incomplete.
 
-For clarity, this lab loads every enabled skill because the collection is small.
-In a larger production catalog, the application would first retrieve only skill
-names and descriptions, select the relevant candidates, and then load those
-Markdown bodies. That two-stage approach reduces prompt size, although it also
-introduces another selection decision that must be logged and evaluated.
+This progressive disclosure is why the first routing-summary question remains
+neutral. The OSPF skill is available in the catalog, but its instructions are
+not sent to the model until the learner's question contains `ospf`. In a larger
+production catalog, semantic retrieval or an LLM-based skill selector could
+replace phrase matching, but that additional probabilistic decision would need
+its own validation, logging, and accuracy testing.
 
 ## Task 4: Inspect the OSPF Operational Model
 
@@ -315,8 +321,9 @@ python app.py
 ```
 
 Open `http://127.0.0.1:5057`. The left panel should display five MCP tools and
-one loaded operational skill. The skill card lists both required tools, making
-the dependency visible before the agent runs.
+one available operational skill. The skill card lists both required tools,
+making the dependency visible before the agent runs; availability does not mean
+that the skill body has already been sent to the model.
 
 ## Task 8: Discover the Issue and Ask a Follow-Up Question
 
@@ -326,18 +333,20 @@ Begin with a normal operational question rather than mentioning OSPF:
 How many routes are in the routing table, grouped by protocol?
 ```
 
-The agent should use the route-summary tool and present the protocol
-distribution. Inspect the result as a network engineer. When OSPF is absent
-from the distribution, ask the follow-up question:
+The agent should use the route-summary tool and report only the protocols and
+counts present in the returned evidence. It must not point out OSPF, speculate
+about missing protocols, or recommend further OSPF checks. Inspect the protocol
+list yourself. If you notice that OSPF is not represented, ask the follow-up:
 
 ```text
 Why are there no OSPF routes in the routing table?
 ```
 
-The first question must not automatically trigger a complete OSPF diagnosis.
-The omission is an observation, and the learner decides whether it deserves
-further investigation. The explicit follow-up activates the skill and gives the
-agent permission to collect the additional read-only OSPF evidence.
+For the first request, `skills_loaded` should be an empty list. The omission is
+something the learner recognizes rather than a conclusion highlighted by the
+assistant. In the follow-up request, the word `OSPF` matches the skill trigger;
+`skills_loaded` should then contain `ospf_no_routes`, giving the agent the
+reviewed procedure for collecting additional read-only evidence.
 
 For the follow-up question, when the router has no OSPF-learned routes, the
 trace should show this sequence:
@@ -386,6 +395,8 @@ To prove that the structure is extensible, create
 ---
 name: default_route_review
 description: Review the active IPv4 default route and explain its forwarding evidence.
+triggers:
+  - default route
 required_tools:
   - get_route_detail
 enabled: true
@@ -447,7 +458,8 @@ git pull origin main
 | Evidence | Likely cause and corrective action |
 |---|---|
 | `No module named yaml` | Activate `.venv` and reinstall the supplied `requirements.txt`. |
-| Skill does not appear | Confirm that the file ends in `.md`, begins with valid YAML front matter, and has `enabled: true`. |
+| Skill does not appear in the available catalog | Confirm that the file ends in `.md`, begins with valid YAML front matter, and has `enabled: true`. |
+| Available skill is not selected | Confirm that the learner's current question contains one of the declared trigger phrases. |
 | Skill dependency is unavailable | Correct `required_tools` or implement and expose the intentionally required MCP tool. Do not bypass validation. |
 | OSPF RESTCONF request returns 404 | Confirm in Yangsuite that `Cisco-IOS-XE-ospf-oper` is implemented by the reserved router and that operational data is supported. |
 | OSPF result contains zero processes | Verify whether OSPF is actually configured; an empty operational tree may be the correct evidence. |

@@ -7,6 +7,8 @@ operational procedure. The loader ignores this README file.
 ---
 name: lowercase_skill_name
 description: One sentence explaining when the skill is useful.
+triggers:
+  - phrase that must appear in the learner question
 required_tools:
   - exact_mcp_tool_name
 enabled: true

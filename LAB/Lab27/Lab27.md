@@ -50,45 +50,98 @@ routes. Operations needs the assistant to verify the absence of OSPF routes and
 then inspect live OSPF state before suggesting the next investigation step. It
 must not make configuration changes.
 
-## Architecture and Execution Flow
+## Architecture
 
 ```mermaid
-flowchart TD
-    User["Engineer requests route distribution"]
-    Flask["Flask assistant"]
-    Loader["Skill loader"]
-    Skills["skills/*.md<br/>reviewed procedures"]
-    RouteSummary["get_route_summary"]
-    Summary["General routing summary"]
-    Followup["Engineer asks a follow-up:<br/>Why are OSPF routes absent?"]
-    LLM["Tool-capable LLM"]
-    Policy["Tool allowlist and JSON Schema validation"]
-    MCP["FastMCP server"]
-    Routes["get_routes_by_protocol<br/>protocol = ospf"]
-    Decision{"OSPF routes found?"}
-    OSPF["get_ospf_operational_status"]
-    IOSXE["IOS XE RESTCONF"]
-    Answer["Evidence-based response"]
+flowchart LR
+    U["Learner<br/>natural-language question"]
+    W["Flask web application"]
+    A["Agent orchestrator<br/>limits and validation"]
+    K["Skill loader<br/>progressive selection"]
+    S["Markdown skill collection<br/>reviewed procedures"]
+    L["Tool-capable LLM<br/>Ollama, vLLM, or OpenAI"]
+    C["Official MCP client<br/>stdio session"]
+    M["FastMCP server<br/>five read-only tools"]
+    R["IOS XE RESTCONF<br/>route and OSPF operational data"]
 
-    User --> Flask
-    Skills --> Loader
-    Loader --> LLM
-    Flask --> LLM
-    LLM --> Policy
-    Policy --> MCP
-    MCP --> RouteSummary
-    RouteSummary --> IOSXE
-    IOSXE --> Summary
-    Summary --> Followup
-    Followup --> Flask
-    MCP --> Routes
-    Routes --> IOSXE
-    IOSXE --> Decision
-    Decision -->|"Yes"| Answer
-    Decision -->|"No"| OSPF
-    OSPF --> IOSXE
-    IOSXE --> Answer
-    Answer --> User
+    U --> W
+    W --> A
+    S --> K
+    A -->|"Current question"| K
+    K -->|"Matching skill only"| A
+    A -->|"Question, tool catalog, and selected skill"| L
+    L -->|"Structured tool call"| A
+    A -->|"Validated name and arguments"| C
+    C --> M
+    M --> R
+    R --> M
+    M --> C
+    C -->|"Structured evidence"| A
+    A -->|"Tool result"| L
+    L -->|"Final grounded answer"| A
+    A --> W
+    W --> U
+```
+
+The Lab 26 control path remains intact. MCP still standardizes tool discovery
+and execution, while `tool_agent.py` owns allowlisting, JSON Schema validation,
+iteration limits, and tool-call limits. Lab 27 adds a separate skill path. The
+loader compares the current question with reviewed trigger metadata and returns
+only matching Markdown instructions. A skill guides the LLM but never bypasses
+the orchestrator or calls RESTCONF directly.
+
+## Message Flow
+
+The learner first uses the general routing question from Lab 26 and reviews the
+protocols that are actually present. If the learner notices that OSPF is absent,
+the natural follow-up is to ask why no OSPF routes were found. The following
+message flow begins with that follow-up question. It uses the same end-to-end
+style as Lab 26 while adding the Lab 27 skill-selection stage.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Learner
+    participant Flask
+    participant Agent as Agent orchestrator
+    participant Skills as Skill loader
+    participant Model as Tool-capable LLM
+    participant Client as MCP client
+    participant Server as FastMCP server
+    participant IOSXE as IOS XE RESTCONF
+
+    Learner->>Flask: Why are there no OSPF routes?
+    Flask->>Agent: run_dynamic_agent(question)
+    Agent->>Skills: Match current question to reviewed skills
+    Skills->>Skills: Validate skill metadata and Markdown content
+    Skills-->>Agent: ospf_no_routes diagnostic procedure
+    Agent->>Client: Open stdio session
+    Client->>Server: initialize and list_tools
+    Server-->>Client: Names, descriptions, and input schemas
+    Client-->>Agent: Approved tool catalog
+    Agent->>Model: Question plus tool catalog and selected skill
+    Model-->>Agent: get_routes_by_protocol(ospf)
+    Agent->>Agent: Allowlist and JSON Schema validation
+    Agent->>Client: call_tool for approved route request
+    Client->>Server: get_routes_by_protocol(ospf)
+    Server->>Server: Validate protocol value
+    Server->>IOSXE: Controlled RESTCONF GET for routes
+    IOSXE-->>Server: YANG-modeled routing JSON
+    Server-->>Client: Normalized OSPF route evidence
+    Client-->>Agent: Structured result with matched_count = 0
+    Agent->>Model: Tool result showing no OSPF routes
+    Model-->>Agent: get_ospf_operational_status()
+    Agent->>Agent: Allowlist and JSON Schema validation
+    Agent->>Client: call_tool for approved OSPF request
+    Client->>Server: get_ospf_operational_status()
+    Server->>IOSXE: Controlled RESTCONF GET for OSPF state
+    IOSXE-->>Server: YANG-modeled OSPF JSON
+    Server-->>Client: Normalized process, area, interface, and neighbor evidence
+    Client-->>Agent: Structured OSPF result
+    Agent->>Model: Route and OSPF tool results
+    Model-->>Agent: Evidence-based diagnosis and next checks
+    Agent-->>Flask: Answer, skill name, and audit trace
+    Flask-->>Learner: Web response
 ```
 
 The important separation is intentional:

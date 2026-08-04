@@ -767,6 +767,7 @@ sequenceDiagram
     participant Skills as Operational skill library
     participant Model as Tool-capable LLM
     participant MCP as Approved MCP tools
+    participant SoT as Source of truth<br/>NetBox and approved intent systems
     participant Target as Affected and related systems<br/>Devices, controllers, security, and endpoint agents
     participant Chat as Collaborative chat interface
     actor Humans as Network administrators and users
@@ -788,6 +789,9 @@ sequenceDiagram
     par Retrieve observability context
         MCP->>Observe: Query telemetry history, Splunk events, and correlations
         Observe-->>MCP: Time-series context, searches, alerts, and prior events
+    and Retrieve intended state and relationships
+        MCP->>SoT: Query inventory, ownership, addressing, and topology intent
+        SoT-->>MCP: Approved source-of-truth records and dependencies
     and Retrieve live operational context
         MCP->>Target: Retrieve correlated state and logs across the service path
         Target-->>MCP: API data, YANG state, counters, and log evidence
@@ -799,6 +803,8 @@ sequenceDiagram
         Agent->>MCP: Execute the next validated enrichment tool
         MCP->>Observe: Retrieve additional historical or correlated context
         Observe-->>MCP: Relevant telemetry and Splunk evidence
+        MCP->>SoT: Retrieve related intent and dependency records
+        SoT-->>MCP: Current approved source-of-truth context
         MCP->>Target: Collect additional live cross-domain evidence
         Target-->>MCP: Current system and service-path state
         MCP-->>Agent: Structured result
@@ -828,15 +834,20 @@ devices, controller policies, security events, application paths, and
 ThousandEyes endpoint observations to build a system-wide operational view. For
 example, a Splunk webhook reporting repeated interface flaps could cause the
 agent to query the telemetry platform and Splunk for historical trends,
-correlated alerts, previous occurrences, and relevant log events. It could then
-retrieve the current interface state, examine error counters, collect live
-device logs, identify recent configuration changes, check adjacent routing or
-neighbor state, and correlate the event with controller and endpoint evidence.
+correlated alerts, previous occurrences, and relevant log events. In parallel,
+it could query NetBox or another approved source of truth for intended
+addressing, device roles, ownership, site information, topology dependencies,
+and the expected configuration state. It could then retrieve the current
+interface state, examine error counters, collect live device logs, identify
+recent configuration changes, check adjacent routing or neighbor state, and
+correlate the event with controller and endpoint evidence.
 In this design, telemetry and Splunk are not only event sources; they are also
-evidence sources that the agent can revisit throughout the investigation. This
-combined historical and live evidence would give the original alert useful
-operational context instead of forwarding an isolated symptom to the network
-team.
+evidence sources that the agent can revisit throughout the investigation.
+Likewise, NetBox provides the intended context against which observed state can
+be compared; it should not be treated as proof that the network currently
+matches that intent. This combination of intended, historical, human-supplied,
+and live evidence would give the original alert useful operational context
+instead of forwarding an isolated symptom to the network team.
 
 The operational skill collection would continue to grow as network experts add
 and review procedures for common incidents. Each skill could capture the

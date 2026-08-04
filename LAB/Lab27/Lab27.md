@@ -510,10 +510,86 @@ python scripts/check_lab27.py
 ```
 
 If every required capability already exists, the new skill needs only a
-Markdown file. When evidence is missing, first implement a narrow read-only
-function in the appropriate RESTCONF module, expose it with `@mcp.tool()` in
-`mcp_server.py`, and add parser tests. Do not solve a missing capability by
-creating a generic CLI, arbitrary URL, or unrestricted RESTCONF tool.
+Markdown file. However, many useful skills require evidence that the current
+five MCP tools cannot retrieve. In that case, learners must add the required
+MCP tools before writing them under `required_tools`. A skill cannot make an
+unimplemented function appear, and the dependency validator intentionally
+rejects such a reference.
+
+Use this sequence for every new capability:
+
+1. Use Yangsuite to identify the correct operational YANG model, hierarchy,
+   list keys, and RESTCONF resource on the actual IOS XE release.
+2. Add a focused RESTCONF function in a separate module. Retrieve only the
+   resource needed by the skill.
+3. Normalize the response into a small, predictable dictionary. Limit lists and
+   remove fields the model does not need.
+4. Expose that function through a narrowly described `@mcp.tool()` function in
+   `mcp_server.py`.
+5. Validate every tool argument before constructing the RESTCONF path.
+6. Add unit tests for parsing, validation, empty responses, and result limits.
+7. Run MCP discovery and confirm that the new tool name and JSON Schema appear.
+8. Only then add the exact tool name to the skill's `required_tools` list.
+
+For the `interface_down` skill used later in this section, learners would first
+create `restconf_interfaces.py`. The implementation pattern is:
+
+```python
+from urllib.parse import quote
+
+from restconf_routes import IosXeRestconfClient
+
+
+def interface_detail(name: str) -> dict:
+    interface_name = name.strip()
+    if not interface_name or len(interface_name) > 64:
+        raise ValueError("A valid interface name is required")
+
+    encoded_name = quote(interface_name, safe="")
+    path = (
+        "/Cisco-IOS-XE-interfaces-oper:interfaces/"
+        f"interface={encoded_name}"
+    )
+    payload = IosXeRestconfClient().get(path)
+
+    records = payload.get("Cisco-IOS-XE-interfaces-oper:interface", [])
+    if isinstance(records, dict):
+        records = [records]
+    if not records:
+        return {"found": False, "name": interface_name}
+
+    record = records[0]
+    return {
+        "found": True,
+        "name": record.get("name", interface_name),
+        "admin_status": record.get("admin-status", "unknown"),
+        "oper_status": record.get("oper-status", "unknown"),
+        "description": record.get("description", ""),
+        "last_change": record.get("last-change", "unknown"),
+    }
+```
+
+Next, import the function and expose it in `mcp_server.py`:
+
+```python
+from restconf_interfaces import interface_detail
+
+
+@mcp.tool()
+def get_interface_detail(name: str) -> dict:
+    """Return bounded operational evidence for one exact IOS XE interface."""
+    return interface_detail(name)
+```
+
+The tool accepts one interface name rather than an arbitrary resource URI. This
+keeps RESTCONF credentials and path construction inside deterministic code. It
+also prevents a Markdown skill or model-generated argument from turning the
+tool into unrestricted access to the entire RESTCONF datastore.
+
+After implementation, run the readiness checker and confirm that
+`get_interface_detail` appears in the discovered catalog. The core checker does
+not reject additional tools, but learners should read the printed catalog and
+verify the new name before linking it to a skill.
 
 ### 3. Create One Markdown File
 
@@ -551,7 +627,9 @@ This skill is read-only. It must not enable, disable, or reconfigure an interfac
 
 Use lowercase names with underscores. Make trigger phrases explicit enough to
 avoid loading the skill for unrelated questions. Every entry under
-`required_tools` must exactly match a tool name discovered from MCP.
+`required_tools` must exactly match a tool name discovered from MCP. If the
+skill needs several evidence sources, implement and test each MCP tool first,
+then list all of them so dependency validation can protect the workflow.
 
 ### 4. Validate Progressive Selection
 

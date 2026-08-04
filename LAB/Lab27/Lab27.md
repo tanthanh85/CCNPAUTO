@@ -767,7 +767,7 @@ sequenceDiagram
     participant Skills as Operational skill library
     participant Model as Tool-capable LLM
     participant MCP as Approved MCP tools
-    participant Target as Affected network device
+    participant Target as Affected and related systems<br/>Devices, controllers, security, and endpoint agents
     participant Chat as Collaborative chat interface
     actor Humans as Network administrators and users
 
@@ -784,16 +784,23 @@ sequenceDiagram
     Agent->>Model: Event, human context, skill, and approved tool catalog
     Model-->>Agent: Request the next evidence-gathering tool
     Agent->>Agent: Validate tool name, arguments, and safety policy
-    Agent->>MCP: Execute approved read-only tool
-    MCP->>Target: Retrieve operational state and relevant logs
-    Target-->>MCP: YANG-modeled data, counters, and log evidence
-    MCP-->>Agent: Bounded and normalized evidence
+    Agent->>MCP: Execute approved read-only enrichment tools
+    par Retrieve observability context
+        MCP->>Observe: Query telemetry history, Splunk events, and correlations
+        Observe-->>MCP: Time-series context, searches, alerts, and prior events
+    and Retrieve live operational context
+        MCP->>Target: Retrieve correlated state and logs across the service path
+        Target-->>MCP: API data, YANG state, counters, and log evidence
+    end
+    MCP-->>Agent: Bounded and normalized combined evidence
     Agent->>Model: Return evidence for interpretation
     Model-->>Agent: Request further checks when the skill requires them
     loop Until evidence is sufficient or a stopping condition is reached
         Agent->>MCP: Execute the next validated enrichment tool
-        MCP->>Target: Collect additional operational evidence
-        Target-->>MCP: Current device state
+        MCP->>Observe: Retrieve additional historical or correlated context
+        Observe-->>MCP: Relevant telemetry and Splunk evidence
+        MCP->>Target: Collect additional live cross-domain evidence
+        Target-->>MCP: Current system and service-path state
         MCP-->>Agent: Structured result
         Agent->>Model: Add result to the incident context
     end
@@ -815,12 +822,21 @@ sequenceDiagram
 
 When an event arrives, the agent could immediately enrich it by selecting an
 appropriate operational skill and invoking only the approved MCP tools required
-by that procedure. For example, a Splunk webhook reporting repeated interface
-flaps could cause the agent to retrieve the current interface state, examine
-error counters, collect relevant device logs, identify recent configuration
-changes, and check adjacent routing or neighbor state. This additional evidence
-would give the original alert useful operational context instead of forwarding
-an isolated symptom to the network team.
+by that procedure. The investigation would not need to stop at the system that
+raised the alert. It could follow service dependencies across related network
+devices, controller policies, security events, application paths, and
+ThousandEyes endpoint observations to build a system-wide operational view. For
+example, a Splunk webhook reporting repeated interface flaps could cause the
+agent to query the telemetry platform and Splunk for historical trends,
+correlated alerts, previous occurrences, and relevant log events. It could then
+retrieve the current interface state, examine error counters, collect live
+device logs, identify recent configuration changes, check adjacent routing or
+neighbor state, and correlate the event with controller and endpoint evidence.
+In this design, telemetry and Splunk are not only event sources; they are also
+evidence sources that the agent can revisit throughout the investigation. This
+combined historical and live evidence would give the original alert useful
+operational context instead of forwarding an isolated symptom to the network
+team.
 
 The operational skill collection would continue to grow as network experts add
 and review procedures for common incidents. Each skill could capture the

@@ -916,7 +916,31 @@ tools, and human judgment work together. New tools and skills can be added over
 time as operational experience reveals new failure patterns and better ways to
 diagnose them.
 
-Thank you for your hard work, sustained attention, and professional curiosity
-throughout the CCNP Automation course. The systems built during these labs are
-more than isolated exercises: together, they form the foundations of a modern,
-safe, observable, and increasingly intelligent network automation practice.
+**Thank you for your hard work, sustained attention, and professional curiosity
+throughout the CCNP Automation course. Reaching this point required much more
+than following a collection of instructions. You learned to examine operational
+problems carefully, work through unsuccessful tests, interpret evidence, and
+improve an automation solution without losing sight of safety, maintainability,
+or the people who depend on the network. That persistence is one of the most
+valuable skills an automation professional can develop.**
+
+**The systems built during these labs are more than isolated exercises.
+Together, they form the foundations of a modern network automation practice:
+version-controlled development, structured sources of truth, protected
+credentials, model-driven APIs, repeatable testing, CI/CD, telemetry,
+observability, application hosting, AI-assisted operations, MCP tools, and
+human-governed workflows. More importantly, you have seen how these components
+can work as one operational system that observes the network, compares intent
+with reality, gathers evidence, supports engineering decisions, and preserves
+an accountable audit trail.**
+
+**As you continue beyond this course, keep testing assumptions, validating
+generated code, protecting credentials and operational data, and requiring
+clear evidence before allowing automation to make a change. Continue adding
+tools and operational skills carefully, share what you learn with your team,
+and treat every failure as an opportunity to make the platform safer and more
+useful. Your work throughout this course has prepared you not only to automate
+individual tasks, but also to help design reliable, observable, collaborative,
+and increasingly intelligent network operations. Congratulations on completing
+the CCNP Automation course, and thank you for the commitment and professionalism
+you brought to the entire learning journey.**

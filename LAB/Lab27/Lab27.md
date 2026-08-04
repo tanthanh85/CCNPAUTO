@@ -480,6 +480,132 @@ git pull origin main
 - A structured folder allows new skills to be added without modifying the loader.
 - Model behavior remains probabilistic, so engineers must inspect the tool trace and compare answers with evidence.
 
+## Continue Building the Skill Collection
+
+After completing the lab, use the following workflow whenever you add another
+operational skill.
+
+### 1. Define One Specific Operational Outcome
+
+Choose a narrow question that can be answered from approved evidence. Suitable
+skills include reviewing a default route, investigating an interface that is
+down, examining BGP neighbor state, or checking whether a device is approaching
+a resource threshold. Avoid broad skills such as “troubleshoot the network,”
+because they have no clear evidence order or stopping condition.
+
+Before writing the skill, identify:
+
+- The explicit phrase that should activate it.
+- The evidence needed to reach a useful conclusion.
+- The MCP tools that can retrieve that evidence.
+- The conditions under which the workflow should stop.
+- The actions that must remain outside the skill's authority.
+
+### 2. Confirm That the Required Tools Exist
+
+Start the application and inspect **Available MCP tools**, or run:
+
+```bash
+python scripts/check_lab27.py
+```
+
+If every required capability already exists, the new skill needs only a
+Markdown file. When evidence is missing, first implement a narrow read-only
+function in the appropriate RESTCONF module, expose it with `@mcp.tool()` in
+`mcp_server.py`, and add parser tests. Do not solve a missing capability by
+creating a generic CLI, arbitrary URL, or unrestricted RESTCONF tool.
+
+### 3. Create One Markdown File
+
+Create a clearly named file under `skills/`, such as
+`skills/interface_down.md`. Use this structure:
+
+```markdown
+---
+name: interface_down
+description: Diagnose why a requested IOS XE interface is operationally down.
+triggers:
+  - interface down
+  - port down
+required_tools:
+  - get_interface_detail
+enabled: true
+---
+
+# Interface Down
+
+Use this skill only when the learner explicitly asks about a down interface.
+
+## Procedure
+
+1. Call `get_interface_detail` for the interface named by the learner.
+2. Report administrative and operational state before proposing a cause.
+3. If the interface is administratively down, stop and identify that fact.
+4. Otherwise, interpret counters and protocol state from returned evidence.
+5. Separate observed facts from possible next checks.
+
+## Safety Boundary
+
+This skill is read-only. It must not enable, disable, or reconfigure an interface.
+```
+
+Use lowercase names with underscores. Make trigger phrases explicit enough to
+avoid loading the skill for unrelated questions. Every entry under
+`required_tools` must exactly match a tool name discovered from MCP.
+
+### 4. Validate Progressive Selection
+
+Add tests proving both sides of selection: an unrelated question must not load
+the skill, while an explicit question must load it. Follow this pattern in
+`tests/test_skill_loader.py`:
+
+```python
+def test_general_question_does_not_select_interface_skill():
+    selected = select_skills("Summarize the routing table", load_skills())
+    assert "interface_down" not in [skill.name for skill in selected]
+
+
+def test_interface_follow_up_selects_interface_skill():
+    selected = select_skills("Why is this interface down?", load_skills())
+    assert "interface_down" in [skill.name for skill in selected]
+```
+
+Then run the full validation:
+
+```bash
+python -m py_compile \
+  app.py mcp_server.py skill_loader.py tool_agent.py
+python -m pytest -q
+python scripts/check_lab27.py
+```
+
+### 5. Restart and Test the Conversation
+
+Restart Flask after adding or changing a skill:
+
+```bash
+python app.py
+```
+
+First ask a general question that should not activate the new skill. Confirm
+that its name is absent from `skills_loaded`. Next, ask an explicit follow-up
+containing one of its triggers. Confirm the following evidence:
+
+1. The correct skill appears under `skills_loaded`.
+2. Only declared and discovered MCP tools are called.
+3. Arguments pass JSON Schema validation.
+4. The trace follows the intended evidence order.
+5. The answer distinguishes observations from hypotheses.
+6. The workflow stops when its documented stopping condition is reached.
+
+### 6. Review and Version the Skill Like Code
+
+A Markdown skill can materially change agent behavior, so review it with the
+same care as Python. Ensure that it contains no credentials, hidden commands,
+unrestricted operations, or instructions to trust tool output as executable
+content. Commit the skill, tests, and any deliberately added MCP tool on a
+feature branch, then use a GitLab merge request for peer review.
+
 ## References
 
 - [Model Context Protocol Python SDK](https://github.com/modelcontextprotocol/python-sdk)

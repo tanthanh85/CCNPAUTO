@@ -110,7 +110,9 @@ model—controls access to RESTCONF and live network evidence. Optional Lab 20
 is also standalone: it provides a deterministic local API for practising
 pagination and HTTP `429` recovery. Optional Lab 26 then revisits the AI
 assistant and replaces keyword-based selection with a bounded, auditable LLM
-tool-calling loop over a real MCP client session.
+tool-calling loop over a real MCP client session. Optional Lab 27 then adds
+reviewable Markdown skills so the agent can follow an engineering procedure
+rather than relying on tool descriptions alone.
 
 The complete learning path is shown below. Every required lab is displayed separately because each one introduces a distinct release of the system. The optional labs branch from the completed core program and can be selected according to platform access, course time, and learner interest.
 
@@ -144,6 +146,7 @@ flowchart TD
     L24["Optional Lab 24<br/>FMC API"]
     L25["Optional Lab 25<br/>ACI three-tier policy"]
     L26["Optional Lab 26<br/>Dynamic MCP tool selection"]
+    L27["Optional Lab 27<br/>Markdown OSPF diagnostic skills"]
 
     L1 --> L2
     L2 --> L3
@@ -172,11 +175,12 @@ flowchart TD
     OPTIONAL --> L24
     OPTIONAL --> L25
     OPTIONAL --> L26
+    OPTIONAL --> L27
 ```
 
 Follow the required labs in order. Labs 3–9 modify the same repository, so
 each release assumes that the preceding release exists. Labs 10 and 11 are
-separate projects. Optional Labs 12–26 can be selected according to platform
+separate projects. Optional Labs 12–27 can be selected according to platform
 access, available time, and learner interest.
 
 ## Required Project Journey
@@ -406,6 +410,7 @@ standalone operational or specialist projects and are described separately.
 | `optional_lab24_fmc_api` | Optional Lab 24 | FMC token, domain, and managed-device discovery |
 | `optional_lab25_aci_api` | Optional Lab 25 | APIC three-tier application-policy provisioning and verification |
 | `optional_lab26_dynamic_mcp_agent` | Optional Lab 26 | LLM-selected, schema-validated tools over a real MCP stdio session |
+| `skilled_route_assistant` | Optional Lab 27 | Markdown operational skills over bounded MCP route and OSPF tools |
 
 Optional Lab 13 uses an NSO development runtime and service package rather than a conventional standalone application repository.
 
@@ -429,6 +434,7 @@ The optional labs apply the same engineering principles to specialist roles. The
 | [Optional Lab 24](Lab24/Lab24.md) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
 | [Optional Lab 25](Lab25/Lab25.md) | A data-center team must model a Web, App, and Database service in ACI. | APIC creates an enforced VRF, three BDs and EPGs, and provider/consumer contracts in a reservable simulator. |
 | [Optional Lab 26](Lab26/Lab26.md) | Network operations needs a more flexible AI assistant without exposing unrestricted device access. | A tool-capable LLM dynamically selects one or more discovered FastMCP tools while deterministic validation, call limits, and an audit trace control execution. |
+| [Optional Lab 27](Lab27/Lab27.md) | Senior engineers want consistent, reviewable troubleshooting procedures across LLM providers. | A validated Markdown skill proves that OSPF routes are absent, then guides the agent through bounded process, area, interface, and neighbor evidence. |
 
 ## Optional Standalone API Resilience Assignment
 

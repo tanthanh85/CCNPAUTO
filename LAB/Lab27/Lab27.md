@@ -760,7 +760,7 @@ lab.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Device as IOS XE telemetry source
+    participant Device as Network devices or controllers
     participant Observe as Telemetry platform and Splunk
     participant Webhook as Event webhook receiver
     participant Agent as Operations agent
@@ -768,15 +768,20 @@ sequenceDiagram
     participant Model as Tool-capable LLM
     participant MCP as Approved MCP tools
     participant Target as Affected network device
-    actor Operator as Network operator
+    participant Chat as Collaborative chat interface
+    actor Humans as Network administrators and users
 
     Device->>Observe: Stream metrics, state changes, and logs
     Observe->>Observe: Correlate data and detect an operational event
     Observe->>Webhook: Send event webhook with device, severity, and timestamp
     Webhook->>Agent: Submit normalized event context
+    Agent->>Chat: Open an incident conversation and request context
+    Chat->>Humans: Present the event and current observations
+    Humans->>Chat: Add maintenance, impact, and local context
+    Chat-->>Agent: Return human-supplied context
     Agent->>Skills: Select a reviewed operational skill
     Skills-->>Agent: Evidence order, limits, and stopping conditions
-    Agent->>Model: Event context, selected skill, and approved tool catalog
+    Agent->>Model: Event, human context, skill, and approved tool catalog
     Model-->>Agent: Request the next evidence-gathering tool
     Agent->>Agent: Validate tool name, arguments, and safety policy
     Agent->>MCP: Execute approved read-only tool
@@ -793,12 +798,18 @@ sequenceDiagram
         Agent->>Model: Add result to the incident context
     end
     Model-->>Agent: Findings, uncertainties, and skill-based suggestions
-    Agent->>Operator: Notify with event, evidence, logs, and audit trace
+    Agent->>Chat: Post findings, evidence, logs, and audit trace
+    Chat->>Humans: Notify participants and invite clarification
+    Humans->>Chat: Correct assumptions or add further observations
+    Chat-->>Agent: Updated operational context
     alt A disruptive or configuration-changing response is proposed
-        Operator->>Agent: Approve, reject, or modify the proposed action
+        Agent->>Chat: Request explicit approval for the proposed action
+        Chat->>Humans: Show scope, risk, evidence, and rollback plan
+        Humans->>Chat: Approve, reject, or modify the proposed action
+        Chat-->>Agent: Return the recorded human decision
         Agent->>Agent: Enforce approval and change-control policy
     else Investigation remains read-only
-        Operator-->>Agent: Continue manual investigation as needed
+        Humans-->>Chat: Continue collaborative investigation as needed
     end
 ```
 
@@ -829,6 +840,15 @@ subject to explicit operator approval. This progression creates a practical
 foundation for human-governed AIOps: observe an event, enrich it quickly,
 explain the evidence, recommend a controlled response, and preserve an audit
 trail.
+
+Throughout this process, network administrators and affected users remain in
+the loop through a collaborative chat interface. They can add information that
+telemetry cannot provide, such as an approved maintenance activity, the real
+business impact, a recent physical change, or symptoms reported from a remote
+site. The agent can use that context to refine its next checks, while clearly
+distinguishing human statements from device evidence. In return, the shared
+conversation gives every participant a common view of the investigation and
+records approvals, corrections, findings, and decisions in one place.
 
 This lab is therefore not the end of the project. It is a starting point for an
 automation platform in which telemetry, observability, expert knowledge, MCP

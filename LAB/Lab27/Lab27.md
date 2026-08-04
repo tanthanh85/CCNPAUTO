@@ -753,26 +753,24 @@ could continuously receive model-driven telemetry and accept webhooks from
 Splunk when a correlation search, threshold, or notable event identifies an
 operational problem.
 
-The following message flow illustrates that possible next stage. It is a
-future-development pattern rather than a task learners must implement in this
-lab.
+The following three message flows illustrate that possible next stage. They
+separate event detection, evidence enrichment, and human-controlled response so
+that each diagram remains readable. This is a future-development pattern rather
+than a task learners must implement in this lab.
+
+### 1. Detect the Event and Add Human Context
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Device as Network devices and controllers<br/>Security platforms and ThousandEyes agents
+    participant Sources as Network, security, controller,<br/>and ThousandEyes sources
     participant Observe as Telemetry platform and Splunk
     participant Webhook as Event webhook receiver
     participant Agent as Operations agent
-    participant Skills as Operational skill library
-    participant Model as Tool-capable LLM
-    participant MCP as Approved MCP tools
-    participant SoT as Source of truth<br/>NetBox and approved intent systems
-    participant Target as Affected and related systems<br/>Devices, controllers, security, and endpoint agents
     participant Chat as Collaborative chat interface
     actor Humans as Network administrators and users
 
-    Device->>Observe: Stream metrics, state changes, and logs
+    Sources->>Observe: Stream metrics, state changes, and logs
     Observe->>Observe: Correlate data and detect an operational event
     Observe->>Webhook: Send event webhook with device, severity, and timestamp
     Webhook->>Agent: Submit normalized event context
@@ -780,6 +778,25 @@ sequenceDiagram
     Chat->>Humans: Present the event and current observations
     Humans->>Chat: Add maintenance, impact, and local context
     Chat-->>Agent: Return human-supplied context
+```
+
+At this point, the agent has both machine-generated event data and operational
+context supplied by people who understand the service impact. It can now begin
+a controlled evidence-enrichment workflow.
+
+### 2. Enrich the Event with Intended, Historical, and Live Evidence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Operations agent
+    participant Skills as Operational skill library
+    participant Model as Tool-capable LLM
+    participant MCP as Approved MCP tools
+    participant Observe as Telemetry platform and Splunk
+    participant SoT as Source of truth<br/>NetBox and intent systems
+    participant Systems as Related operational systems
+
     Agent->>Skills: Select a reviewed operational skill
     Skills-->>Agent: Evidence order, limits, and stopping conditions
     Agent->>Model: Event, human context, skill, and approved tool catalog
@@ -793,8 +810,8 @@ sequenceDiagram
         MCP->>SoT: Query inventory, ownership, addressing, and topology intent
         SoT-->>MCP: Approved source-of-truth records and dependencies
     and Retrieve live operational context
-        MCP->>Target: Retrieve correlated state and logs across the service path
-        Target-->>MCP: API data, YANG state, counters, and log evidence
+        MCP->>Systems: Retrieve state and logs across the service path
+        Systems-->>MCP: API data, YANG state, counters, and logs
     end
     MCP-->>Agent: Bounded and normalized combined evidence
     Agent->>Model: Return evidence for interpretation
@@ -805,16 +822,32 @@ sequenceDiagram
         Observe-->>MCP: Relevant telemetry and Splunk evidence
         MCP->>SoT: Retrieve related intent and dependency records
         SoT-->>MCP: Current approved source-of-truth context
-        MCP->>Target: Collect additional live cross-domain evidence
-        Target-->>MCP: Current system and service-path state
+        MCP->>Systems: Collect additional live cross-domain evidence
+        Systems-->>MCP: Current system and service-path state
         MCP-->>Agent: Structured result
         Agent->>Model: Add result to the incident context
     end
     Model-->>Agent: Findings, uncertainties, and skill-based suggestions
+```
+
+The evidence returned by this stage is not an automatic verdict. The agent
+must preserve its sources, distinguish intended state from observed state, and
+carry unresolved uncertainty into the collaborative response.
+
+### 3. Collaborate, Notify, and Control Any Response
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Operations agent
+    participant Chat as Collaborative chat interface
+    actor Humans as Network administrators and users
+
     Agent->>Chat: Post findings, evidence, logs, and audit trace
     Chat->>Humans: Notify participants and invite clarification
     Humans->>Chat: Correct assumptions or add further observations
     Chat-->>Agent: Updated operational context
+    Agent->>Chat: Publish revised findings and suggestions
     alt A disruptive or configuration-changing response is proposed
         Agent->>Chat: Request explicit approval for the proposed action
         Chat->>Humans: Show scope, risk, evidence, and rollback plan

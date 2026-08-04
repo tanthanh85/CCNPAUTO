@@ -760,7 +760,7 @@ lab.
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Device as Network devices or controllers
+    participant Device as Network devices and controllers<br/>Security platforms and ThousandEyes agents
     participant Observe as Telemetry platform and Splunk
     participant Webhook as Event webhook receiver
     participant Agent as Operations agent

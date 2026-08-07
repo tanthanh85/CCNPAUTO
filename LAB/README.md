@@ -189,7 +189,7 @@ access, available time, and learner interest.
 
 #### Lab 1: Prepare the Network Automation Workstation
 
-In [Lab 1](Lab1/Lab1.md), you receive a clean Ubuntu 26.04 workstation and turn it into an engineering platform. You install Python tooling, network automation libraries, Ansible, Terraform, Docker, Git, Visual Studio Code, GitLab Runner, NetBox, and Vault. You can also install TIG and Cisco Yangsuite locally or use the equivalent services in the Cisco DevNet sandbox.
+In [Lab 1](<Lab1 - Preparing the Network Automation Workstation/Lab1.md>), you receive a clean Ubuntu 26.04 workstation and turn it into an engineering platform. You install Python tooling, network automation libraries, Ansible, Terraform, Docker, Git, Visual Studio Code, GitLab Runner, NetBox, and Vault. You can also install TIG and Cisco Yangsuite locally or use the equivalent services in the Cisco DevNet sandbox.
 
 This work resembles onboarding a new automation worker into an enterprise team. A script may be correct and still fail if its dependencies, container networking, VPN routes, certificates, or service endpoints are inconsistent. Consequently, the output of this lab is not just a workstation with software installed; it is a verified execution environment that later pipelines can trust.
 
@@ -197,7 +197,7 @@ This work resembles onboarding a new automation worker into an enterprise team. 
 
 #### Lab 2: Prove End-to-End Connectivity
 
-In [Lab 2](Lab2/Lab2.md), you act as the engineer performing a readiness test before accepting a project. In the separate `lab2_warm_up` repository, you connect to an IOS XE reservable sandbox with Netmiko, run `show version` and `show ip interface brief`, parse unstructured CLI output with TextFSM, and present the results in tables.
+In [Lab 2](<Lab2 - Network Automation Warm - Up/Lab2.md>), you act as the engineer performing a readiness test before accepting a project. In the separate `lab2_warm_up` repository, you connect to an IOS XE reservable sandbox with Netmiko, run `show version` and `show ip interface brief`, parse unstructured CLI output with TextFSM, and present the results in tables.
 
 You then inspect RESTCONF manually in Postman and retrieve structured YANG JSON in Python. Seeing both approaches against the same device reveals an important architectural distinction: CLI parsing can extend automation to legacy platforms, whereas model-driven interfaces reduce dependence on screen-oriented text.
 
@@ -207,7 +207,7 @@ You then inspect RESTCONF manually in Postman and retrieve structured YANG JSON 
 
 #### Lab 3: Build the First Working Loopback Automation Release
 
-In [Lab 3](Lab3/Lab3.md), the company asks for repeatable creation of one or many loopback interfaces. This is the first release of `network_automation_project`.
+In [Lab 3](<Lab3 - Let's Start Your Network Automation Project/Lab3.md>), the company asks for repeatable creation of one or many loopback interfaces. This is the first release of `network_automation_project`.
 
 You define desired loopbacks in YAML, validate the data, render IOS XE CLI with a Jinja2 loop, connect with Netmiko, apply the configuration, and retrieve device state to confirm the result. Detailed Python logging can be enabled from `.env`; each execution creates a timestamped text log in `logs/`, allowing two runs of the same program to be compared without overwriting evidence.
 
@@ -228,7 +228,7 @@ In product engineering, a **minimum viable product**, often abbreviated as **MVP
 
 #### Lab 4: Make NetBox the Source of Truth
 
-In [Lab 4](Lab4/Lab4.md), the network grows beyond what a local YAML file can govern. You model the sandbox router in NetBox, create virtual loopback interfaces, assign `/32` addresses, apply management tags, and retrieve the approved intent through the NetBox REST API.
+In [Lab 4](<Lab4 - Move the Source of Truth to NetBox/Lab4.md>), the network grows beyond what a local YAML file can govern. You model the sandbox router in NetBox, create virtual loopback interfaces, assign `/32` addresses, apply management tags, and retrieve the approved intent through the NetBox REST API.
 
 The existing validation, Jinja2, Netmiko, and verification functions remain useful. Only the authority for intent changes. This demonstrates a central automation design principle: a source of truth describes what the network should be; the device reports what the network currently is.
 
@@ -245,7 +245,7 @@ flowchart LR
 
 #### Lab 5: Replace File-Based Credentials with Vault
 
-In [Lab 5](Lab5/Lab5.md), a security review identifies device credentials in the application environment. Even though `.env` is excluded from Git, it still copies long-lived secrets onto workstations and pipeline environments.
+In [Lab 5](<Lab5 - Manage Credentials with HashiCorp Vault/Lab5.md>), a security review identifies device credentials in the application environment. Even though `.env` is excluded from Git, it still copies long-lived secrets onto workstations and pipeline environments.
 
 You start HashiCorp Vault, create the required credential path, and implement a settings layer that retrieves IOS XE credentials at runtime. The rest of the application should not need to know whether a password came from a file, Vault, or another secret provider. This separation keeps secret handling out of network logic and prepares the project for CI/CD.
 
@@ -255,7 +255,7 @@ Vault development mode is suitable for the course but not for production. The en
 
 #### Lab 6: Configure OSPF Through NETCONF and Native YANG
 
-In [Lab 6](Lab6/Lab6.md), the company wants every managed loopback advertised in OSPF area 0. Rather than adding more screen-scraped CLI, you use NETCONF and the Cisco IOS XE native YANG model.
+In [Lab 6](<Lab6 - Configure Network Devices Using NETCONF with YANG/Lab6.md>), the company wants every managed loopback advertised in OSPF area 0. Rather than adding more screen-scraped CLI, you use NETCONF and the Cisco IOS XE native YANG model.
 
 You use Cisco Yangsuite locally or at `http://10.10.20.50:8480` in the Cisco DevNet sandbox to locate the model hierarchy, identify namespaces, and construct an `<edit-config>` payload. Jinja2 renders one `<network>` element for every NetBox-managed loopback, after which `ncclient` sends the RPC and the application verifies the resulting OSPF configuration.
 
@@ -284,7 +284,7 @@ This lab reinforces that a sample XML document is not automatically valid for ev
 
 #### Lab 7: Create an Event-Driven CI/CD Workflow
 
-In [Lab 7](Lab7/Lab7.md), the team no longer wants engineers to run the application manually. A network administrator creates or updates a managed loopback in NetBox, and a NetBox event rule triggers a GitLab.com pipeline.
+In [Lab 7](<Lab7 - Trigger Network Automation with NetBox and GitLab CI-CD/Lab7.md>), the team no longer wants engineers to run the application manually. A network administrator creates or updates a managed loopback in NetBox, and a NetBox event rule triggers a GitLab.com pipeline.
 
 The webhook is only a notification. It does not become trusted intent. The local GitLab Runner re-reads NetBox, validates the current desired state, obtains credentials from Vault, configures loopbacks and OSPF, verifies the device, and uploads evidence.
 
@@ -306,7 +306,7 @@ The result is a small reconciliation system: an event announces that intent migh
 
 #### Lab 8: Migrate Orchestration to Ansible
 
-In [Lab 8](Lab8/Lab8.md), operations leadership asks whether the workflow can be made easier for a broader network team to maintain. You keep the architecture from Lab 7 but migrate orchestration to straightforward Ansible playbooks.
+In [Lab 8](<Lab8 - Migrate Network Automation from Python to Ansible/Lab8.md>), operations leadership asks whether the workflow can be made easier for a broader network team to maintain. You keep the architecture from Lab 7 but migrate orchestration to straightforward Ansible playbooks.
 
 NetBox remains authoritative, Vault remains the secret provider, and GitLab remains the delivery controller. Ansible dynamically builds the in-memory inventory, validates intent, applies loopback CLI with `ios_config`, sends the verified OSPF XML through `netconf_config`, and runs post-change tests. The supplied `ansible.cfg` disables SSH host-key checking for the controlled lab environment so that first-time sandbox access remains simple.
 
@@ -318,7 +318,7 @@ This is not a rewrite of the business process. It is a change of implementation 
 
 #### Lab 9: Containerize the Runtime
 
-In [Lab 9](Lab9/Lab9.md), two runners produce different results because their Python packages and Ansible collections are not identical. You package the automation runtime in a Docker image with controlled dependencies.
+In [Lab 9](<Lab9 - Containerize the Automation Runtime/Lab9.md>), two runners produce different results because their Python packages and Ansible collections are not identical. You package the automation runtime in a Docker image with controlled dependencies.
 
 The application code remains in Git, secrets remain outside the image, and the container uses host networking so it can follow the learner workstation’s DevNet VPN and local-service routes. A reproducible runtime makes pipeline behavior easier to test, transfer, and support.
 
@@ -326,7 +326,7 @@ The application code remains in Git, secrets remain outside the image, and the c
 
 #### Lab 10: Add Model-Driven Telemetry
 
-In [Lab 10](Lab10/Lab10.md), the network operations team needs continuous visibility into CPU, memory, and `GigabitEthernet1` traffic. Polling occasional show commands cannot provide an effective operational timeline.
+In [Lab 10](<Lab10 - Model-Driven Telemetry with Dial-In and Dial-Out/Lab10.md>), the network operations team needs continuous visibility into CPU, memory, and `GigabitEthernet1` traffic. Polling occasional show commands cannot provide an effective operational timeline.
 
 You use Yangsuite to discover the required operational paths, examine NETCONF and gNMI dial-in collection, and manually configure gRPC dial-out subscriptions beginning with subscription ID 201. In the Cisco Catalyst C8KV sandbox, telemetry is sent to the pre-integrated Telegraf service at `10.10.20.50:57500` and displayed in Grafana at `http://10.10.20.50:3000`. If you use a locally hosted C8KV, you start the local TIG services from Lab 1 and send telemetry to the workstation on TCP port `57000`.
 
@@ -346,7 +346,7 @@ At the end of the lab, you can explain the trade-off between a collector request
 
 #### Lab 11: Build an AI Route Assistant
 
-In [Lab 11](Lab11/Lab11.md), operations staff want to ask natural-language questions such as “How many static routes exist?”, “Which next hop reaches this prefix?”, and “Show connected routes with their metrics.”
+In [Lab 11](<Lab11 - Build an AI Network Route Assistant/Lab11.md>), operations staff want to ask natural-language questions such as “How many static routes exist?”, “Which next hop reaches this prefix?”, and “Show connected routes with their metrics.”
 
 You build `ai_route_assistant`, a Flask application with a professional dark interface. The assistant can use local Qwen through Ollama, a GPU-backed Qwen server through vLLM, or a learner-owned OpenAI or Anthropic account. A smaller Ollama model can be selected when workstation resources are limited.
 
@@ -420,25 +420,25 @@ The optional labs apply the same engineering principles to specialist roles. The
 
 | Assignment | Enterprise situation | Capability delivered |
 |---|---|---|
-| [Optional Lab 12](Lab12/Lab12.md) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
-| [Optional Lab 13](Lab13/Lab13.md) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
-| [Optional Lab 14](Lab14/Lab14.md) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
-| [Optional Lab 15: Python Application Hosting on Cisco IOS XE](Lab15/Lab15.md) | A network team needs an event-driven utility to run directly beside IOS XE. | Learners package a Python service and use the reservable C8000V application hosting service and IOx Local Manager to deploy, configure, activate, test, and remove it. |
-| [Optional Lab 16](Lab16/Lab16.md) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
-| [Optional Lab 17: Catalyst Switchport Health](Lab17/Lab17.md) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC errors, interface resets, collisions, output errors, and output drops while preserving structured evidence. |
-| [Optional Lab 18](Lab18/Lab18.md) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
-| [Optional Lab 19](Lab19/Lab19.md) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 18. |
-| [Optional Lab 21](Lab21/Lab21.md) | WAN operations needs controller-derived device and software inventory. | SD-WAN Manager 20.10 session authentication and `/dataservice` inventory. |
-| [Optional Lab 22](Lab22/Lab22.md) | Campus operations needs reusable controller inventory. | Catalyst Center 2.3.3.6 token authentication, sites, and network devices. |
-| [Optional Lab 23](Lab23/Lab23.md) | Cloud operations must navigate Meraki resources at scale. | Organization, network, and device discovery with pagination awareness. |
-| [Optional Lab 24](Lab24/Lab24.md) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
-| [Optional Lab 25](Lab25/Lab25.md) | A data-center team must model a Web, App, and Database service in ACI. | APIC creates an enforced VRF, three BDs and EPGs, and provider/consumer contracts in a reservable simulator. |
-| [Optional Lab 26](Lab26/Lab26.md) | Network operations needs a more flexible AI assistant without exposing unrestricted device access. | A tool-capable LLM dynamically selects one or more discovered FastMCP tools while deterministic validation, call limits, and an audit trace control execution. |
-| [Optional Lab 27](Lab27/Lab27.md) | Senior engineers want consistent, reviewable troubleshooting procedures across LLM providers. | A validated Markdown skill proves that OSPF routes are absent, then guides the agent through bounded process, area, interface, and neighbor evidence. |
+| [Optional Lab 12](<Lab12 - Provision Cisco ACI with Terraform/Lab12.md>) | A data-center team wants repeatable ACI application policy. | Terraform provisions a tenant, VRF, bridge domain, subnet, application profile, and EPGs in an ACI simulator. |
+| [Optional Lab 13](<Lab13 - Manage IOS XE and Build an OSPF Service with Cisco NSO/Lab13.md>) | A service-provider team needs transactional multi-device services. | Cisco NSO manages IOS XE through a CLI NED and deploys a YANG-modeled OSPF service with FASTMAP ownership. |
+| [Optional Lab 14](<Lab14 - Stream IOS XE CPU Data into Splunk with NETCONF Dial-In/Lab14.md>) | Operations wants IOS XE CPU events in its existing analytics platform. | A NETCONF dial-in collector sends normalized data to Splunk HEC; learners investigate it with SPL and Splunk dashboards. |
+| [Optional Lab 15: Python Application Hosting on Cisco IOS XE](<Lab15 - Host a Python Application on Cisco IOS XE/Lab15.md>) | A network team needs an event-driven utility to run directly beside IOS XE. | Learners package a Python service and use the reservable C8000V application hosting service and IOx Local Manager to deploy, configure, activate, test, and remove it. |
+| [Optional Lab 16](<Lab16 - Learn Kubernetes Fundamentals with Minikube/Lab16.md>) | The automation team is beginning its Kubernetes journey. | Minikube demonstrates deployments, services, probes, scaling, rollout, and self-healing. |
+| [Optional Lab 17: Catalyst Switchport Health](<Lab17 - Validate Catalyst Switchport Health with Cisco pyATS/Lab17.md>) | A campus team needs repeatable interface health tests. | pyATS and Genie detect increasing CRC errors, interface resets, collisions, output errors, and output drops while preserving structured evidence. |
+| [Optional Lab 18](<Lab18 - Secure IOS XE RESTCONF with a Local Certificate Authority/Lab18.md>) | Security prohibits RESTCONF clients from disabling TLS verification. | A local OpenSSL CA signs the IOS XE HTTPS identity and Python validates its chain and hostname. |
+| [Optional Lab 19](<Lab19 - Make Trusted RESTCONF Requests Asynchronously/Lab19.md>) | A collector must retrieve several RESTCONF resources efficiently. | `aiohttp` adds bounded concurrency while retaining trusted TLS from Lab 18. |
+| [Optional Lab 21](<Lab21 - Explore the Cisco SD-WAN API/Lab21.md>) | WAN operations needs controller-derived device and software inventory. | SD-WAN Manager 20.10 session authentication and `/dataservice` inventory. |
+| [Optional Lab 22](<Lab22 - Explore the Catalyst Center API/Lab22.md>) | Campus operations needs reusable controller inventory. | Catalyst Center 2.3.3.6 token authentication, sites, and network devices. |
+| [Optional Lab 23](<Lab23 - Explore the Meraki Dashboard API/Lab23.md>) | Cloud operations must navigate Meraki resources at scale. | Organization, network, and device discovery with pagination awareness. |
+| [Optional Lab 24](<Lab24 - Explore Firepower Management Center APIs/Lab24.md>) | Security operations needs managed-device evidence from FMC. | FMC token and domain discovery followed by read-only device inventory. |
+| [Optional Lab 25](<Lab25 - Build a Three-Tier Application Policy in Cisco ACI/Lab25.md>) | A data-center team must model a Web, App, and Database service in ACI. | APIC creates an enforced VRF, three BDs and EPGs, and provider/consumer contracts in a reservable simulator. |
+| [Optional Lab 26](<Lab26 - Build an AI Assistant with Dynamic MCP Tool Selection/Lab26.md>) | Network operations needs a more flexible AI assistant without exposing unrestricted device access. | A tool-capable LLM dynamically selects one or more discovered FastMCP tools while deterministic validation, call limits, and an audit trace control execution. |
+| [Optional Lab 27](<Lab27 - Add Operational Skills to the MCP Network Assistant/Lab27.md>) | Senior engineers want consistent, reviewable troubleshooting procedures across LLM providers. | A validated Markdown skill proves that OSPF routes are absent, then guides the agent through bounded process, area, interface, and neighbor evidence. |
 
 ## Optional Standalone API Resilience Assignment
 
-[Optional Lab 20](Lab20/Lab20.md) is independent of the Cisco sandboxes and the
+[Optional Lab 20](<Lab20 - Simulate API Pagination and HTTP 429 Resilience/Lab20.md>) is independent of the Cisco sandboxes and the
 cumulative project. A local Flask API exposes 100 interface records in pages
 of 20 and deliberately returns `429 Too Many Requests` when a client exceeds
 its allowance. Learners follow server-provided pagination links, respect
